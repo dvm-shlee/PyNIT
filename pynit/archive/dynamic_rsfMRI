@@ -1,0 +1,113 @@
+#!/bin/csh -f
+#
+# Dynamic resting state fMRI analysis code by SungHo Lee('shlee@unc.edu') in UNC at Chapel Hill
+# This script requires some costom built excutive python script ('randrange, figgen') and
+# Analysis of Functional NeuroImages (AFNI) toolkits
+#
+# input argumants:
+#   $1 = common prefix of the subjects file
+#   $2 = mask file for [ROI_loc]
+#
+# output:
+#   [ROI_loc].roi : roi timeseries for all subjects
+#   T_????sec.nii : T contrast image of each time fraction
+
+# Checking accuracy of the arguments
+if ($#argv != 2) then
+    goto usage
+    
+else if (! -e ${2}) then
+    echo '${2} is not existing in this location.'
+    goto usage
+
+else if (${2:e} !~ 'nii'&&${2:e} !~ 'gz') then
+    goto usage
+endif
+
+echo -n 'Checking the config file (dynamic_rsfMRI.cfg).'
+    
+if (! -e dynamic_rsfMRI.cfg) then
+    echo 'set Time_frac = "1"' >> dynamic_rsfMRI.cfg;sleep 0.2;echo -n '..'
+    echo 'set Total_Time = "600"' >> dynamic_rsfMRI.cfg;sleep 0.2;echo -n '..'
+    echo 'set Sampling_Curve = "dynamic_rsfMRI.crv"' >> dynamic_rsfMRI.cfg;sleep 0.2;echo -n '..'
+    goto config
+else
+    sleep 0.2;echo -n '..';sleep 0.2;echo -n '..';sleep 0.2;echo '..'
+    goto config
+endif
+
+# Checking the configuration
+
+config:
+source dynamic_rsfMRI.cfg
+
+if (-e ${Sampling_Curve}) then
+    goto setdir
+else
+    @ i = 0
+    while ($i != ${Total_Time})
+    echo '1' >> ${Sampling_Curve}
+    @ i += ${Time_frac}
+    end
+endif
+
+# Checking the results folder
+setdir:
+
+set OUTPUT_dir = ${2:t:r:r}
+if (! -e ${OUTPUT_dir}) then
+    echo 'Generating output folder: '${OUTPUT_dir}
+    mkdir ${OUTPUT_dir}
+endif
+
+# Extracting the average time course data of ROI from Subjects
+set num = `cat ${Sampling_Curve}`
+unset Sampling_Curve
+
+foreach file (${1}*)
+    
+    set SUBJ = ${file:t:r:r}
+    3dmaskave -mask ${2} -quiet ${file} > ${SUBJ}.1D
+
+    @ i = ${Time_frac}
+    while ($i <= ${Total_Time})
+        
+        @t = ${i} - 1
+        
+        3dTcorr1D -prefix corr_${i}_${file} ${file}'[0..'${t}']' ${SUBJ}.1D'{0..'${t}'}'
+        3dcalc -a corr_${i}_${file} -expr 'atanh(a)' -prefix z_${i}_${file}
+        rm corr_${i}_${file}
+        @i += ${Time_frac}
+    end
+end
+
+paste *.1D > ${OUTPUT_dir}.roi;mv ${OUTPUT_dir}.roi ${OUTPUT_dir}/.;rm *.1D;unset SUBJ;
+unset i;unset file
+
+@ i = ${Time_frac}
+while ($i <= ${Total_Time})
+    if ($i < 10) then
+        set ofile=T_00$isec.nii
+    else if ($i >= 10 && $i < 100) then 
+        set ofile=T_0${i}sec.nii
+    else
+        set ofile=T_${i}sec.nii
+    endif
+
+    3dttest++ -prefix $i.nii -setA z_${i}_*
+    3dclust -1Dformat -noabs -nosum -1dindex 0 -1tindex 1 -2thresh -5.041 5.041 -summarize -prefix ${ofile} -dxyz=1 1.01 95 ${i}.nii > ${ofile:r}.txt
+    rm z_${i}_*
+    rm ${i}.nii
+    @ i += ${Time_frac}
+end
+
+quit:
+unset Time_frac
+unset Total_Time
+unset Sampling_Curve
+unset OUTPUT_dir
+exit
+
+usage:
+echo "usage: dynamic_rsfMRI [prefix] [roi_mask]"
+exit

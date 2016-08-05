@@ -1,0 +1,72 @@
+#!/bin/csh -f
+#
+# Resting state fMRI movie generator for traveling ROI
+# This script is written by SungHo Lee('shlee@unc.edu') in UNC at Chapel Hill
+# The script reqires the Analysis of Functional NeuroImages (AFNI) toolkits
+#
+# input argumants:
+#   $1 = common prefix of the subjects file
+#   $2 = output filename (.mp4)
+#
+# output:
+#   [ROI_loc].roi : roi timeseries for all subjects
+#   T_????sec.nii : T contrast image of each time fraction
+
+# Checking accuracy of the arguments
+if ($#argv != 2) then
+    goto usage
+endif
+
+# Checking the results folder
+
+set OUTPUT = result
+if (! -e ${OUTPUT} ) then
+    echo 'Generating output folder: '${OUTPUT}
+    mkdir ${OUTPUT}
+    mkdir ${OUTPUT}/r
+    mkdir ${OUTPUT}/z
+    mkdir ${OUTPUT}/1D
+    mkdir ${OUTPUT}/T
+    mkdir ${OUTPUT}/fdr
+    mkdir ${OUTPUT}/thr
+    mkdir ${OUTPUT}/pngs
+endif
+
+# Extracting the average time course data of ROI from Subjects
+#goto nexts
+goto video
+foreach file (${1}*)
+    foreach seed (Imgs/seed_*)
+        set ofile = ${seed:t:r:s/seed_//}_${file:r:r}
+        3dmaskave -mask ${seed} -quiet ${file} > ${OUTPUT}/1D/${ofile}.1D
+        3dTcorr1D -prefix ${OUTPUT}/r/r_${ofile}.nii  ${file} ${OUTPUT}/1D/${ofile}.1D
+        3dcalc -a ${OUTPUT}/r/r_${ofile}.nii -expr 'atanh(a)' -prefix ${OUTPUT}/z/z_${ofile}.nii
+    end
+end
+nexts:
+
+@ i = 0
+while ($i < 59)
+    if ($i < 10) then
+        set NSeed=00${i}
+    else if ($i >= 10 && $i < 100) then
+        set NSeed=0${i}
+    else
+        set NSeed=${i}
+    endif
+    echo ${NSeed}
+    #3dttest++ -prefix ${OUTPUT}/T/${NSeed}.nii -setA ${OUTPUT}/z/z_${NSeed}*
+    #3dMean -prefix ${OUTPUT}/avr/${NSeed}.nii ${OUTPUT}/z/z_${NSeed}*
+    #3dFDR -input ${OUTPUT}/avr/${NSeed}.nii -mask Imgs/mask.nii -quiet -prefix ${OUTPUT}/fdr/fdr_${NSeed}.nii
+    3dclust -1Dformat -noabs -nosum -1dindex 0 -1tindex 1 -2thresh -4.892 4.892 -summarize -prefix ${OUTPUT}/thr/T_${NSeed}seed.nii -dxyz=1 1.01 20 ${OUTPUT}/fdr/fdr_${NSeed}.nii
+    @ i += 1
+end
+
+video:
+python movie_trv.py
+
+ffmpeg -f image2 -pattern_type glob -framerate 10 -i 'result/pngs/*.png' -c:v libx264 -r 15 -pix_fmt yuv420p ${2}.mp4
+
+usage:
+echo "usage: traveling_rsfMRI [common_prefix_of_files]"
+exit
