@@ -6,7 +6,7 @@ from os.path import join
 
 import pandas as pd
 
-from .commands import Commands
+from .tool import Commands
 from .statics import InternalMethods, ErrorHandler
 
 

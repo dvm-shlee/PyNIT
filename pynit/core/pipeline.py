@@ -2,11 +2,11 @@ import os
 import time
 from os.path import join
 
-from ..core import niph
-from ..core.statics import InternalMethods
+from pynit.core import ph
+from pynit.core.statics import InternalMethods
 
 
-class Pipeline(niph.Pipeline):
+class Pipeline(ph.Pipeline):
     def __init__(self, obj):
         super(Pipeline, self).__init__(obj)
 

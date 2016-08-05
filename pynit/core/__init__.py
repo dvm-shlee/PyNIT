@@ -1,7 +1,8 @@
-from .niph import Project as ph
-from .niph import Pipeline as pipe
+from .ph import Project as ph
+from .ph import Pipeline as pipe
 from .visualization import Image as viewer
 # from .statics import InternalMethods
-from .commands import Commands as tools
+from .tool import Commands as tool
+from .tool import Template as temptool
 
 __all__ = ['ph', 'pipe', 'viewer', 'tools']
