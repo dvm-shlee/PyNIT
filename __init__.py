@@ -9,4 +9,4 @@ from template.template import Template
 __version__ = '0.1.dev1'
 __Author__ = 'SungHo Lee (shlee@unc.edu)'
 __all__ = ['ph', 'pipe', 'viewer', 'tools', 'Template']
-print('PyNIT(Python NeuroImaging Toolkit)')
+print('PyNIT(Python based NeuroImaging Toolkit)')
