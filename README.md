@@ -1,2 +1,2 @@
 # pynit
-Python based NeuroImaging Toolbox
+Python based NeuroImaging Toolkit
