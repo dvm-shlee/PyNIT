@@ -6,9 +6,12 @@ from os.path import join
 
 import pandas as pd
 
-from .tool import Commands
+from .tool import Commands, ImageObject
 from .statics import InternalMethods, ErrorHandler
 
+
+class ImageObject(ImageObject):
+    pass
 
 class Reference(object):
     """Class of reference informations for image processing and data analysis

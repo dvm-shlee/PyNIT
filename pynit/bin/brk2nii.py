@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 __author__ = 'SungHo Lee (shlee@unc.edu)'
-__version_info__ = ('2016', '07', '20')
-__version__ = '-'.join(__version_info__) + 'REV03'
+__version_info__ = ('2016', '08', '07')
+__version__ = '-'.join(__version_info__) + 'REV04'
 
 import re, os, argparse, sys
 try:
@@ -10,7 +10,7 @@ try:
     import numpy as np
     import json
 except:
-    print "Required libraries (numpy, nibabel, json) are not installed"
+    print("Required libraries (numpy, nibabel, json) are not installed")
     sys.exit(0)
 
 parser = argparse.ArgumentParser(prog='Brk2Nii', description="Convert Bruker raw '2dseq' to Nifti formated image")
@@ -165,6 +165,7 @@ except BaseException("Unmatch matrix size!") as e:
 # Integrate header information from parameters
 img_affn = nib.affines.from_matvec(np.diag(resol), np.zeros(3))
 img_nii = nib.Nifti1Image(img, img_affn)
+affine = img_nii.header.get_base_affine()
 # SliceOrder - need to be modified if different case is exist
 # img_nii.header['intent_code'] need to be added if DTI image is performed
 if param_dict['OrderScheme'] == 'Interlaced':

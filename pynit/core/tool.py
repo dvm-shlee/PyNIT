@@ -8,13 +8,90 @@ from string import ascii_lowercase as lc
 from subprocess import call as call
 from subprocess import list2cmdline
 from subprocess import check_output
+from .visualization import Viewer
+import matplotlib.pyplot as plt
 
-from .visualization import Image
+try:
+    import SimpleITK as sitk
+except ImportError:
+    pass
 
 # Handling Nifti images and matrix
 import nibabel as nib
+import pandas as pd
 import numpy as np
 from .statics import InternalMethods, ErrorHandler
+
+
+class ImageObject(nib.nifti1.Nifti1Image):
+    def show(self, *args, **kwargs):
+        Viewer.slice(self, *args, **kwargs)
+
+    def mosaic(self, *args, **kwargs):
+        fig = Viewer.mosaic(self, *args, **kwargs)
+
+    def swapaxis(self, axis1, axis2):
+        resol, origin = nib.affines.to_matvec(self.get_affine())
+        resol = np.diag(resol).copy()
+        origin = origin
+        self._dataobj = np.swapaxes(self._dataobj, axis1, axis2)
+        resol[axis1], resol[axis2] = resol[axis2], resol[axis1]
+        origin[axis1], origin[axis2] = origin[axis2], origin[axis1]
+        affine = nib.affines.from_matvec(np.diag(resol), origin)
+        self.header['sform_code'] = 0
+        self.header['qform_code'] = 1
+        self.set_qform(affine)
+
+    def flip(self, **kwargs):
+        invert = InternalMethods.check_invert(kwargs)
+        self._dataobj = InternalMethods.apply_invert(self._dataobj, *invert)
+
+    def crop(self, **kwargs):
+        InternalMethods.crop(self, **kwargs)
+
+    def reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis=2):
+        self._dataobj = InternalMethods.down_reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis=2)
+
+    def saveas(self, filename):
+        self.to_filename(filename)
+        self.to_file_map()
+
+    def timetrace(self, roiobj):
+        number_of_rois = np.max(roiobj.dataobj)
+        df = pd.DataFrame()
+        for i in range(number_of_rois-1):
+            data = Commands.afni_3dmaskave(None, self.get_filename(), "{}<{}>".format(roiobj.get_filename(), i+1))
+            data = pd.Series(data)
+            df[i] = data
+        return df
+
+    def atlas(self, roiobj, *args, **kwargs):
+        Viewer.atlas(self, roiobj, *args, **kwargs)
+
+
+class Utility(object):
+    @staticmethod
+    def gen_affine(resol= [1, 1, 1], coord=[0, 0, 0]):
+        affine = nib.affines.from_matvec(np.diag(resol), coord)
+        return affine
+
+    @staticmethod
+    def load(filename):
+        if '.nii' in filename:
+            img = ImageObject.load(filename)
+        elif '.mha' in filename:
+            try:
+                mha = sitk.ReadImage(filename)
+            except:
+                raise ImportError('SimpleITK package is not imported.')
+            data = sitk.GetArrayFromImage(mha)
+            resol = mha.GetSpacing()
+            origin = mha.GetOrigin()
+            affine = nib.affines.from_matvec(np.diag(resol), origin)
+            img = ImageObject(data, affine)
+        else:
+            raise IOError('File cannot be loaded')
+        return img
 
 
 class Commands(object):
@@ -206,7 +283,7 @@ class Commands(object):
 
     # ANTs commands
     @staticmethod
-    def ants_BiasFieldCorrection(output_path, input_path, algorithm='n3'):
+    def ants_BiasFieldCorrection(output_path, input_path, algorithm='n3', *args, **kwargs):
         """
         Execute the BiasFieldCorrection in the ANTs package
 
@@ -228,7 +305,7 @@ class Commands(object):
             call(shl.split(cmd))
 
     @staticmethod
-    def ants_RegistrationSyn(output_path, input_path, base_path, quick=True, ttype='s'):
+    def ants_RegistrationSyn(output_path, input_path, base_path, quick=True, ttype='s', *args, **kwargs):
         # ANTs SyN registration
         merged_output, args = InternalMethods.check_merged_output(args)
         if merged_output:
@@ -305,45 +382,3 @@ class Commands(object):
             raise ErrorHandler.no_merge
         else:
             shutil.copyfile(input_path, output_path)
-
-
-class Template(object):
-    """Template tools
-    """
-    def __init__(self, path, roi=None):
-        self.__path = path
-        self.__img = nib.load(self.__path)
-        self.__roi = None
-
-    @property
-    def data(self):
-        return self.__img.get_data()
-
-    @property
-    def affine(self):
-        return self.__img.affine()
-
-    @property
-    def roi(self):
-        return self.__roi
-
-    def avail(self):
-        pass
-
-    def set_template(self):
-        pass
-
-    def set_roi(self, roi):
-        # If the given parameter roi is pre-defined, use it,
-        # else if it is the filepath, import it
-        pass
-
-    def show(self, scale=10, **kwargs):
-        return Image.mosaic(self.__img, scale, **kwargs)
-
-    def atlas(self, scale=10, **kwargs):
-        return Image.atlas(self.__img, self.roi, scale, **kwargs)
-
-    def reslice(self, ac_slice, total_slice):
-        pass
-

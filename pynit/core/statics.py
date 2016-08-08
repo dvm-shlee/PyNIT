@@ -2,10 +2,116 @@ from __future__ import print_function
 import os
 from os.path import join
 
+import matplotlib.pyplot as plt
 import pandas as pd
+import nibabel as nib
+import numpy as np
 
 
 class InternalMethods(object):
+    @staticmethod
+    def set_viewaxes(axes):
+        ylim = axes.get_ylim()
+        xlim = axes.get_xlim()
+        axes.set_ylabel('L', rotation=0, fontsize=20)
+        axes.set_xlabel('I', fontsize=20)
+        axes.tick_params(labeltop=True, labelright=True, labelsize=8)
+        axes.grid(False)
+        axes.text(xlim[1]/2, ylim[1] * 1.1, 'P', fontsize=20)
+        axes.text(xlim[1]*1.1, sum(ylim)/2*1.05, 'R', fontsize=20)
+        return axes
+
+    @staticmethod
+    def down_reslice(obj, ac_slice, ac_loc, slice_thickness, total_slice, axis=2):
+        data = np.asarray(obj.dataobj)
+        resol, origin = nib.affines.to_matvec(obj.affine)
+        resol = np.diag(resol).copy()
+        scale = float(slice_thickness) / resol[axis]
+        resol[axis] = slice_thickness
+        idx = []
+        for i in range(ac_loc):
+            idx.append(ac_slice - int((ac_loc - i) * scale))
+        for i in range(total_slice - ac_loc):
+            idx.append(ac_slice + int(i * scale))
+        print(idx)
+        return data[:, :, idx]
+
+    @staticmethod
+    def get_timetrace(obj, maskobj, idx=1):
+        data = np.asarray(obj.dataobj)
+        data.flatten()
+        mask = np.asarray(maskobj.dataobj)
+        mask[mask!=idx] = False
+        data = data[mask]
+        return data
+
+    @staticmethod
+    def crop(obj, **kwargs):
+        x = None
+        y = None
+        z = None
+        t = None
+        for arg in kwargs.keys():
+            if arg == 'x':
+                x = kwargs[arg]
+            if arg == 'y':
+                y = kwargs[arg]
+            if arg == 'z':
+                x = kwargs[arg]
+            if arg == 't':
+                t = kwargs[arg]
+            else:
+                pass
+        if x:
+            if (type(x) != list) and (len(x) != 2):
+                raise TypeError
+        else:
+            x = [None, None]
+        if y:
+            if (type(y) != list) and (len(y) != 2):
+                raise TypeError
+        else:
+            y = [None, None]
+        if z:
+            if (type(z) != list) and (len(z) != 2):
+                raise TypeError
+        else:
+            z = [None, None]
+        if t:
+            if (type(t) != list) and (len(t) != 2):
+                raise TypeError
+        else:
+            t = [None, None]
+        if len(obj.shape) == 3:
+            obj._dataobj = obj._dataobj[x[0]:x[1], y[0]:y[1], z[0]:z[1]]
+        if len(obj.shape) == 4:
+            obj._dataobj = obj._dataobj[x[0]:x[1], y[0]:y[1], z[0]:z[1], t[0]:t[1]]
+
+    @staticmethod
+    def check_invert(kwargs):
+        invertx = False
+        inverty = False
+        invertz = False
+        if kwargs:
+            for arg in kwargs.keys():
+                if arg == 'invertx':
+                    invertx = kwargs[arg]
+                if arg == 'inverty':
+                    inverty = kwargs[arg]
+                if arg == 'invertz':
+                    invertz = kwargs[arg]
+        return invertx, inverty, invertz
+
+    @staticmethod
+    def apply_invert(data, *invert):
+        if invert[0]:
+            data = nib.orientations.flip_axis(data, axis=0)
+        if invert[1]:
+            data = nib.orientations.flip_axis(data, axis=1)
+        if invert[2]:
+            data = nib.orientations.flip_axis(data, axis=2)
+        return data
+
     @staticmethod
     def path_splitter(path):
         """Split path structure into list
