@@ -6,467 +6,9 @@ from os.path import join
 
 import pandas as pd
 
-from .tool import Commands, ImageObject
-from .statics import InternalMethods, ErrorHandler
-
-
-class ImageObject(ImageObject):
-    pass
-
-class Reference(object):
-    """Class of reference informations for image processing and data analysis
-    """
-    img = {'NifTi-1':           ['.nii', '.nii.gz'],
-           'ANALYZE7.5':        ['.img', '.hdr'],
-           'AFNI':              ['.BRIK', '.HEAD'],
-           'Shihlab':           ['.sdt', '.spr']
-           }
-    txt = {'Common':            ['.txt', '.cvs', '.tvs'],
-           'AFNI':              ['.1D'],
-           'MATLAB':            ['.mat'],
-           'Slicer_Transform':  ['.tfm'],
-           'JSON':              ['.json']
-           }
-    data_structure = {'NIRAL': ['Data', 'Processing', 'Results'],
-                      'BIDS': ['sourcedata', 'derivatives']
-                      }
-
-    def __init__(self, *args):
-        try:
-            self._img = [arg for arg in args if arg in self.img.keys()]
-            self._txt = [arg for arg in args if arg in self.txt.keys()]
-            self._ds = [arg for arg in args if arg in self.data_structure.keys()]
-            if (len(self._img) or len(self._txt) or len(self._ds)) > 1:
-                raise AttributeError
-        except:
-            raise AttributeError
-
-    def __repr__(self):
-        title = 'Predefined values'
-        img = 'Image format:\t{}'.format(self.img.keys())
-        txt = 'Text format:\t{}'.format(self.txt.keys())
-        ds = 'Data structure:\t{}'.format(self.data_structure.keys())
-        output = '{}\n{}\n{}\n{}\n{}'.format(title,'-'*len(title), img, txt, ds)
-        return output
-
-    @property
-    def imgext(self):
-        return self.img[self._img[0]]
-
-    @property
-    def txtext(self):
-        return self.txt[self._txt[0]]
-
-    @property
-    def ref_ds(self):
-        return self.data_structure[self._ds[0]]
-
-    def set_img_format(self, img_format):
-        if img_format in self.img.keys():
-            raise AttributeError
-        else:
-            self._img = img_format
-
-    def set_txt_format(self, txt_format):
-        if txt_format in self.txt.keys():
-            raise AttributeError
-        else:
-            self._txt = txt_format
-
-    def set_ref_data_structure(self, ds_ref):
-        if ds_ref in self.data_structure.keys():
-            raise AttributeError
-        else:
-            self._ds = ds_ref
-
-
-class Project(object):
-    """Project Handler for Neuroimage data
-    """
-
-    def __init__(self, project_path, ds_ref='NIRAL', img_format='NifTi-1', **kwargs):
-        """Load and initiate the project
-
-        Parameters
-        ----------
-        project_path:   str
-            Path of particular project
-        ds_ref:         str
-            Reference of data structure (default: 'NIRAL')
-        img_format:     str
-            Reference img format
-        """
-        # Variables for attributes
-        max_rows = 100
-        max_colwidth = 100
-        if kwargs:
-            if 'max_rows' in kwargs.keys():
-                max_rows = kwargs['max_rows']
-            if 'max_colwidth' in kwargs.keys():
-                max_colwidth = kwargs['max_colwidth']
-        pd.options.display.max_rows = max_rows
-        pd.options.display.max_colwidth = max_colwidth
-        self.single_session = False
-        self.__path = project_path
-        self.__filters = [None] * 6
-        # Each values are represented subject, session, dtype(or pipeline), step(or results) file_tags, ignores
-        self.__df = pd.DataFrame()
-        # Parsing the information from the reference
-        self.__ref = [ds_ref, img_format]
-        ref = Reference(*self.__ref)
-        self.img_ext = ref.imgext
-        self.ds_type = ref.ref_ds
-        # Define basic variables for initiating instance
-        self.__dc_idx = 0           # Data class index
-        self.__ext_filter = self.img_ext
-        InternalMethods.mk_main_folder(self)
-        try:
-            self.reload()
-        except Exception as e:
-            print(e.message, e.args)
-
-    @property
-    def df(self):
-        columns = self.__df.columns
-        return self.__df.reset_index()[columns]
-
-    @property
-    def path(self):
-        return self.__path
-
-    @property
-    def dataclass(self):
-        return self.ds_type[self.__dc_idx]
-
-    @dataclass.setter
-    def dataclass(self, idx):
-        if idx in range(3):
-            self.__dc_idx = idx
-            # self.reload()
-            self.reset()
-            self.__update()
-        else:
-            raise IndexError
-
-    @property
-    def subjects(self):
-        return self.__subjects
-
-    @property
-    def sessions(self):
-        return self.__sessions
-
-    @property
-    def dtypes(self):
-        return self.__dtypes
-
-    @property
-    def pipelines(self):
-        return self.__pipelines
-
-    @property
-    def steps(self):
-        return self.__steps
-
-    @property
-    def results(self):
-        return self.__results
-
-    @property
-    def filters(self):
-        return self.__filters
-
-    @property
-    def summary(self):
-        return self.__summary()
-
-    def reset(self):
-        """Reset filter - Clear all filter information and extension
-        """
-        self.__filters = [None] * 6
-        self.__ext_filter = self.img_ext
-        self.reload()
-        self.__update()
-
-    def reload(self):
-        """Reload the dataframe based on current set data class and extension
-
-        :return:
-        """
-        self.__df, self.single_session = InternalMethods.parsing(self.path, self.ds_type, self.__dc_idx)
-        self.__df = InternalMethods.initial_filter(self.__df, self.ds_type, self.__ext_filter)
-        if len(self.__df):
-            self.__df = self.__df[InternalMethods.reorder_columns(self.__dc_idx, self.single_session)]
-        self.__update()
-
-    def copy(self):
-        """Make copy of current project
-
-        :return: niph.Project instance
-        """
-        return Project(self.__path, *self.__ref)
-
-    def set_filters(self, *args, **kwargs):
-        """Set filters
-
-        :param args:    str[, ]
-            String arguments regarding hierarchical data structures
-        :param kwargs:  key=value pair[, ]
-            Key and value pairs regarding the filename
-            :key file_tag:  str or list of str
-                Keywords of interest for filename
-            :key ignore:    str of list of str
-                Keywords of neglect for filename
-            :key extend:    boolean
-                If this argument is exist and True, keep pervious filter information
-        :return:
-        """
-        if 'extend' in kwargs.keys():
-            # This oprion allows to keep previous filter
-            if kwargs['extend']:
-                self.__update()
-            else:
-                self.reset()
-                # self.reload()
-        else:
-            self.reset()
-            # self.reload()
-        if args or kwargs:
-            if args:
-                if self.subjects:
-                    if self.__filters[0]:
-                        self.__filters[0].extend([arg for arg in args if arg in self.subjects])
-                    else:
-                        self.__filters[0] = [arg for arg in args if arg in self.subjects]
-                    if not self.single_session:
-                        if self.__filters[1]:
-                            self.__filters[1].extend([arg for arg in args if arg in self.sessions])
-                        else:
-                            self.__filters[1] = [arg for arg in args if arg in self.sessions]
-                    else:
-                        self.__filters[1] = None
-                else:
-                    self.__filters[0] = None
-                    self.__filters[1] = None
-                if self.__dc_idx == 0:
-                    if self.dtypes:
-                        if self.__filters[2]:
-                            self.__filters[2].extend([arg for arg in args if arg in self.dtypes])
-                        else:
-                            self.__filters[2] = [arg for arg in args if arg in self.dtypes]
-                    else:
-                        self.__filters[2] = None
-                    self.__filters[3] = None
-                elif self.__dc_idx == 1:
-                    if self.pipelines:
-                        if self.__filters[2]:
-                            self.__filters[2].extend([arg for arg in args if arg in self.pipelines])
-                        else:
-                            self.__filters[2] = [arg for arg in args if arg in self.pipelines]
-                    else:
-                        self.__filters[2] = None
-                    if self.steps:
-                        if self.__filters[3]:
-                            self.__filters[3].extend([arg for arg in args if arg in self.steps])
-                        else:
-                            self.__filters[3] = [arg for arg in args if arg in self.steps]
-                    else:
-                        self.__filters[3] = None
-                else:
-                    if self.pipelines:
-                        if self.__filters[2]:
-                            self.__filters[2].extend([arg for arg in args if arg in self.pipelines])
-                        else:
-                            self.__filters[2] = [arg for arg in args if arg in self.pipelines]
-                    else:
-                        self.__filters[2] = None
-                    if self.results:
-                        if self.__filters[3]:
-                            self.__filters[3].extend([arg for arg in args if arg in self.results])
-                        else:
-                            self.__filters[3] = [arg for arg in args if arg in self.results]
-                    else:
-                        self.__filters[3] = None
-            if kwargs:
-                if 'file_tag' in kwargs.keys():
-                    if type(kwargs['file_tag']) == str:
-                        self.__filters[4] = [kwargs['file_tag']]
-                    elif type(kwargs['file_tag']) == list:
-                        self.__filters[4] = kwargs['file_tag']
-                    else:
-                        raise TypeError
-                if 'ignore' in kwargs.keys():
-                    if type(kwargs['ignore']) == str:
-                        self.__filters[5] = [kwargs['ignore']]
-                    elif type(kwargs['ignore']) == list:
-                        self.__filters[5] = kwargs['ignore']
-                    else:
-                        raise TypeError
-        self.__df = self.applying_filters(self.__df)
-        self.__update()
-
-    def applying_filters(self, df):
-        """Applying current filters to the input dataframe
-
-        :param df: pandas.DataFrame
-        :return: pandas.DataFrame
-        """
-        if self.__filters[0]:
-            df = df[df.Subject.isin(self.__filters[0])]
-        if self.__filters[1]:
-            df = df[df.Session.isin(self.__filters[1])]
-        if self.__filters[2]:
-            if self.__dc_idx == 0:
-                df = df[df.DataType.isin(self.__filters[2])]
-            else:
-                df = df[df.Pipeline.isin(self.__filters[2])]
-        if self.__filters[3]:
-            if self.__dc_idx == 1:
-                df = df[df.Step.isin(self.__filters[3])]
-            elif self.__dc_idx == 2:
-                df = df[df.Result.isin(self.__filters[3])]
-            else:
-                pass
-        if self.__filters[4]:
-            df = df[df.Filename.str.contains('|'.join(self.__filters[4]))]
-        if self.__filters[5]:
-            df = df[~df.Filename.str.contains('|'.join(self.__filters[5]))]
-        if self.__ext_filter:
-            df = df[df.Filename.str.contains('|'.join(self.__ext_filter))]
-        return df
-
-    def __summary(self):
-        """Print summary of current project
-        """
-        summary = 'Project summary'
-        summary = '{}\nProject: {}'.format(summary, os.path.dirname(self.path).split(os.sep)[-1])
-        summary = '{}\nSelected DataClass: {}\n'.format(summary, self.dataclass)
-        if self.pipelines:
-            summary = '{}\nApplied Pipeline(s): {}'.format(summary, self.pipelines)
-        if self.steps:
-            summary = '{}\nApplied Step(s): {}'.format(summary, self.steps)
-        if self.results:
-            summary = '{}\nProcessed Result(s): {}'.format(summary, self.results)
-        if self.subjects:
-            summary = '{}\nSubject(s): {}'.format(summary, self.subjects)
-        if self.sessions:
-            summary = '{}\nSession(s): {}'.format(summary, self.sessions)
-        if self.dtypes:
-            summary = '{}\nDataType(s): {}'.format(summary, self.dtypes)
-        if self.single_session:
-            summary = '{}\nSingle session dataset'.format(summary)
-        summary = '{}\n\nApplied filters'.format(summary)
-        if self.__filters[0]:
-            summary = '{}\nSet subject(s): {}'.format(summary, self.__filters[0])
-        if self.__filters[1]:
-            summary = '{}\nSet session(s): {}'.format(summary, self.__filters[1])
-        if self.__dc_idx == 0:
-            if self.__filters[2]:
-                summary = '{}\nSet datatype(s): {}'.format(summary, self.__filters[2])
-        else:
-            if self.__filters[2]:
-                summary = '{}\nSet Pipeline(s): {}'.format(summary, self.__filters[2])
-            if self.__filters[3]:
-                if self.__dc_idx == 1:
-                    summary = '{}\nSet Step(s): {}'.format(summary, self.__filters[3])
-                else:
-                    summary = '{}\nSet Result(s): {}'.format(summary, self.__filters[3])
-        if self.__ext_filter:
-            summary = '{}\nSet file extension(s): {}'.format(summary, self.__ext_filter)
-        if self.__filters[4]:
-            summary = '{}\nSet file tag(s): {}'.format(summary, self.__filters[4])
-        if self.__filters[5]:
-            summary = '{}\nSet ignore(s): {}'.format(summary, self.__filters[5])
-        print(summary)
-
-    def __update(self):
-        """Update sub variables based on current set filter information
-        """
-        if len(self.df):
-            try:
-                self.__subjects = list(set(self.df.Subject.tolist()))
-                if self.single_session:
-                    self.__sessions = None
-                else:
-                    self.__sessions = list(set(self.df.Session.tolist()))
-                if self.__dc_idx == 0:
-                    self.__dtypes = list(set(self.df.DataType.tolist()))
-                    self.__pipelines = None
-                    self.__steps = None
-                    self.__results = None
-                elif self.__dc_idx == 1:
-                    self.__dtypes = None
-                    self.__pipelines = list(set(self.df.Pipeline.tolist()))
-                    if self.__filters[2]:
-                        self.__steps = list(set(self.df.Step.tolist()))
-                    else:
-                        self.__steps = None
-                    self.__results = None
-                elif self.__dc_idx == 2:
-                    self.__dtypes = None
-                    self.__pipelines = list(set(self.df.Pipeline.tolist()))
-                    if self.__filters[2]:
-                        self.__results = list(set(self.df.Result.tolist()))
-                    else:
-                        self__results = None
-                    self.__steps = None
-            except:
-                raise AttributeError
-        else:
-            self.__subjects = None
-            self.__sessions = None
-            self.__dtypes = None
-            self.__pipelines = None
-            self.__steps = None
-            self.__results = None
-
-    def __call__(self, *args, **kwargs):
-        """Return DataFrame followed applying filters
-        :param args:    str[, ]
-            String arguments regarding hierarchical data structures
-        :param kwargs:  key=value pair[, ]
-            Key and value pairs regarding the filename
-            :key file_tag:  str or list of str
-                Keywords of interest for filename
-            :key ignore:    str of list of str
-                Keywords of neglect for filename
-            :key extend:    boolean
-                If this argument is exist and True, keep pervious filter information
-        :return:
-        """
-        self.dataclass = self.__dc_idx
-        self.set_filters(*args, **kwargs)
-        return self.df
-
-    def __repr__(self):
-        """Return absolute path for current filtered dataframe
-        :return: str
-            Absolute path for filtered data
-        """
-        return str(self.df.Abspath)
-
-    def __getitem__(self, index):
-        """Return particular data based on input index
-
-        :param index: int
-            Index of data
-        :return: pandas.DataFrame
-        """
-        return self.df.loc[index]
-
-    def __iter__(self):
-        """Iterator for dataframe
-
-        :return: pandas.DataFrame
-            One row of dataframe
-        """
-        for row in self.df.iterrows():
-            yield row
-
-    def __len__(self):
-        """Return number of data
-        """
-        return len(self.df)
+from .utility import Internal, Interface
+from .project import Project
+from .objects import Image, Template
 
 
 class Processing(object):
@@ -485,7 +27,7 @@ class Processing(object):
         except:
             raise TypeError
         self.__path = join(obj.path, self.prj.ds_type[1])
-        self.commands = Commands()
+        self.commands = Interface()
 
     @property
     def path(self):
@@ -533,7 +75,7 @@ class Processing(object):
             varargs
             keywords
         """
-        argspec = dict(inspect.getargspec(getattr(Commands, command)).__dict__)
+        argspec = dict(inspect.getargspec(getattr(Interface, command)).__dict__)
         if argspec['defaults'] is None:
             def_len = 0
             defaults = None
@@ -626,11 +168,12 @@ class Pipeline(Processing):
         :return:
         """
         if self.pipeline:
-            step_name = InternalMethods.get_step_name(self, step_name)
+            step_name = Internal.get_step_name(self, step_name)
             step_path = join(self.path, step_name)
-            InternalMethods.mkdir(step_path)
+            Internal.mkdir(step_path)
         else:
-            raise ErrorHandler.no_pipeline
+            print('Error')
+            return None
         return step_name, step_path
 
     def set_filters(self, dc_idx=1, *args, **kwargs):
@@ -658,7 +201,7 @@ class Pipeline(Processing):
         :return:
         """
         self.pipeline = name
-        InternalMethods.mkdir(self.path)
+        Internal.mkdir(self.path)
         self.prj.filters[2] = self.pipeline
 
     def set(self, pipeline = None):
@@ -669,7 +212,7 @@ class Pipeline(Processing):
         """
         if pipeline in self.avail:
             self.pipeline = pipeline
-            InternalMethods.mkdir(self.path)
+            Internal.mkdir(self.path)
             if not len(self.done):
                 print("Pipeline '{}' is initiated first time for this project.".format(self.pipeline))
             else:
@@ -681,7 +224,7 @@ class Pipeline(Processing):
             print("-*-Available pipelines-*-")
             for i, pipeline in enumerate(self.avail):
                 print('{}. {}'.format(i+1, pipeline))
-            raise ErrorHandler.no_pipeline
+            return None
 
     def run(self, *args, **kwargs):
         """Execute current pipeline
@@ -694,7 +237,7 @@ class Pipeline(Processing):
             print("Executing pipeline {}".format(self.pipeline))
             getattr(self, '_pipe_{}'.format(self.pipeline))(*args, **kwargs)
         else:
-            raise ErrorHandler.no_pipeline
+            return None
 
     def run_step(self, step_name, command, *args, **kwargs):
         """Method to execute step for processing input command with input arguments
@@ -893,13 +436,13 @@ class Pipeline(Processing):
                             subgroup = filters[:]
                         else:
                             subgroup = []
-                        InternalMethods.mkdir(output_path)
+                        Internal.mkdir(output_path)
                         if self.prj.single_session:
                             # If the project is single session, run the command at the subject level
                             subgroup.append(subj)
                             self.prj(dc_id, *subgroup, **filter_kw)
                             output_filename = '{}_{}{}'.format(output_prefix, subj, self.prj.img_ext[0])
-                            option = InternalMethods.filter_file_index(option, self.prj, file_index)
+                            option = Internal.filter_file_index(option, self.prj, file_index)
                             self.run_cmd(command, join(output_path, output_filename), *option, **kwoption)
                         else:
                             # If the project has multi session, run the command through session level
@@ -908,21 +451,21 @@ class Pipeline(Processing):
                                     pass
                                 else:
                                     output_path = join(step_path, subj, sess)
-                                    InternalMethods.mkdir(output_path)
+                                    Internal.mkdir(output_path)
                                     subgroup.extend([subj, sess])
                                     self.prj(dc_id, *subgroup, **filter_kw)
                                     output_filename = '{}_{}_{}{}'.format(output_prefix, subj, sess, self.prj.img_ext[0])
-                                    option = InternalMethods.filter_file_index(option, self.prj, file_index)
+                                    option = Internal.filter_file_index(option, self.prj, file_index)
                                     self.run_cmd(command, join(output_path, output_filename), *option, **kwoption)
             elif output_level == 1:
                 # output will be merged at step folder or subject level
                 if self.prj.single_session:
                     # If single session, output file will be merged at step path
                     output_path = step_path
-                    InternalMethods.mkdir(output_path)
+                    Internal.mkdir(output_path)
                     self.prj(dc_id, *filters, **filter_kw)
                     output_filename = '{}_{}{}'.format(output_prefix, step_name, self.prj.img_ext[0])
-                    option = InternalMethods.filter_file_index(option, self.prj, file_index)
+                    option = Internal.filter_file_index(option, self.prj, file_index)
                     self.run_cmd(command, join(output_path, output_filename), *option, **kwoption)
                 else:
                     for subj in subjects:
@@ -936,9 +479,9 @@ class Pipeline(Processing):
                                 subgroup = []
                             output_filename = '{}_{}{}'.format(output_prefix, subj, self.prj.img_ext[0])
                             subgroup.append(subj)
-                            InternalMethods.mkdir(output_path)
+                            Internal.mkdir(output_path)
                             self.prj(dc_id, *subgroup, **filter_kw)
-                            option = InternalMethods.filter_file_index(option, self.prj, file_index)
+                            option = Internal.filter_file_index(option, self.prj, file_index)
                             self.run_cmd(command, join(output_path, output_filename), *option, **kwoption)
             elif output_level == 2:
                 # output will be merged at step folder if project has multi sessions
@@ -946,10 +489,10 @@ class Pipeline(Processing):
                     raise ValueError('Maximum value of output level for single session is 1.')
                 else:
                     output_path = step_path
-                    InternalMethods.mkdir(output_path)
+                    Internal.mkdir(output_path)
                     self.prj(dc_id, *filters, **filter_kw)
                     output_filename = '{}_{}{}'.format(output_prefix, step_name, self.prj.img_ext[0])
-                    option = InternalMethods.filter_file_index(option, self.prj, file_index)
+                    option = Internal.filter_file_index(option, self.prj, file_index)
                     self.run_cmd(command, join(output_path, output_filename), *option, **kwoption)
             else:
                 raise ValueError('Value range of output level is range(3).')
@@ -967,7 +510,7 @@ class Pipeline(Processing):
                         output_path = join(step_path, subj)
                     else:
                         output_path = step_path
-                    InternalMethods.mkdir(output_path)
+                    Internal.mkdir(output_path)
                     if self.prj.single_session:
                         # Check single session
                         subgroup.append(subj)
@@ -993,7 +536,7 @@ class Pipeline(Processing):
                                     pass
                                 else:
                                     output_path = join(step_path, subj, sess)
-                                InternalMethods.mkdir(output_path)
+                                Internal.mkdir(output_path)
                                 self.prj(dc_id, *subgroup, **filter_kw)
                                 if file_index:
                                     for i in file_index:
@@ -1058,4 +601,3 @@ class Pipeline(Processing):
                 output = '{}\n {}'.format(output, step)
             output = '{}\n'.format(output)
         return output
-

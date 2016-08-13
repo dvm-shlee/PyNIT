@@ -1,10 +1,4 @@
-from .core import ph
-from .core import pipe
-from .core import viewer
-from .core import tool
-from .core import util
-# from pipelines.pipeline import Pipeline as pipe
+from .core import Pipeline, Pipeline, Viewer, Interface, Internal
+load = Internal.load
 
-load = util.load
-
-__all__ = ['ph', 'pipe', 'viewer', 'tool', 'util', 'load']
+__all__ = ['Project', 'Pipeline', 'Viewer', 'Interface', 'Internal']

@@ -19,7 +19,6 @@ setup(name='PyNIT',
       license='MIT',
       packages=find_packages(),
       install_requires=['nibabel',
-                        'nipype',
                         'pandas',
                         'matplotlib',
                         'scikit-image']

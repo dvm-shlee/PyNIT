@@ -1,26 +1,40 @@
-# -*- coding: utf-8 -*-
 from __future__ import division
+
+# Import external packages
+import os
+import numpy as np
+import nibabel as nib
+from skimage import exposure
+
+# Import interactive plot in jupyter notebook
 try:
     if __IPYTHON__:
         from ipywidgets import interact, fixed
 except:
     pass
 
-# matplotlib
+# Import matplotlib for visualization
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import colors
+
+# The commented codes below are used for save figure later (mayby?)
 # import matplotlib.patches as mpatches
 # from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+# Set figure style here
 mpl.rcParams['figure.dpi'] = 120
+plt.style.use('ggplot')
 
-from skimage import exposure
+# Import internal packages
+from .utility import Internal, Interface
 
-import numpy as np
-import nibabel as nib
-import os
-from .statics import InternalMethods, ErrorHandler
-import tool
+# R-Python interface for advanced plotting
+import rpy2.robjects as robj
+from IPython.display import Image
+from rpy2.robjects.packages import importr
+from rpy2.robjects import pandas2ri
+pandas2ri.activate()
 
 # TODO: Check registration, Check atlas, Show Image
 # TODO: Simple Video generation or showing over the slice or time
@@ -29,30 +43,50 @@ import tool
 
 class Viewer(object):
     @staticmethod
-    def slice(img, *args, **kwargs):
+    def slice(img, slice_num=None, norm=True, **kwargs):
+        """ Image single slice viewer
+
+        :param img: obj
+            ImageObject to see the slice
+        :param slice_num: int
+            slice
+        :param norm: boolean
+            norm
+        :param kwargs: key, value args
+            options
+        :return:
+        """
+        # Parsing the axis information from kwargs
         axis = 2
         if kwargs:
             for arg in kwargs.keys():
                 if arg == 'axis':
                     axis = kwargs[arg]
+        # Load image data array and swap to given axis
         data = img.dataobj
         data = np.swapaxes(data, axis, 2)
+        # Parsing the resolution info
         resol, origin = nib.affines.to_matvec(img.header.get_base_affine())
         resol = np.diag(resol).copy()
+        # Swap the affine matrix
         resol[axis], resol[2] = resol[2], resol[axis]
-        p2 = np.percentile(data, 2)
-        p98 = np.percentile(data, 98)
-        data = exposure.rescale_intensity(data, in_range=(p2, p98))
-        if args:
-            if len(args) == 1:
-                slice_num = args
-            else:
-                raise KeyError('slice method takes only 1 arguments, {} given'.format(len(args)))
+        # Parsing arguments
+        if slice_num:
+            slice_num = slice_num
         else:
             slice_num = img.shape[axis]/2
+        # Image normalization if norm is True
+        if norm:
+            p2 = np.percentile(data, 2)
+            p98 = np.percentile(data, 98)
+            data = exposure.rescale_intensity(data, in_range=(p2, p98))
+        else:
+            pass
+        # Check invert states using given kwargs and apply
+        invert = Internal.check_invert(kwargs)
+        data = Internal.apply_invert(data, *invert)
 
-        plt.style.use('ggplot')
-
+        # Internal show slice function for interact python
         def imshow(slice_num, frame=0):
             fig, axes = plt.subplots()
             if len(data.shape) == 3:
@@ -61,11 +95,11 @@ class Viewer(object):
                 axes.imshow(data[:, :, int(slice_num), frame].T, origin='lower', interpolation='nearest', cmap='gray')
             else:
                 raise ImportError
-            axes = InternalMethods.set_viewaxes(axes)
+            axes = Internal.set_viewaxes(axes)
             if resol[1] != resol[0]:
-                axes.set_aspect(abs(resol[1]/resol[0]))
-        invert = InternalMethods.check_invert(kwargs)
-        data = InternalMethods.apply_invert(data, *invert)
+                axes.set_aspect(abs(resol[1] / resol[0]))
+
+        # Check image dimension, only 3D and 4D is available
         try:
             if len(data.shape) == 3:
                 interact(imshow, slice_num=(0, img.shape[axis]-1), frame=fixed(0))
@@ -78,7 +112,6 @@ class Viewer(object):
             axes.imshow(data[..., int(slice_num)].T, origin='lower', cmap='gray')
             axes.set_axis_off()
 
-    #
     # @staticmethod
     # def orthogonal(path, coordinate):
     #     pass
@@ -92,7 +125,7 @@ class Viewer(object):
     #     pass
 
     @staticmethod
-    def mosaic(img, scale=1, **kwargs):
+    def mosaic(img, scale=1, norm=True, **kwargs):
         """function for generating mosaic figure
 
         :param img: nibabel object
@@ -100,22 +133,26 @@ class Viewer(object):
         :param kwargs
         :return:
         """
-        if type(img) is nib.nifti1.Nifti1Image:
-            pass
-        elif type(img) is str:
-            try:
-                img = nib.load(img)
-            except:
-                raise ImportError
+        # if type(img) is nib.nifti1.Nifti1Image:
+        #     pass
+        # elif type(img) is str:
+        #     try:
+        #         img = nib.load(img)
+        #     except:
+        #         raise ImportError
         dim = list(img.shape)
         resol = list(img.header['pixdim'][1:4])
         if len(dim) > 3:
             data = np.asarray(img.dataobj)[..., 0]
         else:
             data = np.asarray(img.dataobj)
-        p2 = np.percentile(data, 2)
-        p98 = np.percentile(data, 98)
-        data = exposure.rescale_intensity(data, in_range=(p2, p98))
+        # Check normalization
+        if norm:
+            p2 = np.percentile(data, 2)
+            p98 = np.percentile(data, 98)
+            data = exposure.rescale_intensity(data, in_range=(p2, p98))
+        else:
+            pass
         slice_axis = int(np.argmin(data.shape))
         if kwargs:
             for arg in kwargs.keys():
@@ -131,8 +168,8 @@ class Viewer(object):
         fig, axes = plt.subplots(num_height, num_width, figsize=(size_width, size_height))
         cmap = 'gray'
         data = np.swapaxes(data, slice_axis, 2)
-        invert = InternalMethods.check_invert(kwargs)
-        data = InternalMethods.apply_invert(data, *invert)
+        invert = Internal.check_invert(kwargs)
+        data = Internal.apply_invert(data, *invert)
         for i in range(num_height*num_width):
             ax = axes.flat[i]
             if i < num_of_slice:
@@ -154,7 +191,7 @@ class Viewer(object):
             for arg in kwargs.keys():
                 if arg == 'legend':
                     legend = kwargs[arg]
-        if type(roi) is nib.nifti1.Nifti1Image or tool.ImageObject:
+        if type(roi) is nib.nifti1.Nifti1Image or Image:
             atlas = np.asarray(roi.dataobj)
             number_of_rois = np.max(atlas)
             list_of_rois = range(number_of_rois)
@@ -182,8 +219,8 @@ class Viewer(object):
         atlas = np.swapaxes(atlas, slice_axis, 2)
         atlas = atlas.astype(float)
         atlas[atlas == 0] = np.nan
-        invert = InternalMethods.check_invert(kwargs)
-        atlas = InternalMethods.apply_invert(atlas, *invert)
+        invert = Internal.check_invert(kwargs)
+        atlas = Internal.apply_invert(atlas, *invert)
         colors_for_rois = np.random.rand(int(number_of_rois), 3)
         color_map = zip(list_of_rois, colors_for_rois)
         color_map.insert(0, ('background', [0, 0, 0]))

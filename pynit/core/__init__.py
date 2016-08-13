@@ -1,8 +1,7 @@
-from .ph import Project as ph
-from .ph import Pipeline as pipe
-from .visualization import Viewer as viewer
-# from .statics import InternalMethods
-from .tool import Commands as tool
-from .tool import Utility as util
+from .project import Project
+from .process import Pipeline
+from .visual import Viewer
+from .utility import Interface
+from .utility import Internal
 
-__all__ = ['ph', 'pipe', 'viewer', 'tools']
+__all__ = ['Project', 'Pipeline', 'Viewer', 'Interface', Internal]
