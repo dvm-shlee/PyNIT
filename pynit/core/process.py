@@ -8,7 +8,7 @@ import pandas as pd
 
 from .utility import Internal, Interface
 from .project import Project
-from .objects import Image, Template
+import error
 
 
 class Processing(object):
@@ -75,7 +75,12 @@ class Processing(object):
             varargs
             keywords
         """
-        argspec = dict(inspect.getargspec(getattr(Interface, command)).__dict__)
+        if command in dir(Interface):
+            argspec = dict(inspect.getargspec(getattr(Interface, command)).__dict__)
+        elif command in dir(Internal):
+            argspec = dict(inspect.getargspec(getattr(Internal, command)).__dict__)
+        else:
+            raise error.CommandExecutionFailure
         if argspec['defaults'] is None:
             def_len = 0
             defaults = None
@@ -104,9 +109,18 @@ class Processing(object):
                 else:
                     getattr(self.commands, command)(*args, **kwargs)
             except:
-                raise SyntaxError("Given argument is not fitted for the tool '{}'".format(command))
+                raise error.CommandExecutionFailure
+        elif command in dir(Internal):
+            # try:
+            if os.path.exists(args[0]):
+                pass
+            else:
+                print args, kwargs
+                getattr(Internal, command)(*args, **kwargs)
+            # except:
+            #     raise error.CommandExecutionFailure
         else:
-            raise AttributeError("{} is not exist. Please check available tools.".format(command))
+            raise error.CommandExecutionFailure
 
 
 class Pipeline(Processing):
@@ -415,7 +429,7 @@ class Pipeline(Processing):
         step_path = join(self.path, step_name)
         # For the regular execution, there are two parameter which can apply
         # First is output_level, and second is merged output
-        option.insert(0, merged_output)
+        # option.insert(0, merged_output)
         if merged_output:
             # If the output of the command need to be merged. the command usually takes multiple inputs
             # In this case, parameter 'output_prefix' need to be defined.
@@ -514,6 +528,7 @@ class Pipeline(Processing):
                     if self.prj.single_session:
                         # Check single session
                         subgroup.append(subj)
+                        print dc_id
                         self.prj(dc_id, *subgroup, **filter_kw)
                         if file_index:
                             for i in file_index:
@@ -523,7 +538,7 @@ class Pipeline(Processing):
                         else:
                             for i, finfo in self.prj.df.iterrows():
                                 self.run_cmd(command, join(output_path, finfo.Filename), finfo.Abspath,
-                                             *option, **kwoption)
+                                            *option, **kwoption)
                     else:
                         for sess in sessions:
                             if pd.isnull(sess):

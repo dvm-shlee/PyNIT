@@ -2,6 +2,8 @@ import os
 import pandas as pd
 from .objects import Reference, Image, Template
 from utility import Internal
+import error
+
 
 class Project(object):
     """Project Handler for Neuroimage data
@@ -44,10 +46,10 @@ class Project(object):
         self.__dc_idx = 0           # Data class index
         self.__ext_filter = self.img_ext
         Internal.mk_main_folder(self)
-        # try:
-        self.reload()
-        # except Exception as e:
-        #     print(e.message, e.args)
+        try:
+            self.reload()
+        except:
+            raise error.ReloadFailure
 
     @property
     def df(self):
@@ -70,7 +72,7 @@ class Project(object):
             self.reset()
             self.__update()
         else:
-            raise IndexError
+            raise error.NotExistingDataclass
 
     @property
     def subjects(self):
@@ -222,14 +224,14 @@ class Project(object):
                     elif type(kwargs['file_tag']) == list:
                         self.__filters[4] = kwargs['file_tag']
                     else:
-                        raise TypeError
+                        raise error.FilterInputTypeError
                 if 'ignore' in kwargs.keys():
                     if type(kwargs['ignore']) == str:
                         self.__filters[5] = [kwargs['ignore']]
                     elif type(kwargs['ignore']) == list:
                         self.__filters[5] = kwargs['ignore']
                     else:
-                        raise TypeError
+                        raise error.FilterInputTypeError
         self.__df = self.applying_filters(self.__df)
         self.__update()
 
@@ -310,6 +312,10 @@ class Project(object):
                 summary = '{}\nSet ignore(s): {}'.format(summary, self.__filters[5])
         print(summary)
 
+    def update(self):
+        print(self.__dc_idx)
+        self.__update()
+
     def __update(self):
         """Update sub variables based on current set filter information
         """
@@ -328,21 +334,21 @@ class Project(object):
                 elif self.__dc_idx == 1:
                     self.__dtypes = None
                     self.__pipelines = list(set(self.df.Pipeline.tolist()))
-                    if self.__filters[2]:
-                        self.__steps = list(set(self.df.Step.tolist()))
-                    else:
-                        self.__steps = None
+                    # if self.__filters[2]:
+                    self.__steps = list(set(self.df.Step.tolist()))
+                    # else:
+                    #     self.__steps = None
                     self.__results = None
                 elif self.__dc_idx == 2:
                     self.__dtypes = None
                     self.__pipelines = list(set(self.df.Pipeline.tolist()))
-                    if self.__filters[2]:
-                        self.__results = list(set(self.df.Result.tolist()))
-                    else:
-                        self__results = None
+                    # if self.__filters[2]:
+                    self.__results = list(set(self.df.Result.tolist()))
+                    # else:
+                    #     self.__results = None
                     self.__steps = None
             except:
-                raise AttributeError
+                raise error.UpdateFailed
         else:
             self.__subjects = None
             self.__sessions = None
@@ -351,7 +357,7 @@ class Project(object):
             self.__steps = None
             self.__results = None
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, dc_id, *args, **kwargs):
         """Return DataFrame followed applying filters
         :param args:    str[, ]
             String arguments regarding hierarchical data structures
@@ -368,7 +374,7 @@ class Project(object):
         if self.__empty_project:
             return None
         else:
-            self.dataclass = self.__dc_idx
+            self.dataclass = dc_id #self.__dc_idx
             self.set_filters(*args, **kwargs)
             return self.df
 
@@ -401,7 +407,7 @@ class Project(object):
             One row of dataframe
         """
         if self.__empty_project:
-            raise TypeError('Empty project')
+            raise error.EmptyProject
         else:
             for row in self.df.iterrows():
                 yield row

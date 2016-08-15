@@ -1,8 +1,10 @@
+# import os
 import numpy as np
 import nibabel as nib
 import pandas as pd
 from .visual import Viewer
 from .utility import Interface, Internal
+import error
 
 
 class Reference(object):
@@ -73,23 +75,22 @@ class Reference(object):
 
 
 class Image(nib.nifti1.Nifti1Image):
-    def show(self, *args, **kwargs):
-        Viewer.slice(self, *args, **kwargs)
+    """ ImageObject for PyNIT
+    """
+    def show(self, **kwargs):
+        """ Plotting slice of the object
+        """
+        Viewer.slice(self, **kwargs)
 
     def mosaic(self, *args, **kwargs):
+        """ Mosaic view for the object
+        """
         fig = Viewer.mosaic(self, *args, **kwargs)
 
-    def swapaxis(self, axis1, axis2):
-        resol, origin = nib.affines.to_matvec(self.get_affine())
-        resol = np.diag(resol).copy()
-        origin = origin
-        self._dataobj = np.swapaxes(self._dataobj, axis1, axis2)
-        resol[axis1], resol[axis2] = resol[axis2], resol[axis1]
-        origin[axis1], origin[axis2] = origin[axis2], origin[axis1]
-        affine = nib.affines.from_matvec(np.diag(resol), origin)
-        self.header['sform_code'] = 0
-        self.header['qform_code'] = 1
-        self.set_qform(affine)
+    def swap_axis(self, axis1, axis2):
+        """ Swap input axis with given axis of the object
+        """
+        Internal.swap_axis(self, axis1, axis2)
 
     def flip(self, **kwargs):
         invert = Internal.check_invert(kwargs)
@@ -113,37 +114,22 @@ class Image(nib.nifti1.Nifti1Image):
             Axis want to be re-sliced
         :return:
         """
-        dataobj = Internal.down_reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis)
-        affine, origin = nib.affines.to_matvec(self.affine)
-        affine = np.diag(affine)
-        affine[axis] = slice_thickness
-        affine_mat = nib.affines.from_matvec(np.diag(affine), origin)
-        self._dataobj = dataobj
-        self._affine = affine_mat
-        self.set_qform(affine_mat)
-        self.set_sform(affine_mat)
-        self.header['sform_code'] = 0
-        self.header['qform_code'] = 1
+        Internal.down_reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis)
 
     def save_as(self, filename):
         """ Save as a new file with current affine information
         """
-        nii = nib.Nifti1Image(self._dataobj, self._affine)
-        nii.header['sform_code'] = 1
+        nii = nib.Nifti1Image(self.dataobj, self.affine)
+        nii.header['sform_code'] = 0
         nii.header['qform_code'] = 1
         nii.to_filename(filename)
-        print("NifTi1 format image is saved as '{}'".format(filename))
+        print("NifTi1 format image is saved to '{}'".format(filename))
 
-    def pedding(self, axis, ):
+    # def pedding(self, axis):
+    #     pass
 
-        pass
-
-    def saveas(self, filename):
-        self.to_filename(filename)
-        self.to_file_map()
-
-    def timetrace(self, roiobj):
-        number_of_rois = np.max(roiobj.dataobj)
+    def timetrace(self, maskobj):
+        number_of_rois = np.max(maskobj.dataobj)
         df = pd.DataFrame()
         for i in range(number_of_rois-1):
             data = Interface.afni_3dmaskave(None, self.get_filename(), "{}<{}>".format(roiobj.get_filename(), i+1))
@@ -151,22 +137,151 @@ class Image(nib.nifti1.Nifti1Image):
             df[i] = data
         return df
 
-    def atlas(self, roiobj, *args, **kwargs):
-        Viewer.atlas(self, roiobj, *args, **kwargs)
+    def check_reg(self, imageobj, scale=10, **kwargs):
+        fig = Viewer.check_reg(imageobj, self, scale=scale, norm=True, **kwargs)
 
+    def check_mask(self, maskobj, scale=15, **kwargs):
+        fig = Viewer.check_mask(self, maskobj, scale=scale, **kwargs)
 
 class Template(object):
+    """ TemplateObject for PyNIT
     """
-    """
-    #TODO: using this to parsing ROI images and name and generate single atlas with ITK stype label
-    #TODO: also import template
-    def __init__(self):
-        pass
-    def set_templalte(self):
-        pass
-    def set_path(self):
-        # If path, grap all
-        # If obj, grap as
-        pass
-    # All reslice, reorientation function need to be integrated
-    # And will be applied for both mask and template together
+    def __init__(self, path=None):
+        self._atlas = None
+        if type(path) is Image:
+            self._image = path
+        elif type(path) is str:
+            try:
+                self.load(path)
+            except:
+                raise error.InputPathError
+        else:
+            raise error.InputFileError
+
+    @property
+    def image(self):
+        return self._image
+
+    @image.setter
+    def image(self, imageobj):
+        if type(imageobj) is Image:
+            self._image = imageobj
+        else:
+            raise error.InputObjectError
+
+    @property
+    def atlas(self):
+        return self._atlas.image
+
+    @property
+    def label(self):
+        return self._atlas.label
+
+    def load(self, path):
+        """ Import template
+
+        :param path:
+        :return:
+        """
+        self._image = Image.load(path)
+
+    def set_atlas(self, path):
+        self._atlas = Atlas(path)
+
+    def swap_axis(self, axis1, axis2):
+        if self._atlas:
+            self.atlas.swap_axis(axis1, axis2)
+        self.image.swap_axis(axis1, axis2)
+
+    def flip(self, **kwargs):
+        if self._atlas:
+            self.atlas.flip(**kwargs)
+        self.image.flip(**kwargs)
+
+    def crop(self, **kwargs):
+        if self._atlas:
+            self.atlas.crop(**kwargs)
+        self.image.crop(**kwargs)
+
+    def reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis=2):
+        if self._atlas:
+            self.atlas.reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis=axis)
+        self.image.reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis=axis)
+
+    def show(self, scale=15, **kwargs):
+        if self._atlas:
+            Viewer.atlas(self.image, self._atlas, scale=scale, **kwargs)
+        else:
+            Viewer.mosaic(self.image, scale=scale, **kwargs)
+
+    def save_as(self, filename):
+        self.image.save_as('{}_template.nii'.format(filename))
+        self._atlas.save_as('{}_atlas'.format(filename))
+
+    def __getitem__(self, idx):
+        return self._atlas.__getitem__(idx)
+
+    def __repr__(self):
+        return self._atlas.__repr__()
+
+
+class Atlas(object):
+    def __init__(self, path=None):
+        self._atlas = None
+        self._label = None
+        if type(path) is Image:
+            self._image = path
+        elif type(path) is str:
+            try:
+                self.load(path)
+            except:
+                raise error.InputPathError
+        else:
+            raise error.InputFileError
+
+    @property
+    def image(self):
+        return self._image
+
+    @property
+    def label(self):
+        return self._label
+
+    @image.setter
+    def image(self, imageobj):
+        if type(imageobj) is Image:
+            self._image = imageobj
+        else:
+            raise error.InputObjectError
+
+    def load(self, path):
+        self._image, self._label = Internal.parsing_atlas(path)
+
+    def save_as(self, filename):
+        self._image.save_as("{}.nii".format(filename))
+        Internal.save_label(self._label, "{}.label".format(filename))
+
+    def __getitem__(self, idx):
+        if not self._image:
+            return None
+        else:
+            if idx != 0:
+                mask = np.zeros(self.image.shape)
+                mask[self.image.get_data() == idx] = 1
+                maskobj = Image(mask, self.image.header.get_base_affine())
+                return self.label[idx][0], maskobj
+            else:
+                return None
+
+    def __repr__(self):
+        labels = None
+        for idx in self.label.keys():
+            if not idx:
+                pass
+                labels = '[{:>3}] {:>40}\n'.format(idx, self.label[idx][0])
+            else:
+                labels = '{}[{:>3}] {:>40}\n'.format(labels, idx, self.label[idx][0])
+        return labels
+
+class DataFrame(object):
+    pass

@@ -1,15 +1,13 @@
-from __future__ import division
-
 # Import external packages
-import os
 import numpy as np
-import nibabel as nib
-from skimage import exposure
+import nibabel.affines as affns
+from skimage import feature
 
 # Import interactive plot in jupyter notebook
 try:
     if __IPYTHON__:
         from ipywidgets import interact, fixed
+        from IPython.display import Image, display
 except:
     pass
 
@@ -17,6 +15,7 @@ except:
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import colors
+import seaborn as sns
 
 # The commented codes below are used for save figure later (mayby?)
 # import matplotlib.patches as mpatches
@@ -27,23 +26,22 @@ mpl.rcParams['figure.dpi'] = 120
 plt.style.use('ggplot')
 
 # Import internal packages
-from .utility import Internal, Interface
+from .utility import Internal
+import error
 
 # R-Python interface for advanced plotting
 import rpy2.robjects as robj
-from IPython.display import Image
 from rpy2.robjects.packages import importr
 from rpy2.robjects import pandas2ri
 pandas2ri.activate()
 
-# TODO: Check registration, Check atlas, Show Image
 # TODO: Simple Video generation or showing over the slice or time
 # TODO: Plotting graph (Time)
 
 
 class Viewer(object):
     @staticmethod
-    def slice(img, slice_num=None, norm=True, **kwargs):
+    def slice(imageobj, slice_num=None, norm=True, **kwargs):
         """ Image single slice viewer
 
         :param img: obj
@@ -63,23 +61,18 @@ class Viewer(object):
                 if arg == 'axis':
                     axis = kwargs[arg]
         # Load image data array and swap to given axis
-        data = img.dataobj
+        data = imageobj.dataobj
         data = np.swapaxes(data, axis, 2)
         # Parsing the resolution info
-        resol, origin = nib.affines.to_matvec(img.header.get_base_affine())
+        resol, origin = affns.to_matvec(imageobj.header.get_base_affine())
         resol = np.diag(resol).copy()
         # Swap the affine matrix
         resol[axis], resol[2] = resol[2], resol[axis]
         # Parsing arguments
-        if slice_num:
-            slice_num = slice_num
-        else:
-            slice_num = img.shape[axis]/2
+        slice_num = Internal.check_slice(imageobj, slice_num, axis)
         # Image normalization if norm is True
         if norm:
-            p2 = np.percentile(data, 2)
-            p98 = np.percentile(data, 98)
-            data = exposure.rescale_intensity(data, in_range=(p2, p98))
+            data = Internal.apply_p2_98(data)
         else:
             pass
         # Check invert states using given kwargs and apply
@@ -94,85 +87,91 @@ class Viewer(object):
             elif len(data.shape) == 4:
                 axes.imshow(data[:, :, int(slice_num), frame].T, origin='lower', interpolation='nearest', cmap='gray')
             else:
-                raise ImportError
+                raise error.ImageDimentionMismatched
             axes = Internal.set_viewaxes(axes)
             if resol[1] != resol[0]:
                 axes.set_aspect(abs(resol[1] / resol[0]))
-
+            else:
+                pass
         # Check image dimension, only 3D and 4D is available
         try:
             if len(data.shape) == 3:
-                interact(imshow, slice_num=(0, img.shape[axis]-1), frame=fixed(0))
+                interact(imshow, slice_num=(0, imageobj.shape[axis]-1), frame=fixed(0))
             elif len(data.shape) == 4:
-                interact(imshow, slice_num=(0, img.shape[axis]-1), frame=(0, img.shape[axis+1]-1))
+                interact(imshow, slice_num=(0, imageobj.shape[axis]-1), frame=(0, imageobj.shape[axis+1]-1))
             else:
-                raise ImportError
+                raise error.ImageDimentionMismatched
         except:
             fig, axes = plt.subplots()
+            data = Internal.convert_to_3d(imageobj)
             axes.imshow(data[..., int(slice_num)].T, origin='lower', cmap='gray')
             axes.set_axis_off()
 
-    # @staticmethod
-    # def orthogonal(path, coordinate):
-    #     pass
-    #
-    # @staticmethod
-    # def atlas(path):
-    #     pass
-    #
-    # @staticmethod
-    # def check_reg(moved_img, fixed_img):
-    #     pass
+    @staticmethod
+    def orthogonal(imageobj, norm=True, **kwargs):
+        pass
 
     @staticmethod
-    def mosaic(img, scale=1, norm=True, **kwargs):
+    def check_reg(fixed_img, moved_img, scale=15, norm=True, **kwargs):
+        dim = list(moved_img.shape)
+        resol = list(moved_img.header['pixdim'][1:4])
+        # Convert 4D image to 3D or raise error
+        data = Internal.convert_to_3d(moved_img)
+        # Check normalization
+        if norm:
+            data = Internal.apply_p2_98(data)
+        # Set slice axis for mosaic grid
+        slice_axis, cmap = Internal.check_sliceaxis_cmap(data, kwargs)
+        cmap = 'YlOrRd'
+        # Set grid shape
+        data, slice_grid, size = Internal.set_mosaic_fig(data, dim, resol, slice_axis, scale)
+        fig, axes = Viewer.mosaic(fixed_img, scale=scale, norm=norm, cmap='bone', **kwargs)
+        # Applying inversion
+        invert = Internal.check_invert(kwargs)
+        data = Internal.apply_invert(data, *invert)
+        # Plot image
+        for i in range(slice_grid[1] * slice_grid[2]):
+            ax = axes.flat[i]
+            edge = data[:, :, i]
+            mask = np.ones(edge.shape)
+            edge = feature.canny(edge, sigma=0.8)  # edge detection for second image
+            mask[edge == False] = np.nan
+            m_norm = colors.Normalize(vmin=0, vmax=1.5)
+            if i < slice_grid[0]:
+                ax.imshow(mask.T, origin='lower', interpolation='nearest', cmap=cmap, norm=m_norm, alpha=0.8)
+            else:
+                ax.imshow(np.zeros((dim[0], dim[1])).T, origin='lower', interpolation='nearest', cmap=cmap)
+        return fig
+
+    @staticmethod
+    def mosaic(imageobj, scale=15, norm=True, **kwargs):
         """function for generating mosaic figure
 
         :param img: nibabel object
         :param scale
+        :param norm
         :param kwargs
         :return:
         """
-        # if type(img) is nib.nifti1.Nifti1Image:
-        #     pass
-        # elif type(img) is str:
-        #     try:
-        #         img = nib.load(img)
-        #     except:
-        #         raise ImportError
-        dim = list(img.shape)
-        resol = list(img.header['pixdim'][1:4])
-        if len(dim) > 3:
-            data = np.asarray(img.dataobj)[..., 0]
-        else:
-            data = np.asarray(img.dataobj)
+        dim = list(imageobj.shape)
+        resol = list(imageobj.header['pixdim'][1:4])
+        # Convert 4D image to 3D or raise error
+        data = Internal.convert_to_3d(imageobj)
         # Check normalization
         if norm:
-            p2 = np.percentile(data, 2)
-            p98 = np.percentile(data, 98)
-            data = exposure.rescale_intensity(data, in_range=(p2, p98))
-        else:
-            pass
-        slice_axis = int(np.argmin(data.shape))
-        if kwargs:
-            for arg in kwargs.keys():
-                if arg == 'slice_axis':
-                    slice_axis = kwargs[arg]
-        num_of_slice = dim[slice_axis]
-        num_height = int(np.sqrt(num_of_slice))
-        num_width = int(round(num_of_slice / num_height))
-        resol[2], resol[slice_axis] = resol[slice_axis], resol[2]
-        dim[2], dim[slice_axis] = dim[slice_axis], dim[2]
-        size_height = num_height * dim[1] * resol[1] * scale / max(dim)
-        size_width = num_width * dim[0] * resol[0] * scale / max(dim)
-        fig, axes = plt.subplots(num_height, num_width, figsize=(size_width, size_height))
-        cmap = 'gray'
-        data = np.swapaxes(data, slice_axis, 2)
+            data = Internal.apply_p2_98(data)
+        # Set slice axis for mosaic grid
+        slice_axis, cmap = Internal.check_sliceaxis_cmap(imageobj, kwargs)
+        # Set grid shape
+        data, slice_grid, size = Internal.set_mosaic_fig(data, dim, resol, slice_axis, scale)
+        fig, axes = plt.subplots(slice_grid[1], slice_grid[2], figsize=(size[0], size[1]))
+        # Applying inversion
         invert = Internal.check_invert(kwargs)
         data = Internal.apply_invert(data, *invert)
-        for i in range(num_height*num_width):
+        # Plot image
+        for i in range(slice_grid[1] * slice_grid[2]):
             ax = axes.flat[i]
-            if i < num_of_slice:
+            if i < slice_grid[0]:
                 ax.imshow(data[:, :, i].T, origin='lower', interpolation='nearest', cmap=cmap)
             else:
                 ax.imshow(np.zeros((dim[0], dim[1])).T, origin='lower', interpolation='nearest', cmap=cmap)
@@ -185,57 +184,75 @@ class Viewer(object):
         return fig, axes
 
     @staticmethod
-    def atlas(template, roi, scale=1, **kwargs):
+    def check_mask(imageobj, maskobj, scale=15, **kwargs):
+        # Parsing the information
+        dim = list(maskobj.shape)
+        resol = list(maskobj.header['pixdim'][1:4])
+        num_roi = np.max(maskobj.dataobj)
+        # Set slice axis for mosaic grid
+        slice_axis, cmap = Internal.check_sliceaxis_cmap(maskobj, kwargs)
+        # Set grid shape
+        data, slice_grid, size = Internal.set_mosaic_fig(maskobj.dataobj, dim, resol, slice_axis, scale)
+        # Applying inversion
+        invert = Internal.check_invert(kwargs)
+        data = Internal.apply_invert(data, *invert)
+        try:
+            fig, axes = Viewer.mosaic(imageobj, scale=scale, **kwargs)
+        except:
+            raise error.InputObjectError
+        # Make transparent
+        data = data.astype(float)
+        data[data == 0] = np.nan
+        # Plot image
+        for i in range(slice_grid[1] * slice_grid[2]):
+            ax = axes.flat[i]
+            ax.imshow(data[:, :, i].T, origin='lower', interpolation='nearest', cmap='PuRd_r')
+            ax.set_axis_off()
+        return fig
+
+    @staticmethod
+    def atlas(tempobj, atlasobj, scale=15, **kwargs):
+        # Check argument for legend generation
         legend = False
         if kwargs:
             for arg in kwargs.keys():
                 if arg == 'legend':
                     legend = kwargs[arg]
-        if type(roi) is nib.nifti1.Nifti1Image or Image:
-            atlas = np.asarray(roi.dataobj)
-            number_of_rois = np.max(atlas)
-            list_of_rois = range(number_of_rois)
-        elif type(roi) is str:
-            atlas = None
-            if os.path.isfile(roi):
-                atlas = nib.load(roi).get_data()
-                number_of_rois = np.max(atlas)
-                list_of_rois = range(number_of_rois)
-            elif os.path.isdir(roi):
-                list_of_rois = [img for img in os.listdir(roi) if '.nii' in img]
-                number_of_rois = len(list_of_rois)
-                for idx, img in enumerate(list_of_rois):
-                    if not idx:
-                        atlas = np.asarray(nib.load(os.path.join(roi, img)).dataobj)
-                    else:
-                        atlas += np.asarray(nib.load(os.path.join(roi, img)).dataobj) * (idx + 1)
-            else:
-                raise ImportError
-        else:
-            raise ImportError
-        slice_axis = int(np.argmin(atlas.shape))
-        num_slice = atlas.shape[slice_axis]
-        fig, axes = Viewer.mosaic(template, scale, **kwargs)
-        atlas = np.swapaxes(atlas, slice_axis, 2)
-        atlas = atlas.astype(float)
-        atlas[atlas == 0] = np.nan
+        # Parsing the information
+        try:
+            atlas = atlasobj.image
+            label = atlasobj.label
+        except:
+            raise error.InputObjectError
+        dim = list(atlas.shape)
+        resol = list(atlas.header['pixdim'][1:4])
+        # Set slice axis for mosaic grid
+        slice_axis, cmap = Internal.check_sliceaxis_cmap(atlas, kwargs)
+        # Set grid shape
+        data, slice_grid, size = Internal.set_mosaic_fig(atlas.dataobj, dim, resol, slice_axis, scale)
+        # Applying inversion
         invert = Internal.check_invert(kwargs)
-        atlas = Internal.apply_invert(atlas, *invert)
-        colors_for_rois = np.random.rand(int(number_of_rois), 3)
-        color_map = zip(list_of_rois, colors_for_rois)
-        color_map.insert(0, ('background', [0, 0, 0]))
-        bounds = np.linspace(0, number_of_rois+1, number_of_rois+1)
-        norm = colors.BoundaryNorm(boundaries=bounds, ncolors=len(colors_for_rois+1))
-        cmap = colors.ListedColormap(colors_for_rois, 'indexed')
-        for i in range(num_slice):
+        data = Internal.apply_invert(data, *invert)
+        try:
+            fig, axes = Viewer.mosaic(tempobj, scale=scale, **kwargs)
+        except:
+            raise error.InputObjectError
+        # Make transparent
+        data = data.astype(float)
+        data[data == 0] = np.nan
+        number_of_rois = len(label.keys())
+        colors_for_rois = [label[idx][1] for idx in label.keys()]
+        bounds = np.linspace(0, number_of_rois, number_of_rois)
+        norm = colors.BoundaryNorm(boundaries=bounds, ncolors=number_of_rois)
+        cmap = colors.ListedColormap(colors_for_rois[1:], 'indexed')
+        # Plot image
+        for i in range(slice_grid[1] * slice_grid[2]):
             ax = axes.flat[i]
-            ax.imshow(atlas[:, :, i].T, origin='lower', interpolation='nearest', norm=norm, cmap=cmap)
+            ax.imshow(data[:, :, i].T, origin='lower', interpolation='nearest', norm=norm, cmap=cmap)
             ax.set_axis_off()
-        if legend: # TODO: Colormap is not matched
-
-            n = len(color_map)
+        if legend:
             ncols = 2
-            nrows = int(np.ceil(1. * n / ncols))
+            nrows = int(np.ceil(1. * (number_of_rois-1) / ncols))
             height = nrows * scale * 0.04
             width = ncols * scale * 0.5
             fig_leg, axes_leg = plt.subplots(figsize=(width, height))
@@ -244,19 +261,21 @@ class Viewer(object):
             h = Y / (nrows + 1)
             # col width
             w = X / ncols
-            for i, (name, color) in enumerate(color_map[1:]):
-                col = i % ncols
-                row = int(i / ncols)
-                y = Y - (row * h) - h
-                xi_line = w * (col + 0.05)
-                xf_line = w * (col + 0.25)
-                xi_text = w * (col + 0.3)
-                name = os.path.splitext(name)[0]
-                axes_leg.text(xi_text, y, name, fontsize=(h * 0.5),
-                              horizontalalignment='left',
-                              verticalalignment='center')
-                axes_leg.hlines(y, xi_line, xf_line, color='black', linewidth=(h * 0.7))
-                axes_leg.hlines(y + h * 0.1, xi_line, xf_line, color=color, linewidth=(h * 0.6))
+            for idx in label.keys():
+                if idx == 0:
+                    pass
+                else:
+                    col = (idx - 1)% ncols
+                    row = int((idx - 1) / ncols)
+                    y = Y - (row * h) - h
+                    xi_line = w * (col + 0.05)
+                    xf_line = w * (col + 0.15)
+                    xi_text = w * (col + 0.2)
+                    axes_leg.text(xi_text, y, label[idx][0], fontsize=(1 * scale),
+                                  horizontalalignment='left',
+                                  verticalalignment='center')
+                    axes_leg.hlines(y, xi_line, xf_line, color='black', linewidth=(h * 0.2))
+                    axes_leg.hlines(y + h * 0.05, xi_line, xf_line, color=label[idx][1], linewidth=(h * 0.2))
             axes_leg.set_xlim(0, X)
             axes_leg.set_ylim(0, Y)
             axes_leg.set_axis_off()
@@ -268,4 +287,42 @@ class Viewer(object):
             return fig
 
 
+class Plot(object):
+    @staticmethod
+    def tsplot(dataframe, norm=True, **kwargs):
+        if norm:
+            dataframe = Internal.linear_norm(dataframe, 0, 1)
+        ax = sns.tsplot(dataframe.T.values, err_style='ci_band', **kwargs)
 
+    @staticmethod
+    def heatmap(dataframe, half=True, **kwargs):
+        if half:
+            mask = np.zeros_like(dataframe.corr())
+            mask[np.triu_indices_from(mask)] = True
+        else:
+            mask = None
+        with sns.axes_style("white"):
+            ax = sns.heatmap(np.arctanh(dataframe.corr()), mask=mask, vmin=-2, vmax=2, cmap='RdBu_r', square=True, **kwargs)
+            ax.set_xticklabels(ax.xaxis.get_majorticklabels(), rotation=45)
+            ax.set_yticklabels(ax.yaxis.get_majorticklabels(), rotation=45)
+
+    @staticmethod
+    def rcorrplot(dataframe, filename=None, scale=1, mixed=None, **kwargs):
+        # get R objects
+        corrplot = importr('corrplot')
+        grdevices = importr('grDevices')
+        as_matrix = robj.globalenv.get("as.matrix")
+        # Parsing arguments
+        if not filename:
+            filename = u'.cache/_corrplot.png'
+            Internal.mkdir('.cache')
+        size = np.array([512, 512])*scale
+        # generate figure
+        grdevices.png(file=filename, width=size[0], height=size[1])
+        M = as_matrix(dataframe.corr())
+        if mixed:
+            corrplot.corrplot_mixed(M, iscorr=False, **kwargs)
+        else:
+            corrplot.corrplot(M, **kwargs)
+        grdevices.dev_off()
+        display(Image(filename=filename))

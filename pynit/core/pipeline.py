@@ -3,6 +3,7 @@ import time
 from os.path import join
 
 import process
+import error
 from .utility import Internal
 
 
@@ -10,7 +11,7 @@ class Pipeline(process.Pipeline):
     def __init__(self, obj):
         super(Pipeline, self).__init__(obj)
 
-    def _pipe_MakeStudySpecificTemplate(self, template, anat, func, cbv=None):
+    def _pipe_MakeStudySpecificTemplate(self, tempobj, anat, func, cbv=None):
         """Pipeline to build study specific template based on provided template
         * This pipeline has been build to use Manual skull stripping. The automateone should be included later
 
@@ -21,6 +22,16 @@ class Pipeline(process.Pipeline):
         cbv:        boolean
             If cbv is True, the pipeline run for contrast injected images,
         """
+        self.prj.reset()
+        # Check template path
+        if type(tempobj) is not str:
+            try:
+                template = tempobj.image.get_filename()
+            except:
+                raise error.InputPathError
+        else:
+            template = tempobj
+
         # Step 01. Motion Correction
         command = 'afni_3dvolreg'
         if cbv:
@@ -30,40 +41,44 @@ class Pipeline(process.Pipeline):
             step01 = self('MotionCorrection-{}'.format(func), command, **kwargs)
 
             # Step 02. Calculate mean image for BOLD and CBV
-            command = 'shihlab_cal_mean_cbv'
-            kwargs = {'filters': [step01],
-                      'postfix_bold': 'BOLD',
+            command = 'cal_mean_cbv'
+            kwargs = {'dc_id': 1,
+                      'filters': [step01],
+                      'postfix_bold': 'bold',
                       'postfix_cbv': func}
             step02 = self('MeanImage-{}_and_{}'.format(func, 'BOLD'), command, **kwargs)
         else:
-            kwargs = {'dc_id': 0, 'filters': [func]}
+            kwargs = {'dc_id': 0,
+                      'filters': [func],
+                      'file_index': 1}
             step01 = self('MotionCorrection-{}'.format(func), command, **kwargs)
 
             # Step 02. Calculate mean image for BOLD and CBV
-            command = 'shihlab_cal_mean_cbv'
-            kwargs = {'filters': [step01]}
-            step02 = self('MeanImage-{}'.format(func, 'BOLD'), command, **kwargs)
+            command = 'cal_mean'
+            kwargs = {'dc_id': 1,
+                      'filters': [step01]}
+            step02 = self('MeanImage-{}'.format(func), command, **kwargs)
 
-        # Step 03. Copy functional image to step03 folder for masking TODO: Need to develop feasible automate mask!
-        command = 'shihlab_copyfile'
-        kwargs = {'filters': [step02, {'file_tag': 'BOLD'}]}
+        # Step 03. Copy functional image to step03 folder for masking
+        command = 'copyfile'
+        kwargs = {'dc_id': 1, 'filters': [step02, {'file_tag': 'bold'}]}
         step03 = self('MaskDrawing-func', command, **kwargs)
 
         # Step 04. Copy anatomical image to step04 folder for masking
-        command = 'shihlab_copyfile'
+        command = 'copyfile'
         kwargs = {'dc_id': 0, 'filters': [anat]}
         step04 = self('MaskDrawing-anat', command, **kwargs)
 
         # Request Mask Generation TODO: Put it Message class (Pipeline sometime need to use message anyway)
         start_time = time.time()
         mask_files = self.prj.copy()
-        mask_files.set_filters(mask_files.ds_type[1], step03, file_tag='_mask')
-        self.set_filters(step03, ignore='_mask')
-        step03_mask = len(mask_files())
+        mask_files.set_filters(1, step03, file_tag='_mask')
+        self.set_filters(1, step03, ignore='_mask')
+        step03_mask = len(mask_files.df)
         step03_func = len(self.prj.df)
-        mask_files.set_filters(mask_files.ds_type[1], step04, file_tag='_mask')
-        self.set_filters(step04, ignore='_mask')
-        step04_mask = len(mask_files())
+        mask_files.set_filters(1, step04, file_tag='_mask')
+        self.set_filters(1, step04, ignore='_mask')
+        step04_mask = len(mask_files.df)
         step04_anat = len(self.prj.df)
         if (step03_mask + step04_mask) == 0:
             print("\nPlease put the brain mask with suffix '_mask' folder.\n"

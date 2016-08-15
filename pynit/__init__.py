@@ -1,4 +1,2 @@
-from .core import Pipeline, Pipeline, Viewer, Interface, Internal
+from .core import *
 load = Internal.load
-
-__all__ = ['Project', 'Pipeline', 'Viewer', 'Interface', 'Internal']

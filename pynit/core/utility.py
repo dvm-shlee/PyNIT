@@ -2,7 +2,7 @@ from __future__ import print_function
 
 # Command execution
 import os
-from os.path import join
+import re
 
 import shlex as shl
 import shutil
@@ -18,51 +18,87 @@ except ImportError:
 
 import pandas as pd
 import nibabel as nib
+import nibabel.affines as affns
 import numpy as np
+from skimage import exposure
 
 import objects
+import error
 
 
 class Internal(object):
+    """ Internal utility for PyNIT package
+    """
+    # ImageObject handler collection
     @staticmethod
-    def gen_affine(resol=[1, 1, 1], coord=[0, 0, 0]):
-        affine = nib.affines.from_matvec(np.diag(resol), coord)
-        return affine
+    def reset_orient(imageobj, affine):
+        """ Reset to the original scanner space
+
+        :param imageobj:
+        :param affine:
+        :return:
+        """
+        imageobj.set_qform(affine)
+        imageobj.set_sform(affine)
+        imageobj.header['sform_code'] = 0
+        imageobj.header['qform_code'] = 1
+        imageobj._affine = affine
+
+    @staticmethod
+    def swap_axis(imageobj, axis1, axis2):
+        """ Swap axis of image object
+
+        :param imageobj:
+        :param axis1:
+        :param axis2:
+        :return:
+        """
+        resol, origin = affns.to_matvec(imageobj.get_affine())
+        resol = np.diag(resol).copy()
+        origin = origin
+        imageobj._dataobj = np.swapaxes(imageobj._dataobj, axis1, axis2)
+        resol[axis1], resol[axis2] = resol[axis2], resol[axis1]
+        origin[axis1], origin[axis2] = origin[axis2], origin[axis1]
+        affine = affns.from_matvec(np.diag(resol), origin)
+        Internal.reset_orient(imageobj, affine)
 
     @staticmethod
     def load(filename):
+        """ Load imagefile
+
+        :param filename:
+        :return:
+        """
         if '.nii' in filename:
             img = objects.Image.load(filename)
         elif '.mha' in filename:
             try:
                 mha = sitk.ReadImage(filename)
             except:
-                raise ImportError('SimpleITK package is not imported.')
+                raise error.ImportItkFailure
             data = sitk.GetArrayFromImage(mha)
             resol = mha.GetSpacing()
             origin = mha.GetOrigin()
-            affine = nib.affines.from_matvec(np.diag(resol), origin)
+            affine = affns.from_matvec(np.diag(resol), origin)
             img = objects.Image(data, affine)
         else:
-            raise IOError('File cannot be loaded')
+            raise error.InputPathError
         return img
 
     @staticmethod
-    def set_viewaxes(axes):
-        ylim = axes.get_ylim()
-        xlim = axes.get_xlim()
-        axes.set_ylabel('L', rotation=0, fontsize=20)
-        axes.set_xlabel('I', fontsize=20)
-        axes.tick_params(labeltop=True, labelright=True, labelsize=8)
-        axes.grid(False)
-        axes.text(xlim[1]/2, ylim[1] * 1.1, 'P', fontsize=20)
-        axes.text(xlim[1]*1.1, sum(ylim)/2*1.05, 'R', fontsize=20)
-        return axes
+    def down_reslice(imageobj, ac_slice, ac_loc, slice_thickness, total_slice, axis=2):
+        """ Reslicing
 
-    @staticmethod
-    def down_reslice(obj, ac_slice, ac_loc, slice_thickness, total_slice, axis=2):
-        data = np.asarray(obj.dataobj)
-        resol, origin = nib.affines.to_matvec(obj.affine)
+        :param imageobj:
+        :param ac_slice:
+        :param ac_loc:
+        :param slice_thickness:
+        :param total_slice:
+        :param axis:
+        :return:
+        """
+        data = np.asarray(imageobj.dataobj)
+        resol, origin = affns.to_matvec(imageobj.affine)
         resol = np.diag(resol).copy()
         scale = float(slice_thickness) / resol[axis]
         resol[axis] = slice_thickness
@@ -71,20 +107,25 @@ class Internal(object):
             idx.append(ac_slice - int((ac_loc - i) * scale))
         for i in range(total_slice - ac_loc):
             idx.append(ac_slice + int(i * scale))
-        print(idx)
-        return data[:, :, idx]
+        imageobj._dataobj = data[:, :, idx]
+        affine, origin = affns.to_matvec(imageobj.affine)
+        affine = np.diag(affine)
+        affine[axis] = slice_thickness
+        affine_mat = affns.from_matvec(np.diag(affine), origin)
+        imageobj._affine = affine_mat
+        imageobj.set_qform(affine_mat)
+        imageobj.set_sform(affine_mat)
+        imageobj.header['sform_code'] = 0
+        imageobj.header['qform_code'] = 1
 
     @staticmethod
-    def get_timetrace(obj, maskobj, idx=1):
-        data = np.asarray(obj.dataobj)
-        data.flatten()
-        mask = np.asarray(maskobj.dataobj)
-        mask[mask!=idx] = False
-        data = data[mask]
-        return data
+    def crop(imageobj, **kwargs):
+        """ Crop
 
-    @staticmethod
-    def crop(obj, **kwargs):
+        :param imageobj:
+        :param kwargs:
+        :return:
+        """
         x = None
         y = None
         z = None
@@ -120,13 +161,135 @@ class Internal(object):
                 raise TypeError
         else:
             t = [None, None]
-        if len(obj.shape) == 3:
-            obj._dataobj = obj._dataobj[x[0]:x[1], y[0]:y[1], z[0]:z[1]]
-        if len(obj.shape) == 4:
-            obj._dataobj = obj._dataobj[x[0]:x[1], y[0]:y[1], z[0]:z[1], t[0]:t[1]]
+        if len(imageobj.shape) == 3:
+            imageobj._dataobj = imageobj._dataobj[x[0]:x[1], y[0]:y[1], z[0]:z[1]]
+        if len(imageobj.shape) == 4:
+            imageobj._dataobj = imageobj._dataobj[x[0]:x[1], y[0]:y[1], z[0]:z[1], t[0]:t[1]]
+
+    @staticmethod
+    def set_center(imageobj, corr):
+        """ Applying center corrdinate to the object
+        """
+        resol, origin = affns.to_matvec(imageobj.affine)
+        affine = affns.from_matvec(resol, corr)
+        Internal.reset_orient(imageobj, affine)
+
+    # TemplateObject handler collection
+    @staticmethod
+    def remove_nifti_ext(path):
+        """ Remove extension
+
+        :param path:
+        :return:
+        """
+        filename = os.path.splitext(path)[0]
+        if '.nii' in filename:
+            filename = os.path.splitext(filename)[0]
+        return filename
+
+    @staticmethod
+    def parsing_atlas(path):
+        """ Parsing atlas imageobj and label
+
+        :param path:
+        :return:
+        """
+        label = dict()
+        affine = list()
+        if os.path.isdir(path):
+            atlasdata = None
+            list_of_rois = [img for img in os.listdir(path) if '.nii' in img]
+            rgbs = np.random.rand(len(list_of_rois), 3)
+            label[0] = 'Clear Label', [.0, .0, .0]
+
+            for idx, img in enumerate(list_of_rois):
+                imageobj = objects.Image.load(os.path.join(path, img))
+                affine.append(imageobj.affine)
+                if not idx:
+                    atlasdata = np.asarray(imageobj.dataobj)
+                else:
+                    atlasdata += np.asarray(imageobj.dataobj) * (idx + 1)
+                label[idx+1] = Internal.remove_nifti_ext(img), rgbs[idx]
+            atlas = objects.Image(atlasdata, affine[0])
+        elif os.path.isfile(path):
+            atlas = objects.Image.load(path)
+            if '.nii' in path:
+                filepath = os.path.basename(Internal.remove_nifti_ext(path))
+                dirname = os.path.dirname(path)
+                for f in os.listdir(dirname):
+                    if '.lbl' in f:
+                        filepath = os.path.join(dirname, "{}.lbl".format(filepath))
+                    elif '.label' in f:
+                        filepath = os.path.join(dirname, "{}.label".format(filepath))
+                    else:
+                        filepath = filepath
+                if filepath == os.path.basename(Internal.remove_nifti_ext(path)):
+                    raise error.NoLabelFile
+            else:
+                raise error.NoLabelFile
+            pattern = r'^\s+(?P<idx>\d+)\s+(?P<R>\d+)\s+(?P<G>\d+)\s+(?P<B>\d+)\s+' \
+                      r'(\d+|\d+\.\d+)\s+\d+\s+\d+\s+"(?P<roi>.*)$'
+            with open(filepath, 'r') as labelfile:
+                for line in labelfile:
+                    if re.match(pattern, line):
+                        idx = int(re.sub(pattern, r'\g<idx>', line))
+                        roi = re.sub(pattern, r'\g<roi>', line)
+                        roi = roi.split('"')[0]
+                        rgb = re.sub(pattern, r'\g<R>\s\g<G>\s\g<B>', line)
+                        rgb = rgb.split(r'\s')
+                        rgb = np.array(map(float, rgb))/255
+                        label[idx] = roi, rgb
+        else:
+            raise error.InputPathError
+        return atlas, label
+
+    @staticmethod
+    def save_label(label, filename):
+        """ Save label instance to file
+
+        :param label:
+        :param filename:
+        :return:
+        """
+        with open(filename, 'w') as f:
+            line = list()
+            for idx in label.keys():
+                roi, rgb = label[idx]
+                rgb = np.array(rgb) * 255
+                rgb = rgb.astype(int)
+                if idx == 0:
+                    line = '{:>5}   {:>3}  {:>3}  {:>3}        0  0  0    "{}"\n'.format(idx, rgb[0], rgb[1], rgb[2],
+                                                                                         roi)
+                else:
+                    line = '{}{:>5}   {:>3}  {:>3}  {:>3}        1  1  0    "{}"\n'.format(line, idx, rgb[0], rgb[1],
+                                                                                           rgb[2], roi)
+            f.write(line)
+
+    # Viewer handler collection
+    @staticmethod
+    def set_viewaxes(axes):
+        """ Set View Axes
+
+        :param axes:
+        :return:
+        """
+        ylim = axes.get_ylim()
+        xlim = axes.get_xlim()
+        axes.set_ylabel('L', rotation=0, fontsize=20)
+        axes.set_xlabel('I', fontsize=20)
+        axes.tick_params(labeltop=True, labelright=True, labelsize=8)
+        axes.grid(False)
+        axes.text(xlim[1]/2, ylim[1] * 1.1, 'P', fontsize=20)
+        axes.text(xlim[1]*1.1, sum(ylim)/2*1.05, 'R', fontsize=20)
+        return axes
 
     @staticmethod
     def check_invert(kwargs):
+        """ Check image invertion
+
+        :param kwargs:
+        :return:
+        """
         invertx = False
         inverty = False
         invertz = False
@@ -142,6 +305,12 @@ class Internal(object):
 
     @staticmethod
     def apply_invert(data, *invert):
+        """ Apply image invertion
+
+        :param data:
+        :param invert:
+        :return:
+        """
         if invert[0]:
             data = nib.orientations.flip_axis(data, axis=0)
         if invert[1]:
@@ -151,20 +320,183 @@ class Internal(object):
         return data
 
     @staticmethod
+    def convert_to_3d(imageobj):
+        """ Reduce demension to 3D
+
+        :param imageobj:
+        :return:
+        """
+        dim = len(imageobj.shape)
+        if dim == 4:
+            data = np.asarray(imageobj.dataobj)[..., 0]
+        elif dim == 3:
+            data = np.asarray(imageobj.dataobj)
+        else:
+            raise error.ImageDimentionMismatched
+        return data
+
+    @staticmethod
+    def apply_p2_98(data):
+        """ Image normalization
+
+        :param data:
+        :return:
+        """
+        p2 = np.percentile(data, 2)
+        p98 = np.percentile(data, 98)
+        data = exposure.rescale_intensity(data, in_range=(p2, p98))
+        return data
+
+    @staticmethod
+    def set_mosaic_fig(data, dim, resol, slice_axis, scale):
+        """ Set environment for mosaic figure
+
+        :param data:
+        :param dim:
+        :param resol:
+        :param slice_axis:
+        :param scale:
+        :return:
+        """
+        num_of_slice = dim[slice_axis]
+        num_height = int(np.sqrt(num_of_slice))
+        num_width = int(round(num_of_slice / num_height))
+        # Swap axis
+        data = np.swapaxes(data, slice_axis, 2)
+        resol[2], resol[slice_axis] = resol[slice_axis], resol[2]
+        dim[2], dim[slice_axis] = dim[slice_axis], dim[2]
+        # Check the size of each slice
+        size_height = num_height * dim[1] * resol[1] * scale / max(dim)
+        size_width = num_width * dim[0] * resol[0] * scale / max(dim)
+        # Figure generation
+        slice_grid = [num_of_slice, num_height, num_width]
+        size = [size_width, size_height]
+        return data, slice_grid, size
+
+    @staticmethod
+    def check_sliceaxis_cmap(imageobj, kwargs):
+        """ Check sliceaxis (minimal number os slice) and cmap
+
+        :param imageobj:
+        :param kwargs:
+        :return:
+        """
+        slice_axis = int(np.argmin(imageobj.shape))
+        cmap = 'gray'
+        for arg in kwargs.keys():
+            if arg == 'slice_axis':
+                slice_axis = kwargs[arg]
+            if arg == 'cmap':
+                cmap = kwargs[arg]
+        return slice_axis, cmap
+
+    @staticmethod
+    def check_slice(dataobj, axis, slice_num):
+        """ Check initial slice number to show
+
+        :param dataobj:
+        :param axis:
+        :param slice_num:
+        :return:
+        """
+        if slice_num:
+            slice_num = slice_num
+        else:
+            slice_num = dataobj.shape[axis]/2
+        return slice_num
+
+    @staticmethod
+    def linear_norm(data, new_min, new_max):
+        """Linear normalization of the grayscale digital image
+        """
+        return (data - np.min(data)) * (new_max - new_min) / (np.max(data) - np.min(data)) - new_min
+
+    @staticmethod
     def path_splitter(path):
         """Split path structure into list
-
-        Parameters
-        ----------
-        path:   str
-            Absolute path
-
-        Returns
-        -------
-        list
         """
         return path.strip(os.sep).split(os.sep)
 
+    # Analysis handler collection
+    @staticmethod
+    def mask_average(imageobj, maskobj):
+        """ Mask average timeseries
+
+        :param imageobj:
+        :param maskobj:
+        :return:
+        """
+        newshape = reduce(lambda x, y: x*y, imageobj.shape[:3])
+        data = imageobj.get_data()
+        data = data.reshape(newshape, data.shape[3])
+        mask = maskobj.get_data().reshape(newshape)
+        mask = np.expand_dims(mask, axis=1)
+        mask = np.repeat(mask, data.shape[1], axis=1)
+        output = np.ma.masked_where(mask == 0, data)
+        return pd.Series(np.ma.average(output, axis=0))
+
+    @staticmethod
+    def parsing_timetrace(imageobj, tempobj, **kwargs):
+        """ Parsing timetrace from imageobj, with multiple rois
+
+        :param imageobj:
+        :param tempobj:
+        :param kwargs:
+        :return:
+        """
+        df = pd.DataFrame()
+        for idx in tempobj.label.keys():
+            if idx:
+                roi, maskobj = tempobj[idx]
+                col = Internal.mask_average(imageobj, maskobj)
+                df[roi] = col
+        return df
+
+    @staticmethod
+    def cal_mean_cbv(output_path, input_path, postfix_bold='BOLD', postfix_cbv='CBV', *args):
+        """ Calculate cbv
+
+        :param output_path:
+        :param input_path:
+        :param postfix_bold:
+        :param postfix_cbv:
+        :return:
+        """
+        # Get average images from MION injection scan
+        fname_bold = '{}_{}.nii'.format(os.path.splitext(output_path)[0], postfix_bold)
+        fname_cbv = '{}_{}.nii'.format(os.path.splitext(output_path)[0], postfix_cbv)
+        if os.path.exists(fname_bold) and os.path.exists(fname_cbv):
+            pass
+        else:
+            img = nib.load(input_path)
+            affn = img.get_affine()
+            img = img.get_data()
+            total_tr = img.shape[3]
+
+            epi_bold = np.average(img[:, :, :, :int(total_tr / 3)], 3)
+            epi_cbv = np.average(img[:, :, :, total_tr - int(total_tr / 3):], 3)
+
+            nii_bold = nib.Nifti1Image(epi_bold, affn)
+            nii_cbv = nib.Nifti1Image(epi_cbv, affn)
+
+            nii_bold.to_filename(fname_bold)
+            nii_cbv.to_filename(fname_cbv)
+
+    @staticmethod
+    def cal_mean(output_path, input_path, *args):
+        """ Calculate average
+
+        :param output_path:
+        :param input_path:
+        :return:
+        """
+        img = nib.load(input_path)
+        affn = img.get_affine()
+        mean = np.average(img.get_data(), axis=3)
+        nii_mean = nib.Nifti1Image(mean, affn)
+        nii_mean.to_filename(output_path)
+
+    # Project Handler collection
     @staticmethod
     def parsing(path, ds_type, idx):
         """Parsing the data information based on input data class
@@ -182,12 +514,12 @@ class Internal(object):
         single_session = False
         empty_prj = False
         df = pd.DataFrame()
-        for f in os.walk(join(path, ds_type[idx])):
+        for f in os.walk(os.path.join(path, ds_type[idx])):
             if f[2]:
                 for filename in f[2]:
                     row = pd.Series(Internal.path_splitter(os.path.relpath(f[0], path)))
                     row['Filename'] = filename
-                    row['Abspath'] = join(f[0], filename)
+                    row['Abspath'] = os.path.join(f[0], filename)
                     df = df.append(pd.DataFrame([row]), ignore_index=True)
         if idx == 0:
             if len(df.columns) is 5:
@@ -227,6 +559,12 @@ class Internal(object):
 
     @staticmethod
     def reorder_columns(idx, single_session):
+        """ reorder the project columns
+
+        :param idx:
+        :param single_session:
+        :return:
+        """
         if idx == 0:
             if single_session:
                 return ['Subject', 'DataType', 'Filename', 'Abspath']
@@ -285,7 +623,9 @@ class Internal(object):
     def mk_main_folder(prj):
         """Make processing and results folders
         """
-        Internal.mkdir(join(prj.path, prj.ds_type[0]), join(prj.path, prj.ds_type[1]), join(prj.path, prj.ds_type[2]))
+        Internal.mkdir(os.path.join(prj.path, prj.ds_type[0]),
+                       os.path.join(prj.path, prj.ds_type[1]),
+                       os.path.join(prj.path, prj.ds_type[2]))
 
     @staticmethod
     def check_merged_output(args):
@@ -314,7 +654,7 @@ class Internal(object):
             if len(pipeline_inst.done):
                 last_step = []
                 # Check the folder of last step if the step has been processed or not
-                for f in os.walk(join(pipeline_inst.path, pipeline_inst.done[-1])):
+                for f in os.walk(os.path.join(pipeline_inst.path, pipeline_inst.done[-1])):
                     last_step.extend(f[2])
                 fin_list = [s for s in pipeline_inst.done if step in s]
                 # Check if the step name is overlapped or not
@@ -340,50 +680,14 @@ class Internal(object):
                 pass
 
     @staticmethod
-    def shihlab_cal_mean_cbv(output_path, input_path, postfix_bold='BOLD', postfix_cbv='CBV', *args, **kwargs):
-        # Get average images from MION injection scan
-        merged_output, args = Internal.check_merged_output(args)
-        if merged_output:
-            return None
-        else:
-            fname_bold = '{}_{}.nii'.format(os.path.splitext(output_path)[0], postfix_bold)
-            fname_cbv = '{}_{}.nii'.format(os.path.splitext(output_path)[0], postfix_cbv)
-            if os.path.exists(fname_bold) and os.path.exists(fname_cbv):
-                pass
-            else:
-                img = nib.load(input_path)
-                affn = img.get_affine()
-                img = img.get_data()
-                total_tr = img.shape[3]
+    def copyfile(output_path, input_path, *args):
+        """ Copy File
 
-                epi_bold = np.average(img[:, :, :, :int(total_tr / 3)], 3)
-                epi_cbv = np.average(img[:, :, :, total_tr - int(total_tr / 3):], 3)
-
-                nii_bold = nib.Nifti1Image(epi_bold, affn)
-                nii_cbv = nib.Nifti1Image(epi_cbv, affn)
-
-                nii_bold.to_filename(fname_bold)
-                nii_cbv.to_filename(fname_cbv)
-
-    @staticmethod
-    def shihlab_cal_mean(output_path, input_path, *args, **kwargs):
-        merged_output, args = Internal.check_merged_output(args)
-        if merged_output:
-            return None
-        else:
-            img = nib.load(input_path)
-            affn = img.get_affine()
-            mean = np.average(img.get_data(), axis=3)
-            nii_mean = nib.Nifti1Image(mean, affn)
-            nii_mean.to_filename(output_path)
-
-    @staticmethod
-    def shihlab_copyfile(output_path, input_path, *args, **kwargs):
-        merged_output, args = Internal.check_merged_output(args)
-        if merged_output:
-            return None
-        else:
-            shutil.copyfile(input_path, output_path)
+        :param output_path:
+        :param input_path:
+        :return:
+        """
+        shutil.copyfile(input_path, output_path)
 
 
 class Interface(object):
@@ -399,7 +703,7 @@ class Interface(object):
 
     # Afni commands
     @staticmethod
-    def afni_3dTshift(output_path, input_path, tr=None, tpattern=None, *args, **kwargs):
+    def afni_3dTshift(output_path, input_path, tr=None, tpattern=None, *args):
         """
         Handler for 3dTshift (Slice timing correction tool of AFNI package)
 
@@ -417,21 +721,17 @@ class Interface(object):
         bool
             True if successful, False otherwise
         """
-        merged_output, args = Internal.check_merged_output(args)
-        if merged_output:
-            return None
-        else:
-            cmd = ['3dTshift', '-prefix', output_path]
-            if tr:
-                cmd.extend(['-TR', str(tr)])
-            if tpattern:
-                cmd.extend(['-tpattern', tpattern])
-            cmd.append(input_path)
-            cmd = list2cmdline(cmd)
-            call(shl.split(cmd))
+        cmd = ['3dTshift', '-prefix', output_path]
+        if tr:
+            cmd.extend(['-TR', str(tr)])
+        if tpattern:
+            cmd.extend(['-tpattern', tpattern])
+        cmd.append(input_path)
+        cmd = list2cmdline(cmd)
+        call(shl.split(cmd))
 
     @staticmethod
-    def afni_3dvolreg(output_path, input_path, base_slice=0, *args, **kwargs):
+    def afni_3dvolreg(output_path, input_path, base_slice=0, *args):
         """Wrapper for 3dvolreg (Motion correction tool of AFNI package)
 
         Parameters
@@ -441,141 +741,117 @@ class Interface(object):
         input_path : str
         base_slice : str
         """
-        merged_output, args = Internal.check_merged_output(args)
-        if merged_output:
-            return None
-        else:
-            mpfile = os.path.splitext(output_path)[0] + '.1D'
-            tfmfile = os.path.splitext(output_path)[0]
-            cmd = ['3dvolreg', '-prefix', output_path, '-1Dfile', mpfile, '-1Dmatrix_save', tfmfile,
-                   '-Fourier', '-verbose', '-base', str(base_slice), input_path]
-            cmd = list2cmdline(cmd)
-            call(shl.split(cmd))
+        mpfile = os.path.splitext(output_path)[0] + '.1D'
+        tfmfile = os.path.splitext(output_path)[0]
+        cmd = ['3dvolreg', '-prefix', output_path, '-1Dfile', mpfile, '-1Dmatrix_save', tfmfile,
+               '-Fourier', '-verbose', '-base', '{}'.format(int(base_slice)), input_path]
+        cmd = list2cmdline(cmd)
+        call(shl.split(cmd))
 
     @staticmethod
-    def afni_3dAllineate(output_path, input_path, *args, **kwargs):
-        merged_output, args = Internal.check_merged_output(args)
-        if merged_output:
-            return None
-        else:
-            cmd = ['3dAllineate', '-prefix', output_path]
-            if kwargs:
-                for arg in kwargs.keys():
-                    if arg == 'matrix_apply':
-                        cmd.append('-1D{}'.format(arg))
-                        cmd.append(kwargs[arg])
-                    if arg == 'master':
-                        if arg == 'base':
-                            raise KeyError("'master' and 'base' arguments cannot be overlaped.")
-                        else:
-                            cmd.append('-{}'.format(arg))
-                            cmd.append(kwargs[arg])
+    def afni_3dAllineate(output_path, input_path, **kwargs):
+        cmd = ['3dAllineate', '-prefix', output_path]
+        if kwargs:
+            for arg in kwargs.keys():
+                if arg == 'matrix_apply':
+                    cmd.append('-1D{}'.format(arg))
+                    cmd.append(kwargs[arg])
+                if arg == 'master':
                     if arg == 'base':
-                        if arg == 'master':
-                            raise KeyError("'master' and 'base' arguments cannot be overlaped.")
-                        else:
-                            cmd.append('-{}'.format(arg))
-                            cmd.append(kwargs[arg])
-                    if arg == 'warp':
+                        raise error.ArgumentsOverlapped
+                    else:
                         cmd.append('-{}'.format(arg))
                         cmd.append(kwargs[arg])
-            else:
-                raise KeyError("")
-            cmd.append(input_path)
-            cmd = list2cmdline(cmd)
-            call(shl.split(cmd))
+                if arg == 'base':
+                    if arg == 'master':
+                        raise error.ArgumentsOverlapped
+                    else:
+                        cmd.append('-{}'.format(arg))
+                        cmd.append(kwargs[arg])
+                if arg == 'warp':
+                    cmd.append('-{}'.format(arg))
+                    cmd.append(kwargs[arg])
+        else:
+            raise KeyError("")
+        cmd.append(input_path)
+        cmd = list2cmdline(cmd)
+        call(shl.split(cmd))
 
     @staticmethod
-    def afni_3dcalc(output_path, expr, *args, **kwargs):
+    def afni_3dcalc(output_path, expr, *inputs):
         # AFNI image calculation (3dcalc)
-        merged_output, inputs = Internal.check_merged_output(args)
-        if merged_output:
-            cmd = ['3dcalc', '-prefix', output_path]
-            if inputs:
-                atoz = lc[:len(inputs)]
-                data = zip(atoz, inputs)
-                for abc, path in data:
-                    cmd.append('-' + abc)
-                    cmd.append(path)
-            else:
-                raise AttributeError("input data are not defined.")
-            cmd.append('-expr')
-            cmd.append("'{}'".format(expr))
-            cmd = list2cmdline(cmd)
-            call(shl.split(cmd))
+        cmd = ['3dcalc', '-prefix', output_path]
+        if inputs:
+            atoz = lc[:len(inputs)]
+            data = zip(atoz, inputs)
+            for abc, path in data:
+                cmd.append('-' + abc)
+                cmd.append(path)
         else:
-            return None
+            raise AttributeError("input data are not defined.")
+        cmd.append('-expr')
+        cmd.append("'{}'".format(expr))
+        cmd = list2cmdline(cmd)
+        call(shl.split(cmd))
 
     @staticmethod
-    def afni_3dMean(output_path, *args, **kwargs):
+    def afni_3dMean(output_path, *inputs):
         # AFNI 3dMean objects.Image calculator
-        merged_output, inputs = Internal.check_merged_output(args)
-        if merged_output:
-            cmd = ['3dMean', '-prefix', output_path]
-            cmd.extend(inputs)
-            cmd = list2cmdline(cmd)
-            call(shl.split(cmd))
-        else:
-            return None
+        cmd = ['3dMean', '-prefix', output_path]
+        cmd.extend(inputs)
+        cmd = list2cmdline(cmd)
+        call(shl.split(cmd))
 
     @staticmethod
     def afni_3dBandpass(output_path, input_path, norm=False, despike=False, mask=None, blur=False,
-                        band=False, dt='1', *args, **kwargs):
+                        band=False, dt='1', *args):
         # AFNI signal processing for resting state (3dBandpass)
-        merged_output, args = Internal.check_merged_output(args)
-        if merged_output:
-            return None
-        else:
-            cmd = ['3dBandpass', '-input', input_path, '-prefix', output_path]
-            if 'dt':
-                cmd.append('-dt')
-                cmd.append(dt)
-            if norm:
-                cmd.append('-norm')
-            if despike:
-                cmd.append('-despike')
-            if mask:
-                cmd.extend(['-mask', mask])
-            if blur:
-                cmd.extend(['-blur', blur])
-            if band:
-                cmd.append('-band')
-                cmd.extend(band)
-            cmd = list2cmdline(cmd)
-            call(shl.split(cmd))
+        cmd = ['3dBandpass', '-input', input_path, '-prefix', output_path]
+        if 'dt':
+            cmd.append('-dt')
+            cmd.append(dt)
+        if norm:
+            cmd.append('-norm')
+        if despike:
+            cmd.append('-despike')
+        if mask:
+            cmd.extend(['-mask', mask])
+        if blur:
+            cmd.extend(['-blur', blur])
+        if band:
+            cmd.append('-band')
+            cmd.extend(band)
+        cmd = list2cmdline(cmd)
+        call(shl.split(cmd))
 
     @staticmethod
-    def afni_3dmaskave(output_path, input_path, mask_path, *args, **kwargs):
+    def afni_3dmaskave(output_path, input_path, mask_path, *args):
         """ AFNI 3dmaskave command wrapper
 
         :return: list
             Average timeseries data from given ROI
 
         """
-        merged_output, args = Internal.check_merged_output(args)
-        if merged_output:
-            return None
-        else:
-            cmd = ['3dmaskave', '-mask']
-            cmd.append("'{}'".format(mask_path))
-            cmd.append('-q')
-            cmd.append("'{}'".format(input_path))
-            cmd = list2cmdline(cmd)
-            if output_path:
-                cmd = '{} > {}'.format(cmd, output_path)
-            stdout = check_output(shl.split(cmd))
-            stdout = stdout.split('\n')
-            try:
-                stdout = map(float, stdout)
-            except:
-                stdout.pop()
-                stdout = map(float, stdout)
-            finally:
-                return stdout
+        cmd = ['3dmaskave', '-mask']
+        cmd.append("'{}'".format(mask_path))
+        cmd.append('-q')
+        cmd.append("'{}'".format(input_path))
+        cmd = list2cmdline(cmd)
+        if output_path:
+            cmd = '{} > {}'.format(cmd, output_path)
+        stdout = check_output(shl.split(cmd))
+        stdout = stdout.split('\n')
+        try:
+            stdout = map(float, stdout)
+        except:
+            stdout.pop()
+            stdout = map(float, stdout)
+        finally:
+            return stdout
 
     # ANTs commands
     @staticmethod
-    def ants_BiasFieldCorrection(output_path, input_path, algorithm='n3', *args, **kwargs):
+    def ants_BiasFieldCorrection(output_path, input_path, algorithm='n3', *args):
         """
         Execute the BiasFieldCorrection in the ANTs package
 
@@ -583,48 +859,36 @@ class Interface(object):
         :param input_path: absolute input path
         :param algorithm: 'n3' or 'n4'
         """
-        merged_output, args = Internal.check_merged_output(args)
-        if merged_output:
-            return None
+        if algorithm == 'n3' or 'N3':
+            cmd = ['N3BiasFieldCorrection', '3', input_path, output_path]
+        elif algorithm == 'n4' or 'N4':
+            cmd = ['N4BiasFieldCorrection', '-i', input_path, '-o', output_path]
         else:
-            if algorithm == 'n3' or 'N3':
-                cmd = ['N3BiasFieldCorrection', '3', input_path, output_path]
-            elif algorithm == 'n4' or 'N4':
-                cmd = ['N4BiasFieldCorrection', '-i', input_path, '-o', output_path]
-            else:
-                raise BaseException("One of 'n3' or 'n4' must be chosen for last argument")
-            cmd = list2cmdline(cmd)
-            call(shl.split(cmd))
+            raise BaseException("One of 'n3' or 'n4' must be chosen for last argument")
+        cmd = list2cmdline(cmd)
+        call(shl.split(cmd))
 
     @staticmethod
-    def ants_RegistrationSyn(output_path, input_path, base_path, quick=True, ttype='s', *args, **kwargs):
+    def ants_RegistrationSyn(output_path, input_path, base_path, quick=True, ttype='s', *args):
         # ANTs SyN registration
-        merged_output, args = Internal.check_merged_output(args)
-        if merged_output:
-            return None
+        output_path = '{}_'.format(os.path.splitext(output_path)[0])
+        if os.path.exists(str(output_path)+'Warped.nii.gz'):
+            pass
         else:
-            output_path = '{}_'.format(os.path.splitext(output_path)[0])
-            if os.path.exists(str(output_path)+'Warped.nii.gz'):
-                pass
+            if not quick:
+                script = 'antsRegistrationSyN.sh'
             else:
-                if not quick:
-                    script = 'antsRegistrationSyN.sh'
-                else:
-                    script = 'antsRegistrationSyNQuick.sh'
+                script = 'antsRegistrationSyNQuick.sh'
 
-                cmd = [script, '-t', ttype, '-f', base_path, '-m', input_path, '-o', output_path]
-                cmd = list2cmdline(cmd)
-                call(shl.split(cmd))
-
-    @staticmethod
-    def ants_WarpImageMultiTransform(output_path, input_path, base_path, *args, **kwargs):
-        # ANTs applying transform
-        merged_output, args = Internal.check_merged_output(args)
-        if merged_output:
-            return None
-        else:
-            cmd = ['Warp.ImageMultiTransform', '3', input_path, output_path, '-R', base_path]
-            for arg in args:
-                cmd.append(arg)
+            cmd = [script, '-t', ttype, '-f', base_path, '-m', input_path, '-o', output_path]
             cmd = list2cmdline(cmd)
             call(shl.split(cmd))
+
+    @staticmethod
+    def ants_WarpImageMultiTransform(output_path, input_path, base_path, *args):
+        # ANTs applying transform
+        cmd = ['Warp.ImageMultiTransform', '3', input_path, output_path, '-R', base_path]
+        for arg in args:
+            cmd.append(arg)
+        cmd = list2cmdline(cmd)
+        call(shl.split(cmd))

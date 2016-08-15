@@ -12,15 +12,14 @@ __url__ = 'https://github.com/dvm-shlee/pynit'
 
 setup(name='PyNIT',
       version=__version__,
-      description='Python based NeuroImaging Toolkit',
+      description='Python NeuroImaging Toolkit',
       author=__author__,
       author_email=__email__,
       url= __url__,
-      license='MIT',
+      license='GNLv3',
       packages=find_packages(),
-      install_requires=['nibabel',
-                        'pandas',
-                        'matplotlib',
+      install_requires=['numpy', 'nibabel', 'pandas',
+                        'matplotlib', 'rpy2',
                         'scikit-image']
      )
 
