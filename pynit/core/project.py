@@ -1,7 +1,7 @@
 import os
 import pandas as pd
-from .objects import Reference, Image, Template
-from utility import Internal
+from .objects import Reference
+from utility import Internal, Interface
 import error
 
 
@@ -264,6 +264,36 @@ class Project(object):
         if self.__ext_filter:
             df = df[df.Filename.str.contains('|'.join(self.__ext_filter))]
         return df
+
+    def run(self, command, *args, **kwargs): # TODO: put more function for filtering error case
+        """Execute processing tools
+
+        :param command: str
+            Name of the tool (Use 'pynit.tools.avail' for check available tools)
+        :param args: str[, ]
+            Arguments for input tool
+        :param kwargs: key=value[, ]
+            Keyword arguments for input tool
+        """
+        if command in dir(Interface):
+            try:
+                if os.path.exists(args[0]):
+                    pass
+                else:
+                    getattr(Interface, command)(*args, **kwargs)
+            except:
+                raise error.CommandExecutionFailure
+        elif command in dir(Internal):
+            # try:
+            if os.path.exists(args[0]):
+                pass
+            else:
+                print args, kwargs
+                getattr(Internal, command)(*args, **kwargs)
+            # except:
+            #     raise error.CommandExecutionFailure
+        else:
+            raise error.CommandExecutionFailure
 
     def __summary(self):
         """Print summary of current project

@@ -64,8 +64,9 @@ class Viewer(object):
         data = imageobj.dataobj
         data = np.swapaxes(data, axis, 2)
         # Parsing the resolution info
-        resol, origin = affns.to_matvec(imageobj.header.get_base_affine())
-        resol = np.diag(resol).copy()
+        resol = list(imageobj.header['pixdim'][1:4])
+        # resol, origin = affns.to_matvec(imageobj.header.get_base_affine())
+        # resol = np.diag(resol).copy()
         # Swap the affine matrix
         resol[axis], resol[2] = resol[2], resol[axis]
         # Parsing arguments
@@ -214,10 +215,16 @@ class Viewer(object):
     def atlas(tempobj, atlasobj, scale=15, **kwargs):
         # Check argument for legend generation
         legend = False
+        bilateral = False
+        contra = False
         if kwargs:
             for arg in kwargs.keys():
                 if arg == 'legend':
                     legend = kwargs[arg]
+                if arg == 'contra':
+                    contra = kwargs[arg]
+                if arg == 'bilateral':
+                    bilateral = kwargs[arg]
         # Parsing the information
         try:
             atlas = atlasobj.image
@@ -237,6 +244,11 @@ class Viewer(object):
             fig, axes = Viewer.mosaic(tempobj, scale=scale, **kwargs)
         except:
             raise error.InputObjectError
+        # Check side to present, default is usually right side
+        if contra:
+            data = data[::-1, :, :]
+        if bilateral:
+            data += data[::-1, :, :]
         # Make transparent
         data = data.astype(float)
         data[data == 0] = np.nan

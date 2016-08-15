@@ -3,6 +3,7 @@ from __future__ import print_function
 # Command execution
 import os
 import re
+import inspect
 
 import shlex as shl
 import shutil
@@ -419,17 +420,31 @@ class Internal(object):
 
     # Analysis handler collection
     @staticmethod
-    def mask_average(imageobj, maskobj):
+    def mask_average(imageobj, maskobj, **kwargs):
         """ Mask average timeseries
 
         :param imageobj:
         :param maskobj:
         :return:
         """
+        contra = None
+        merged = None
+        # Check kwargs
+        if kwargs:
+            for arg in kwargs.keys():
+                if arg == 'contra':
+                    contra = kwargs[arg]
+                if arg == 'merge':
+                    merged = kwargs[arg]
         newshape = reduce(lambda x, y: x*y, imageobj.shape[:3])
         data = imageobj.get_data()
+        mask = maskobj.get_data()
+        if contra:
+            mask = mask[::-1, :, :]
+        if merged:
+            mask += mask[::-1, :, :]
         data = data.reshape(newshape, data.shape[3])
-        mask = maskobj.get_data().reshape(newshape)
+        mask = mask.reshape(newshape)
         mask = np.expand_dims(mask, axis=1)
         mask = np.repeat(mask, data.shape[1], axis=1)
         output = np.ma.masked_where(mask == 0, data)
@@ -444,12 +459,44 @@ class Internal(object):
         :param kwargs:
         :return:
         """
+        contra = None
+        bilateral = None
+        merged = None
+        # Check kwargs
+        if kwargs:
+            for arg in kwargs.keys():
+                if arg == 'contra':
+                    contra = kwargs[arg]
+                if arg == 'bilateral':
+                    bilateral = kwargs[arg]
+                if arg == 'merge':
+                    merged = kwargs[arg]
+        # Initiate dataframe
         df = pd.DataFrame()
+        # Check each labels
         for idx in tempobj.label.keys():
             if idx:
                 roi, maskobj = tempobj[idx]
-                col = Internal.mask_average(imageobj, maskobj)
+                if merged:
+                    col = Internal.mask_average(imageobj, maskobj, merged=True)
+                else:
+                    if contra:
+                        col = Internal.mask_average(imageobj, maskobj, contra=True)
+                    else:
+                        col = Internal.mask_average(imageobj, maskobj)
                 df[roi] = col
+        if bilateral:
+            for idx in tempobj.label.keys():
+                if idx:
+                    roi, maskobj = tempobj[idx]
+                    if merged:
+                        pass
+                    else:
+                        if contra:
+                            col = Internal.mask_average(imageobj, maskobj)
+                        else:
+                            col = Internal.mask_average(imageobj, maskobj, contra=True)
+                        df["Cont_{}".format(roi)] = col
         return df
 
     @staticmethod
@@ -626,6 +673,65 @@ class Internal(object):
         Internal.mkdir(os.path.join(prj.path, prj.ds_type[0]),
                        os.path.join(prj.path, prj.ds_type[1]),
                        os.path.join(prj.path, prj.ds_type[2]))
+
+    @staticmethod
+    def check_kwargs(kwargs, command):
+        """Validate input arguments for input command
+
+        :param kwargs: dict
+        :param command: str
+        :return:
+        """
+        args, defaults, varargs, keywords = Internal.check_args(command)
+        # check kwargs
+        output = dict()
+        for key in kwargs.keys():
+            if key not in args:
+                if defaults and key in defaults.keys():
+                    output[key] = kwargs[key]
+                elif varargs and key in varargs:
+                    if type(kwargs[key]) != list:
+                        raise TypeError("'{}' keyword must be list".format(key))
+                    else:
+                        output[args] = kwargs[key]
+                elif keywords and key in keywords:
+                    if type(kwargs[key]) != dict:
+                        raise TypeError("'{}' keyword must be dictionary".format(key))
+                    else:
+                        output[kwargs] = kwargs[key]
+                else:
+                    raise KeyError("'{}' is not fitted for the command '{}'".format(key, command))
+            else:
+                output[key] = kwargs[key]
+        return output
+
+    @staticmethod
+    def check_args(command):
+        """Check arguments of input command
+
+        :param command:
+        :return:
+            args
+            defaults
+            varargs
+            keywords
+        """
+        if command in dir(Interface):
+            argspec = dict(inspect.getargspec(getattr(Interface, command)).__dict__)
+        elif command in dir(Internal):
+            argspec = dict(inspect.getargspec(getattr(Internal, command)).__dict__)
+        else:
+            raise error.CommandExecutionFailure
+        if argspec['defaults'] is None:
+            def_len = 0
+            defaults = None
+        else:
+            def_len = len(argspec['defaults'])
+            defaults = dict(zip(argspec['args'][len(argspec['args']) - def_len:], argspec['defaults']))
+        args = argspec['args'][1:(len(argspec['args']) - def_len)]
+        varargs = argspec['varargs']
+        kwargs = argspec['keywords']
+        return args, defaults, varargs, kwargs
 
     @staticmethod
     def check_merged_output(args):
