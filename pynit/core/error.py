@@ -10,7 +10,7 @@ class InputObjectError(Exception):
     pass
 
 
-class NoPipeline(Exception):
+class PipelineNotSet(Exception):
     pass
 
 
@@ -51,4 +51,16 @@ class ArgumentsOverlapped(Exception):
 
 
 class CommandExecutionFailure(Exception):
+    pass
+
+
+class NotExistingCommand(Exception):
+    pass
+
+
+class UnableInterfaceCommand(Exception):
+    pass
+
+
+class ObjectMismatch(Exception):
     pass

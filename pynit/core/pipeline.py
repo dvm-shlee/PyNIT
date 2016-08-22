@@ -4,7 +4,7 @@ from os.path import join
 
 import process
 import error
-from .utility import Internal
+from .utility import InternalMethods
 
 
 class Pipeline(process.Pipeline):
@@ -277,8 +277,8 @@ class Pipeline(process.Pipeline):
             os.mkdir(result_path_norm_subs)
         except:
             pass
-        output_path = join(result_path_template, '{}_func_template.nii'.format(Internal.path_splitter(self.prj._path)[-1]))
-        output_mask_path = join(result_path_template, '{}_func_template_mask.nii'.format(Internal.path_splitter(self.prj._path)[-1]))
+        output_path = join(result_path_template, '{}_func_template.nii'.format(InternalMethods.path_splitter(self.prj._path)[-1]))
+        output_mask_path = join(result_path_template, '{}_func_template_mask.nii'.format(InternalMethods.path_splitter(self.prj._path)[-1]))
         self.set_filters(step11, ignore='_mask')
         warped_imgs = self.prj.df['Abspath'].tolist()
         self.run_cmd('afni_3dMean', output_path, *warped_imgs)

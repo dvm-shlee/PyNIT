@@ -1,16 +1,9 @@
 from __future__ import print_function
 
-# Command execution
+import inspect
 import os
 import re
-import inspect
-
-import shlex as shl
 import shutil
-from string import ascii_lowercase as lc
-from subprocess import call as call
-from subprocess import list2cmdline
-from subprocess import check_output
 
 try:
     import SimpleITK as sitk
@@ -25,9 +18,10 @@ from skimage import exposure
 
 import objects
 import error
+from .process import Interface
 
 
-class Internal(object):
+class InternalMethods(object):
     """ Internal utility for PyNIT package
     """
     # ImageObject handler collection
@@ -61,7 +55,7 @@ class Internal(object):
         resol[axis1], resol[axis2] = resol[axis2], resol[axis1]
         origin[axis1], origin[axis2] = origin[axis2], origin[axis1]
         affine = affns.from_matvec(np.diag(resol), origin)
-        Internal.reset_orient(imageobj, affine)
+        InternalMethods.reset_orient(imageobj, affine)
 
     @staticmethod
     def load(filename):
@@ -71,7 +65,7 @@ class Internal(object):
         :return:
         """
         if '.nii' in filename:
-            img = objects.Image.load(filename)
+            img = objects.ImageObj.load(filename)
         elif '.mha' in filename:
             try:
                 mha = sitk.ReadImage(filename)
@@ -81,7 +75,7 @@ class Internal(object):
             resol = mha.GetSpacing()
             origin = mha.GetOrigin()
             affine = affns.from_matvec(np.diag(resol), origin)
-            img = objects.Image(data, affine)
+            img = objects.ImageObj(data, affine)
         else:
             raise error.InputPathError
         return img
@@ -173,7 +167,7 @@ class Internal(object):
         """
         resol, origin = affns.to_matvec(imageobj.affine)
         affine = affns.from_matvec(resol, corr)
-        Internal.reset_orient(imageobj, affine)
+        InternalMethods.reset_orient(imageobj, affine)
 
     # TemplateObject handler collection
     @staticmethod
@@ -204,18 +198,18 @@ class Internal(object):
             label[0] = 'Clear Label', [.0, .0, .0]
 
             for idx, img in enumerate(list_of_rois):
-                imageobj = objects.Image.load(os.path.join(path, img))
+                imageobj = objects.ImageObj.load(os.path.join(path, img))
                 affine.append(imageobj.affine)
                 if not idx:
                     atlasdata = np.asarray(imageobj.dataobj)
                 else:
                     atlasdata += np.asarray(imageobj.dataobj) * (idx + 1)
-                label[idx+1] = Internal.remove_nifti_ext(img), rgbs[idx]
-            atlas = objects.Image(atlasdata, affine[0])
+                label[idx+1] = InternalMethods.remove_nifti_ext(img), rgbs[idx]
+            atlas = objects.ImageObj(atlasdata, affine[0])
         elif os.path.isfile(path):
-            atlas = objects.Image.load(path)
+            atlas = objects.ImageObj.load(path)
             if '.nii' in path:
-                filepath = os.path.basename(Internal.remove_nifti_ext(path))
+                filepath = os.path.basename(InternalMethods.remove_nifti_ext(path))
                 dirname = os.path.dirname(path)
                 for f in os.listdir(dirname):
                     if '.lbl' in f:
@@ -224,7 +218,7 @@ class Internal(object):
                         filepath = os.path.join(dirname, "{}.label".format(filepath))
                     else:
                         filepath = filepath
-                if filepath == os.path.basename(Internal.remove_nifti_ext(path)):
+                if filepath == os.path.basename(InternalMethods.remove_nifti_ext(path)):
                     raise error.NoLabelFile
             else:
                 raise error.NoLabelFile
@@ -407,141 +401,10 @@ class Internal(object):
         return slice_num
 
     @staticmethod
-    def linear_norm(data, new_min, new_max):
-        """Linear normalization of the grayscale digital image
-        """
-        return (data - np.min(data)) * (new_max - new_min) / (np.max(data) - np.min(data)) - new_min
-
-    @staticmethod
     def path_splitter(path):
         """Split path structure into list
         """
         return path.strip(os.sep).split(os.sep)
-
-    # Analysis handler collection
-    @staticmethod
-    def mask_average(imageobj, maskobj, **kwargs):
-        """ Mask average timeseries
-
-        :param imageobj:
-        :param maskobj:
-        :return:
-        """
-        contra = None
-        merged = None
-        # Check kwargs
-        if kwargs:
-            for arg in kwargs.keys():
-                if arg == 'contra':
-                    contra = kwargs[arg]
-                if arg == 'merge':
-                    merged = kwargs[arg]
-        newshape = reduce(lambda x, y: x*y, imageobj.shape[:3])
-        data = imageobj.get_data()
-        mask = maskobj.get_data()
-        if contra:
-            mask = mask[::-1, :, :]
-        if merged:
-            mask += mask[::-1, :, :]
-        data = data.reshape(newshape, data.shape[3])
-        mask = mask.reshape(newshape)
-        mask = np.expand_dims(mask, axis=1)
-        mask = np.repeat(mask, data.shape[1], axis=1)
-        output = np.ma.masked_where(mask == 0, data)
-        return pd.Series(np.ma.average(output, axis=0))
-
-    @staticmethod
-    def parsing_timetrace(imageobj, tempobj, **kwargs):
-        """ Parsing timetrace from imageobj, with multiple rois
-
-        :param imageobj:
-        :param tempobj:
-        :param kwargs:
-        :return:
-        """
-        contra = None
-        bilateral = None
-        merged = None
-        # Check kwargs
-        if kwargs:
-            for arg in kwargs.keys():
-                if arg == 'contra':
-                    contra = kwargs[arg]
-                if arg == 'bilateral':
-                    bilateral = kwargs[arg]
-                if arg == 'merge':
-                    merged = kwargs[arg]
-        # Initiate dataframe
-        df = pd.DataFrame()
-        # Check each labels
-        for idx in tempobj.label.keys():
-            if idx:
-                roi, maskobj = tempobj[idx]
-                if merged:
-                    col = Internal.mask_average(imageobj, maskobj, merged=True)
-                else:
-                    if contra:
-                        col = Internal.mask_average(imageobj, maskobj, contra=True)
-                    else:
-                        col = Internal.mask_average(imageobj, maskobj)
-                df[roi] = col
-        if bilateral:
-            for idx in tempobj.label.keys():
-                if idx:
-                    roi, maskobj = tempobj[idx]
-                    if merged:
-                        pass
-                    else:
-                        if contra:
-                            col = Internal.mask_average(imageobj, maskobj)
-                        else:
-                            col = Internal.mask_average(imageobj, maskobj, contra=True)
-                        df["Cont_{}".format(roi)] = col
-        return df
-
-    @staticmethod
-    def cal_mean_cbv(output_path, input_path, postfix_bold='BOLD', postfix_cbv='CBV', *args):
-        """ Calculate cbv
-
-        :param output_path:
-        :param input_path:
-        :param postfix_bold:
-        :param postfix_cbv:
-        :return:
-        """
-        # Get average images from MION injection scan
-        fname_bold = '{}_{}.nii'.format(os.path.splitext(output_path)[0], postfix_bold)
-        fname_cbv = '{}_{}.nii'.format(os.path.splitext(output_path)[0], postfix_cbv)
-        if os.path.exists(fname_bold) and os.path.exists(fname_cbv):
-            pass
-        else:
-            img = nib.load(input_path)
-            affn = img.get_affine()
-            img = img.get_data()
-            total_tr = img.shape[3]
-
-            epi_bold = np.average(img[:, :, :, :int(total_tr / 3)], 3)
-            epi_cbv = np.average(img[:, :, :, total_tr - int(total_tr / 3):], 3)
-
-            nii_bold = nib.Nifti1Image(epi_bold, affn)
-            nii_cbv = nib.Nifti1Image(epi_cbv, affn)
-
-            nii_bold.to_filename(fname_bold)
-            nii_cbv.to_filename(fname_cbv)
-
-    @staticmethod
-    def cal_mean(output_path, input_path, *args):
-        """ Calculate average
-
-        :param output_path:
-        :param input_path:
-        :return:
-        """
-        img = nib.load(input_path)
-        affn = img.get_affine()
-        mean = np.average(img.get_data(), axis=3)
-        nii_mean = nib.Nifti1Image(mean, affn)
-        nii_mean.to_filename(output_path)
 
     # Project Handler collection
     @staticmethod
@@ -564,7 +427,7 @@ class Internal(object):
         for f in os.walk(os.path.join(path, ds_type[idx])):
             if f[2]:
                 for filename in f[2]:
-                    row = pd.Series(Internal.path_splitter(os.path.relpath(f[0], path)))
+                    row = pd.Series(InternalMethods.path_splitter(os.path.relpath(f[0], path)))
                     row['Filename'] = filename
                     row['Abspath'] = os.path.join(f[0], filename)
                     df = df.append(pd.DataFrame([row]), ignore_index=True)
@@ -574,7 +437,7 @@ class Internal(object):
         else:
             if len(df.columns) is 6:
                 single_session = True
-        columns = Internal.update_columns(idx, single_session)
+        columns = InternalMethods.update_columns(idx, single_session)
         if not len(df):
             empty_prj = True
         return df.rename(columns=columns), single_session, empty_prj
@@ -670,40 +533,9 @@ class Internal(object):
     def mk_main_folder(prj):
         """Make processing and results folders
         """
-        Internal.mkdir(os.path.join(prj.path, prj.ds_type[0]),
-                       os.path.join(prj.path, prj.ds_type[1]),
-                       os.path.join(prj.path, prj.ds_type[2]))
-
-    @staticmethod
-    def check_kwargs(kwargs, command):
-        """Validate input arguments for input command
-
-        :param kwargs: dict
-        :param command: str
-        :return:
-        """
-        args, defaults, varargs, keywords = Internal.check_args(command)
-        # check kwargs
-        output = dict()
-        for key in kwargs.keys():
-            if key not in args:
-                if defaults and key in defaults.keys():
-                    output[key] = kwargs[key]
-                elif varargs and key in varargs:
-                    if type(kwargs[key]) != list:
-                        raise TypeError("'{}' keyword must be list".format(key))
-                    else:
-                        output[args] = kwargs[key]
-                elif keywords and key in keywords:
-                    if type(kwargs[key]) != dict:
-                        raise TypeError("'{}' keyword must be dictionary".format(key))
-                    else:
-                        output[kwargs] = kwargs[key]
-                else:
-                    raise KeyError("'{}' is not fitted for the command '{}'".format(key, command))
-            else:
-                output[key] = kwargs[key]
-        return output
+        InternalMethods.mkdir(os.path.join(prj.path, prj.ds_type[0]),
+                              os.path.join(prj.path, prj.ds_type[1]),
+                              os.path.join(prj.path, prj.ds_type[2]))
 
     @staticmethod
     def check_args(command):
@@ -718,8 +550,6 @@ class Internal(object):
         """
         if command in dir(Interface):
             argspec = dict(inspect.getargspec(getattr(Interface, command)).__dict__)
-        elif command in dir(Internal):
-            argspec = dict(inspect.getargspec(getattr(Internal, command)).__dict__)
         else:
             raise error.CommandExecutionFailure
         if argspec['defaults'] is None:
@@ -734,13 +564,6 @@ class Internal(object):
         return args, defaults, varargs, kwargs
 
     @staticmethod
-    def check_merged_output(args):
-        if True in args:
-            return True, args[1:]
-        else:
-            return False, args[1:]
-
-    @staticmethod
     def filter_file_index(option, prj, file_index):
         if file_index:
             option.extend(prj.df.Abspath.tolist()[min(file_index):max(file_index) + 1])
@@ -749,31 +572,31 @@ class Internal(object):
         return option
 
     @staticmethod
-    def get_step_name(pipeline_inst, step):
+    def get_step_name(prjobj, step):
         """ Generate step name with step index
 
-        :param pipeline_inst:
+        :param prjobj:
         :param step:
         :return:
         """
-        if pipeline_inst.pipeline:
-            if len(pipeline_inst.done):
+        if prjobj.pipeline:
+            if len(prjobj.executed_steps):
                 last_step = []
                 # Check the folder of last step if the step has been processed or not
-                for f in os.walk(os.path.join(pipeline_inst.path, pipeline_inst.done[-1])):
+                for f in os.walk(os.path.join(prjobj.path, prjobj.ds_type[1], prjobj.executed_steps[-1])):
                     last_step.extend(f[2])
-                fin_list = [s for s in pipeline_inst.done if step in s]
+                fin_list = [s for s in prjobj.executed_steps if step in s]
                 # Check if the step name is overlapped or not
                 if len(fin_list):
                     return fin_list[0]
                 else:
                     if not len([f for f in last_step if '.nii' in f]):
-                        print('Last step folder returned instead, it is empty.')
-                        return pipeline_inst.done[-1]
+                        print('Last step folder will be returned instead, it is empty.')
+                        return prjobj.executed_steps[-1]
                     else:
-                        return "_".join([str(pipeline_inst.steps).zfill(3), step])
+                        return "_".join([str(len(prjobj.executed_steps)).zfill(3), step])
             else:
-                return "_".join([str(pipeline_inst.steps).zfill(3), step])
+                return "_".join([str(len(prjobj.executed_steps)).zfill(3), step])
         else:
             return None
 
@@ -796,205 +619,9 @@ class Internal(object):
         shutil.copyfile(input_path, output_path)
 
 
-class Interface(object):
-    """Class for wrapping the commands to run external image processing software packages
-    including AFNI, ANTs, FSL
-    """
-    def __init__(self):
-        self.__avail = [f for f in dir(self) if '__' not in f and 'avail' not in f]
-
-    @property
-    def avail(self):
-        return self.__avail
-
-    # Afni commands
+class Usage(object):
     @staticmethod
-    def afni_3dTshift(output_path, input_path, tr=None, tpattern=None, *args):
+    def project_run():
+        output = """ Usage: <prj_instance>.run(command)
         """
-        Handler for 3dTshift (Slice timing correction tool of AFNI package)
-
-        Parameters
-        ----------
-        output_path : str
-            explanation
-        input_path : str
-        tr : int
-        tpattern : str
-            'altplus'
-
-        Returns
-        -------
-        bool
-            True if successful, False otherwise
-        """
-        cmd = ['3dTshift', '-prefix', output_path]
-        if tr:
-            cmd.extend(['-TR', str(tr)])
-        if tpattern:
-            cmd.extend(['-tpattern', tpattern])
-        cmd.append(input_path)
-        cmd = list2cmdline(cmd)
-        call(shl.split(cmd))
-
-    @staticmethod
-    def afni_3dvolreg(output_path, input_path, base_slice=0, *args):
-        """Wrapper for 3dvolreg (Motion correction tool of AFNI package)
-
-        Parameters
-        ----------
-        output_path : str
-            explanation
-        input_path : str
-        base_slice : str
-        """
-        mpfile = os.path.splitext(output_path)[0] + '.1D'
-        tfmfile = os.path.splitext(output_path)[0]
-        cmd = ['3dvolreg', '-prefix', output_path, '-1Dfile', mpfile, '-1Dmatrix_save', tfmfile,
-               '-Fourier', '-verbose', '-base', '{}'.format(int(base_slice)), input_path]
-        cmd = list2cmdline(cmd)
-        call(shl.split(cmd))
-
-    @staticmethod
-    def afni_3dAllineate(output_path, input_path, **kwargs):
-        cmd = ['3dAllineate', '-prefix', output_path]
-        if kwargs:
-            for arg in kwargs.keys():
-                if arg == 'matrix_apply':
-                    cmd.append('-1D{}'.format(arg))
-                    cmd.append(kwargs[arg])
-                if arg == 'master':
-                    if arg == 'base':
-                        raise error.ArgumentsOverlapped
-                    else:
-                        cmd.append('-{}'.format(arg))
-                        cmd.append(kwargs[arg])
-                if arg == 'base':
-                    if arg == 'master':
-                        raise error.ArgumentsOverlapped
-                    else:
-                        cmd.append('-{}'.format(arg))
-                        cmd.append(kwargs[arg])
-                if arg == 'warp':
-                    cmd.append('-{}'.format(arg))
-                    cmd.append(kwargs[arg])
-        else:
-            raise KeyError("")
-        cmd.append(input_path)
-        cmd = list2cmdline(cmd)
-        call(shl.split(cmd))
-
-    @staticmethod
-    def afni_3dcalc(output_path, expr, *inputs):
-        # AFNI image calculation (3dcalc)
-        cmd = ['3dcalc', '-prefix', output_path]
-        if inputs:
-            atoz = lc[:len(inputs)]
-            data = zip(atoz, inputs)
-            for abc, path in data:
-                cmd.append('-' + abc)
-                cmd.append(path)
-        else:
-            raise AttributeError("input data are not defined.")
-        cmd.append('-expr')
-        cmd.append("'{}'".format(expr))
-        cmd = list2cmdline(cmd)
-        call(shl.split(cmd))
-
-    @staticmethod
-    def afni_3dMean(output_path, *inputs):
-        # AFNI 3dMean objects.Image calculator
-        cmd = ['3dMean', '-prefix', output_path]
-        cmd.extend(inputs)
-        cmd = list2cmdline(cmd)
-        call(shl.split(cmd))
-
-    @staticmethod
-    def afni_3dBandpass(output_path, input_path, norm=False, despike=False, mask=None, blur=False,
-                        band=False, dt='1', *args):
-        # AFNI signal processing for resting state (3dBandpass)
-        cmd = ['3dBandpass', '-input', input_path, '-prefix', output_path]
-        if 'dt':
-            cmd.append('-dt')
-            cmd.append(dt)
-        if norm:
-            cmd.append('-norm')
-        if despike:
-            cmd.append('-despike')
-        if mask:
-            cmd.extend(['-mask', mask])
-        if blur:
-            cmd.extend(['-blur', blur])
-        if band:
-            cmd.append('-band')
-            cmd.extend(band)
-        cmd = list2cmdline(cmd)
-        call(shl.split(cmd))
-
-    @staticmethod
-    def afni_3dmaskave(output_path, input_path, mask_path, *args):
-        """ AFNI 3dmaskave command wrapper
-
-        :return: list
-            Average timeseries data from given ROI
-
-        """
-        cmd = ['3dmaskave', '-mask']
-        cmd.append("'{}'".format(mask_path))
-        cmd.append('-q')
-        cmd.append("'{}'".format(input_path))
-        cmd = list2cmdline(cmd)
-        if output_path:
-            cmd = '{} > {}'.format(cmd, output_path)
-        stdout = check_output(shl.split(cmd))
-        stdout = stdout.split('\n')
-        try:
-            stdout = map(float, stdout)
-        except:
-            stdout.pop()
-            stdout = map(float, stdout)
-        finally:
-            return stdout
-
-    # ANTs commands
-    @staticmethod
-    def ants_BiasFieldCorrection(output_path, input_path, algorithm='n3', *args):
-        """
-        Execute the BiasFieldCorrection in the ANTs package
-
-        :param output_path: absolute output path
-        :param input_path: absolute input path
-        :param algorithm: 'n3' or 'n4'
-        """
-        if algorithm == 'n3' or 'N3':
-            cmd = ['N3BiasFieldCorrection', '3', input_path, output_path]
-        elif algorithm == 'n4' or 'N4':
-            cmd = ['N4BiasFieldCorrection', '-i', input_path, '-o', output_path]
-        else:
-            raise BaseException("One of 'n3' or 'n4' must be chosen for last argument")
-        cmd = list2cmdline(cmd)
-        call(shl.split(cmd))
-
-    @staticmethod
-    def ants_RegistrationSyn(output_path, input_path, base_path, quick=True, ttype='s', *args):
-        # ANTs SyN registration
-        output_path = '{}_'.format(os.path.splitext(output_path)[0])
-        if os.path.exists(str(output_path)+'Warped.nii.gz'):
-            pass
-        else:
-            if not quick:
-                script = 'antsRegistrationSyN.sh'
-            else:
-                script = 'antsRegistrationSyNQuick.sh'
-
-            cmd = [script, '-t', ttype, '-f', base_path, '-m', input_path, '-o', output_path]
-            cmd = list2cmdline(cmd)
-            call(shl.split(cmd))
-
-    @staticmethod
-    def ants_WarpImageMultiTransform(output_path, input_path, base_path, *args):
-        # ANTs applying transform
-        cmd = ['Warp.ImageMultiTransform', '3', input_path, output_path, '-R', base_path]
-        for arg in args:
-            cmd.append(arg)
-        cmd = list2cmdline(cmd)
-        call(shl.split(cmd))
+        return output

@@ -1,2 +1,2 @@
 from .core import *
-load = Internal.load
+load = InternalMethods.load

@@ -3,7 +3,8 @@ import numpy as np
 import nibabel as nib
 import pandas as pd
 from .visual import Viewer
-from .utility import Interface, Internal
+from .utility import InternalMethods
+from .process import Analysis
 import error
 
 
@@ -74,9 +75,12 @@ class Reference(object):
             self._ds = ds_ref
 
 
-class Image(nib.nifti1.Nifti1Image):
+class ImageObj(nib.nifti1.Nifti1Image):
     """ ImageObject for PyNIT
     """
+    # def __init__(self):
+    #     super(ImageObj, self).__init__()
+
     def show(self, **kwargs):
         """ Plotting slice of the object
         """
@@ -90,14 +94,14 @@ class Image(nib.nifti1.Nifti1Image):
     def swap_axis(self, axis1, axis2):
         """ Swap input axis with given axis of the object
         """
-        Internal.swap_axis(self, axis1, axis2)
+        InternalMethods.swap_axis(self, axis1, axis2)
 
     def flip(self, **kwargs):
-        invert = Internal.check_invert(kwargs)
-        self._dataobj = Internal.apply_invert(self._dataobj, *invert)
+        invert = InternalMethods.check_invert(kwargs)
+        self._dataobj = InternalMethods.apply_invert(self._dataobj, *invert)
 
     def crop(self, **kwargs):
-        Internal.crop(self, **kwargs)
+        InternalMethods.crop(self, **kwargs)
 
     def reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis=2):
         """ Reslice the image with given number of slice and slice thinkness
@@ -114,7 +118,7 @@ class Image(nib.nifti1.Nifti1Image):
             Axis want to be re-sliced
         :return:
         """
-        Internal.down_reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis)
+        InternalMethods.down_reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis)
 
     def save_as(self, filename):
         """ Save as a new file with current affine information
@@ -125,17 +129,8 @@ class Image(nib.nifti1.Nifti1Image):
         nii.to_filename(filename)
         print("NifTi1 format image is saved to '{}'".format(filename))
 
-    # def pedding(self, axis):
-    #     pass
-
-    def timetrace(self, maskobj):
-        number_of_rois = np.max(maskobj.dataobj)
-        df = pd.DataFrame()
-        for i in range(number_of_rois-1):
-            data = Interface.afni_3dmaskave(None, self.get_filename(), "{}<{}>".format(roiobj.get_filename(), i+1))
-            data = pd.Series(data)
-            df[i] = data
-        return df
+    def pedding(self, low, high, axis):
+        shape = self._dataobj.shape
 
     def check_reg(self, imageobj, scale=10, **kwargs):
         fig = Viewer.check_reg(imageobj, self, scale=scale, norm=True, **kwargs)
@@ -143,12 +138,17 @@ class Image(nib.nifti1.Nifti1Image):
     def check_mask(self, maskobj, scale=15, **kwargs):
         fig = Viewer.check_mask(self, maskobj, scale=scale, **kwargs)
 
+    @property
+    def affine(self):
+        return self._affine
+
+
 class Template(object):
     """ TemplateObject for PyNIT
     """
     def __init__(self, path=None):
         self._atlas = None
-        if type(path) is Image:
+        if type(path) is ImageObj:
             self._image = path
         elif type(path) is str:
             try:
@@ -164,7 +164,7 @@ class Template(object):
 
     @image.setter
     def image(self, imageobj):
-        if type(imageobj) is Image:
+        if type(imageobj) is ImageObj:
             self._image = imageobj
         else:
             raise error.InputObjectError
@@ -183,7 +183,7 @@ class Template(object):
         :param path:
         :return:
         """
-        self._image = Image.load(path)
+        self._image = ImageObj.load(path)
 
     def set_atlas(self, path):
         self._atlas = Atlas(path)
@@ -229,7 +229,7 @@ class Atlas(object):
     def __init__(self, path=None):
         self._atlas = None
         self._label = None
-        if type(path) is Image:
+        if type(path) is ImageObj:
             self._image = path
         elif type(path) is str:
             try:
@@ -249,17 +249,17 @@ class Atlas(object):
 
     @image.setter
     def image(self, imageobj):
-        if type(imageobj) is Image:
+        if type(imageobj) is ImageObj:
             self._image = imageobj
         else:
             raise error.InputObjectError
 
     def load(self, path):
-        self._image, self._label = Internal.parsing_atlas(path)
+        self._image, self._label = InternalMethods.parsing_atlas(path)
 
     def save_as(self, filename):
         self._image.save_as("{}.nii".format(filename))
-        Internal.save_label(self._label, "{}.label".format(filename))
+        InternalMethods.save_label(self._label, "{}.label".format(filename))
 
     def __getitem__(self, idx):
         if not self._image:
@@ -268,7 +268,7 @@ class Atlas(object):
             if idx != 0:
                 mask = np.zeros(self.image.shape)
                 mask[self.image.get_data() == idx] = 1
-                maskobj = Image(mask, self.image.header.get_base_affine())
+                maskobj = ImageObj(mask, self.image.affine)
                 return self.label[idx][0], maskobj
             else:
                 return None
@@ -283,5 +283,36 @@ class Atlas(object):
                 labels = '{}[{:>3}] {:>40}\n'.format(labels, idx, self.label[idx][0])
         return labels
 
-class DataFrame(object):
-    pass
+
+class GroupImages(object):
+    """ Group handler for multiple but same sized of Image objects
+    """
+    def __init__(self):
+        self._container = dict()
+        self._panel = pd.Panel()
+
+    def __setitem__(self, key, value):
+        if self._container:
+            natives = [obj for obj in self._container.values()]
+            if not isinstance(natives[0], value):
+                raise error.ObjectMismatch
+            else:
+                if isinstance(value, ImageObj):
+                    if value.shape != natives[0].shape:
+                        raise error.ObjectMismatch
+                else:
+                    pass
+        self._container[key] = value
+
+    def __getitem__(self, key):
+        return self._container[key]
+
+    @property
+    def timetraces(self):
+        return self._panel
+
+    def collect_timetrace(self, tempobj, **kwargs):
+        for sub, imageobj in self._container.iteritems():
+            self._panel[sub] = Analysis.get_timetrace(imageobj, tempobj, **kwargs)
+
+

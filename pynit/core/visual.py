@@ -1,8 +1,15 @@
 # Import external packages
 import numpy as np
-import nibabel.affines as affns
 from skimage import feature
-
+# Import internal packages
+from .utility import InternalMethods
+from .process import Analysis
+import error
+# Import matplotlib for visualization
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+from matplotlib import colors
+import seaborn as sns
 # Import interactive plot in jupyter notebook
 try:
     if __IPYTHON__:
@@ -11,32 +18,20 @@ try:
 except:
     pass
 
-# Import matplotlib for visualization
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-from matplotlib import colors
-import seaborn as sns
-
 # The commented codes below are used for save figure later (mayby?)
 # import matplotlib.patches as mpatches
 # from matplotlib.backends.backend_agg import FigureCanvasAgg
-
 # Set figure style here
 mpl.rcParams['figure.dpi'] = 120
 plt.style.use('ggplot')
 
-# Import internal packages
-from .utility import Internal
-import error
-
-# R-Python interface for advanced plotting
-import rpy2.robjects as robj
-from rpy2.robjects.packages import importr
-from rpy2.robjects import pandas2ri
-pandas2ri.activate()
+# R-Python interface for advanced plotting (This is deactivated becuase of compatibility issues
+# import rpy2.robjects as robj
+# from rpy2.robjects.packages import importr
+# from rpy2.robjects import pandas2ri
+# pandas2ri.activate()
 
 # TODO: Simple Video generation or showing over the slice or time
-# TODO: Plotting graph (Time)
 
 
 class Viewer(object):
@@ -65,20 +60,18 @@ class Viewer(object):
         data = np.swapaxes(data, axis, 2)
         # Parsing the resolution info
         resol = list(imageobj.header['pixdim'][1:4])
-        # resol, origin = affns.to_matvec(imageobj.header.get_base_affine())
-        # resol = np.diag(resol).copy()
         # Swap the affine matrix
         resol[axis], resol[2] = resol[2], resol[axis]
         # Parsing arguments
-        slice_num = Internal.check_slice(imageobj, slice_num, axis)
+        slice_num = InternalMethods.check_slice(imageobj, slice_num, axis)
         # Image normalization if norm is True
         if norm:
-            data = Internal.apply_p2_98(data)
+            data = InternalMethods.apply_p2_98(data)
         else:
             pass
         # Check invert states using given kwargs and apply
-        invert = Internal.check_invert(kwargs)
-        data = Internal.apply_invert(data, *invert)
+        invert = InternalMethods.check_invert(kwargs)
+        data = InternalMethods.apply_invert(data, *invert)
 
         # Internal show slice function for interact python
         def imshow(slice_num, frame=0):
@@ -89,7 +82,7 @@ class Viewer(object):
                 axes.imshow(data[:, :, int(slice_num), frame].T, origin='lower', interpolation='nearest', cmap='gray')
             else:
                 raise error.ImageDimentionMismatched
-            axes = Internal.set_viewaxes(axes)
+            axes = InternalMethods.set_viewaxes(axes)
             if resol[1] != resol[0]:
                 axes.set_aspect(abs(resol[1] / resol[0]))
             else:
@@ -104,7 +97,7 @@ class Viewer(object):
                 raise error.ImageDimentionMismatched
         except:
             fig, axes = plt.subplots()
-            data = Internal.convert_to_3d(imageobj)
+            data = InternalMethods.convert_to_3d(imageobj)
             axes.imshow(data[..., int(slice_num)].T, origin='lower', cmap='gray')
             axes.set_axis_off()
 
@@ -117,19 +110,19 @@ class Viewer(object):
         dim = list(moved_img.shape)
         resol = list(moved_img.header['pixdim'][1:4])
         # Convert 4D image to 3D or raise error
-        data = Internal.convert_to_3d(moved_img)
+        data = InternalMethods.convert_to_3d(moved_img)
         # Check normalization
         if norm:
-            data = Internal.apply_p2_98(data)
+            data = InternalMethods.apply_p2_98(data)
         # Set slice axis for mosaic grid
-        slice_axis, cmap = Internal.check_sliceaxis_cmap(data, kwargs)
+        slice_axis, cmap = InternalMethods.check_sliceaxis_cmap(data, kwargs)
         cmap = 'YlOrRd'
         # Set grid shape
-        data, slice_grid, size = Internal.set_mosaic_fig(data, dim, resol, slice_axis, scale)
+        data, slice_grid, size = InternalMethods.set_mosaic_fig(data, dim, resol, slice_axis, scale)
         fig, axes = Viewer.mosaic(fixed_img, scale=scale, norm=norm, cmap='bone', **kwargs)
         # Applying inversion
-        invert = Internal.check_invert(kwargs)
-        data = Internal.apply_invert(data, *invert)
+        invert = InternalMethods.check_invert(kwargs)
+        data = InternalMethods.apply_invert(data, *invert)
         # Plot image
         for i in range(slice_grid[1] * slice_grid[2]):
             ax = axes.flat[i]
@@ -157,18 +150,18 @@ class Viewer(object):
         dim = list(imageobj.shape)
         resol = list(imageobj.header['pixdim'][1:4])
         # Convert 4D image to 3D or raise error
-        data = Internal.convert_to_3d(imageobj)
+        data = InternalMethods.convert_to_3d(imageobj)
         # Check normalization
         if norm:
-            data = Internal.apply_p2_98(data)
+            data = InternalMethods.apply_p2_98(data)
         # Set slice axis for mosaic grid
-        slice_axis, cmap = Internal.check_sliceaxis_cmap(imageobj, kwargs)
+        slice_axis, cmap = InternalMethods.check_sliceaxis_cmap(imageobj, kwargs)
         # Set grid shape
-        data, slice_grid, size = Internal.set_mosaic_fig(data, dim, resol, slice_axis, scale)
+        data, slice_grid, size = InternalMethods.set_mosaic_fig(data, dim, resol, slice_axis, scale)
         fig, axes = plt.subplots(slice_grid[1], slice_grid[2], figsize=(size[0], size[1]))
         # Applying inversion
-        invert = Internal.check_invert(kwargs)
-        data = Internal.apply_invert(data, *invert)
+        invert = InternalMethods.check_invert(kwargs)
+        data = InternalMethods.apply_invert(data, *invert)
         # Plot image
         for i in range(slice_grid[1] * slice_grid[2]):
             ax = axes.flat[i]
@@ -191,12 +184,12 @@ class Viewer(object):
         resol = list(maskobj.header['pixdim'][1:4])
         num_roi = np.max(maskobj.dataobj)
         # Set slice axis for mosaic grid
-        slice_axis, cmap = Internal.check_sliceaxis_cmap(maskobj, kwargs)
+        slice_axis, cmap = InternalMethods.check_sliceaxis_cmap(maskobj, kwargs)
         # Set grid shape
-        data, slice_grid, size = Internal.set_mosaic_fig(maskobj.dataobj, dim, resol, slice_axis, scale)
+        data, slice_grid, size = InternalMethods.set_mosaic_fig(maskobj.dataobj, dim, resol, slice_axis, scale)
         # Applying inversion
-        invert = Internal.check_invert(kwargs)
-        data = Internal.apply_invert(data, *invert)
+        invert = InternalMethods.check_invert(kwargs)
+        data = InternalMethods.apply_invert(data, *invert)
         try:
             fig, axes = Viewer.mosaic(imageobj, scale=scale, **kwargs)
         except:
@@ -234,12 +227,12 @@ class Viewer(object):
         dim = list(atlas.shape)
         resol = list(atlas.header['pixdim'][1:4])
         # Set slice axis for mosaic grid
-        slice_axis, cmap = Internal.check_sliceaxis_cmap(atlas, kwargs)
+        slice_axis, cmap = InternalMethods.check_sliceaxis_cmap(atlas, kwargs)
         # Set grid shape
-        data, slice_grid, size = Internal.set_mosaic_fig(atlas.dataobj, dim, resol, slice_axis, scale)
+        data, slice_grid, size = InternalMethods.set_mosaic_fig(atlas.dataobj, dim, resol, slice_axis, scale)
         # Applying inversion
-        invert = Internal.check_invert(kwargs)
-        data = Internal.apply_invert(data, *invert)
+        invert = InternalMethods.check_invert(kwargs)
+        data = InternalMethods.apply_invert(data, *invert)
         try:
             fig, axes = Viewer.mosaic(tempobj, scale=scale, **kwargs)
         except:
@@ -301,40 +294,53 @@ class Viewer(object):
 
 class Plot(object):
     @staticmethod
-    def tsplot(dataframe, norm=True, **kwargs):
+    def tsplot(dataframe, norm=True, scale=1, err_style='ci_band', **kwargs):
+        figsize = (6 * scale, 4 * scale)
+        for arg in kwargs.keys():
+            if arg is 'figsize':
+                figsize = kwargs[arg]
         if norm:
-            dataframe = Internal.linear_norm(dataframe, 0, 1)
-        ax = sns.tsplot(dataframe.T.values, err_style='ci_band', **kwargs)
+            dataframe = Analysis.linear_norm(dataframe, 0, 1)
+        fig = plt.figure(figsize=figsize)
+        ax = sns.tsplot(dataframe.T.values, err_style=err_style, **kwargs)
 
     @staticmethod
-    def heatmap(dataframe, half=True, **kwargs):
+    def heatmap(dataframe, half=True, scale=1, vmin=-2, vmax=2, cmap='RdBu_r', **kwargs):
+        figsize = (6 * scale, 4 * scale)
+        for arg in kwargs.keys():
+            if arg is 'figsize':
+                figsize = kwargs[arg]
         if half:
             mask = np.zeros_like(dataframe.corr())
             mask[np.triu_indices_from(mask)] = True
         else:
             mask = None
+        fig = plt.figure(figsize=figsize)
         with sns.axes_style("white"):
-            ax = sns.heatmap(np.arctanh(dataframe.corr()), mask=mask, vmin=-2, vmax=2, cmap='RdBu_r', square=True, **kwargs)
+            ax = sns.heatmap(np.arctanh(dataframe.corr()), mask=mask, vmin=vmin, vmax=vmax,
+                             cmap=cmap, square=True, **kwargs)
             ax.set_xticklabels(ax.xaxis.get_majorticklabels(), rotation=45)
             ax.set_yticklabels(ax.yaxis.get_majorticklabels(), rotation=45)
 
-    @staticmethod
-    def rcorrplot(dataframe, filename=None, scale=1, mixed=None, **kwargs):
-        # get R objects
-        corrplot = importr('corrplot')
-        grdevices = importr('grDevices')
-        as_matrix = robj.globalenv.get("as.matrix")
-        # Parsing arguments
-        if not filename:
-            filename = u'.cache/_corrplot.png'
-            Internal.mkdir('.cache')
-        size = np.array([512, 512])*scale
-        # generate figure
-        grdevices.png(file=filename, width=size[0], height=size[1])
-        M = as_matrix(dataframe.corr())
-        if mixed:
-            corrplot.corrplot_mixed(M, iscorr=False, **kwargs)
-        else:
-            corrplot.corrplot(M, **kwargs)
-        grdevices.dev_off()
-        display(Image(filename=filename))
+# The class below is deactivated because of compatibility issues
+# class RPlot(object):
+    # @staticmethod
+    # def rcorrplot(dataframe, filename=None, scale=1, mixed=None, **kwargs):
+    #     # get R objects
+    #     corrplot = importr('corrplot')
+    #     grdevices = importr('grDevices')
+    #     as_matrix = robj.globalenv.get("as.matrix")
+    #     # Parsing arguments
+    #     if not filename:
+    #         filename = u'.cache/_corrplot.png'
+    #         InternalMethods.mkdir('.cache')
+    #     size = np.array([512, 512])*scale
+    #     # generate figure
+    #     grdevices.png(file=filename, width=size[0], height=size[1])
+    #     M = as_matrix(dataframe.corr())
+    #     if mixed:
+    #         corrplot.corrplot_mixed(M, iscorr=False, **kwargs)
+    #     else:
+    #         corrplot.corrplot(M, **kwargs)
+    #     grdevices.dev_off()
+    #     display(Image(filename=filename))

@@ -1,7 +1,8 @@
 import os
 import pandas as pd
-from .objects import Reference
-from utility import Internal, Interface
+from .objects import Reference, GroupImages, ImageObj
+from .process import Analysis, Interface
+from .utility import InternalMethods#, Interface
 import error
 
 
@@ -45,7 +46,9 @@ class Project(object):
         # Define basic variables for initiating instance
         self.__dc_idx = 0           # Data class index
         self.__ext_filter = self.img_ext
-        Internal.mk_main_folder(self)
+        InternalMethods.mk_main_folder(self)
+        self.__pipeline = None
+        self.interface = Interface()
         try:
             self.reload()
         except:
@@ -68,7 +71,6 @@ class Project(object):
     def dataclass(self, idx):
         if idx in range(3):
             self.__dc_idx = idx
-            # self.reload()
             self.reset()
             self.__update()
         else:
@@ -91,6 +93,10 @@ class Project(object):
         return self.__pipelines
 
     @property
+    def pipeline(self):
+        return self.__pipeline
+
+    @property
     def steps(self):
         return self.__steps
 
@@ -106,6 +112,32 @@ class Project(object):
     def summary(self):
         return self.__summary()
 
+    @property
+    def executed_steps(self):
+        if self.__pipeline:
+            df = self(1, self.__pipeline)
+            return sorted(list(set(df.Step)))
+        else:
+            raise error.PipelineNotSet
+
+    def initiate_pipeline(self, pipeline):
+        InternalMethods.mkdir(os.path.join(self.path, self.ds_type[1], pipeline))
+        self.__pipeline = pipeline
+
+    def initiate_step(self, stepname):
+        if self.__pipeline:
+            steppath = InternalMethods.get_step_name(self, stepname)
+            steppath = os.path.join(self.path, self.ds_type[1], self.__pipeline, steppath)
+            InternalMethods.mkdir(steppath)
+            return steppath
+        else:
+            raise error.PipelineNotSet
+
+    def get_objs(self):
+        groupobj = Group()
+        for i, subject in self:
+            groupobj[InternalMethods.remove_nifti_ext(subject.Filename)] = ImageObj.load(subject.Abspath)
+
     def reset(self):
         """Reset filter - Clear all filter information and extension
         """
@@ -119,11 +151,12 @@ class Project(object):
 
         :return:
         """
-        self.__df, self.single_session, empty_prj = Internal.parsing(self.path, self.ds_type, self.__dc_idx)
+        # Parsing command works
+        self.__df, self.single_session, empty_prj = InternalMethods.parsing(self.path, self.ds_type, self.__dc_idx)
         if not empty_prj:
-            self.__df = Internal.initial_filter(self.__df, self.ds_type, self.__ext_filter)
+            self.__df = InternalMethods.initial_filter(self.__df, self.ds_type, self.__ext_filter)
             if len(self.__df):
-                self.__df = self.__df[Internal.reorder_columns(self.__dc_idx, self.single_session)]
+                self.__df = self.__df[InternalMethods.reorder_columns(self.__dc_idx, self.single_session)]
             self.__update()
         else:
             print('Empty project')
@@ -147,20 +180,18 @@ class Project(object):
                 Keywords of interest for filename
             :key ignore:    str of list of str
                 Keywords of neglect for filename
-            :key extend:    boolean
-                If this argument is exist and True, keep pervious filter information
+            :key addition:    boolean
+                If this argument is exist and True, keep previous filter information
         :return:
         """
-        if 'extend' in kwargs.keys():
-            # This oprion allows to keep previous filter
-            if kwargs['extend']:
+        if 'addition' in kwargs.keys():
+            # This option allows to keep previous filter
+            if kwargs['addition']:
                 self.__update()
             else:
                 self.reset()
-                # self.reload()
         else:
             self.reset()
-            # self.reload()
         if args or kwargs:
             if args:
                 if self.subjects:
@@ -265,6 +296,20 @@ class Project(object):
             df = df[df.Filename.str.contains('|'.join(self.__ext_filter))]
         return df
 
+    def help(self, command=None):
+        """Print doc string for command or pipeline
+
+        :param command:
+        :return:
+        """
+        if command:
+            if command in dir(Interface):
+                exec 'help(Interface.{})'.format(command)
+            elif command in dir(Analysis):
+                exec 'help(Analysis.{})'.format(command)
+            else:
+                raise error.UnableInterfaceCommand
+
     def run(self, command, *args, **kwargs): # TODO: put more function for filtering error case
         """Execute processing tools
 
@@ -282,18 +327,10 @@ class Project(object):
                 else:
                     getattr(Interface, command)(*args, **kwargs)
             except:
+                exec('help(Interface.{})'.format(command))
                 raise error.CommandExecutionFailure
-        elif command in dir(Internal):
-            # try:
-            if os.path.exists(args[0]):
-                pass
-            else:
-                print args, kwargs
-                getattr(Internal, command)(*args, **kwargs)
-            # except:
-            #     raise error.CommandExecutionFailure
         else:
-            raise error.CommandExecutionFailure
+            raise error.NotExistingCommand
 
     def __summary(self):
         """Print summary of current project
@@ -340,11 +377,9 @@ class Project(object):
                 summary = '{}\nSet file tag(s): {}'.format(summary, self.__filters[4])
             if self.__filters[5]:
                 summary = '{}\nSet ignore(s): {}'.format(summary, self.__filters[5])
+            if self.__pipeline:
+                summary = '{}\nInitiated pipeline: {}'.format(summary, self.__pipeline)
         print(summary)
-
-    def update(self):
-        print(self.__dc_idx)
-        self.__update()
 
     def __update(self):
         """Update sub variables based on current set filter information
@@ -364,18 +399,12 @@ class Project(object):
                 elif self.__dc_idx == 1:
                     self.__dtypes = None
                     self.__pipelines = list(set(self.df.Pipeline.tolist()))
-                    # if self.__filters[2]:
                     self.__steps = list(set(self.df.Step.tolist()))
-                    # else:
-                    #     self.__steps = None
                     self.__results = None
                 elif self.__dc_idx == 2:
                     self.__dtypes = None
                     self.__pipelines = list(set(self.df.Pipeline.tolist()))
-                    # if self.__filters[2]:
                     self.__results = list(set(self.df.Result.tolist()))
-                    # else:
-                    #     self.__results = None
                     self.__steps = None
             except:
                 raise error.UpdateFailed
@@ -391,22 +420,22 @@ class Project(object):
         """Return DataFrame followed applying filters
         :param args:    str[, ]
             String arguments regarding hierarchical data structures
+
         :param kwargs:  key=value pair[, ]
             Key and value pairs regarding the filename
             :key file_tag:  str or list of str
                 Keywords of interest for filename
             :key ignore:    str of list of str
                 Keywords of neglect for filename
-            :key extend:    boolean
-                If this argument is exist and True, keep pervious filter information
         :return:
         """
         if self.__empty_project:
             return None
         else:
-            self.dataclass = dc_id #self.__dc_idx
-            self.set_filters(*args, **kwargs)
-            return self.df
+            copy = self.copy()
+            copy.dataclass = dc_id
+            copy.set_filters(*args, **kwargs)
+            return copy.df
 
     def __repr__(self):
         """Return absolute path for current filtered dataframe

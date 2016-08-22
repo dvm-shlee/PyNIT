@@ -19,7 +19,7 @@ setup(name='PyNIT',
       license='GNLv3',
       packages=find_packages(),
       install_requires=['numpy', 'nibabel', 'pandas',
-                        'matplotlib', 'rpy2',
+                        'matplotlib', 'seaborn',
                         'scikit-image']
      )
 
