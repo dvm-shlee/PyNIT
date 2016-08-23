@@ -129,8 +129,16 @@ class ImageObj(nib.nifti1.Nifti1Image):
         nii.to_filename(filename)
         print("NifTi1 format image is saved to '{}'".format(filename))
 
-    def pedding(self, low, high, axis):
-        shape = self._dataobj.shape
+    def padding(self, low, high, axis):
+        dataobj = self._dataobj[...]
+        dataobj = np.swapaxes(dataobj, axis, 2)
+        shape = list(dataobj.shape[:])
+        shape[2] = low
+        lower_pad = np.zeros(shape)
+        shape[2] = high
+        higher_pad = np.zeros(shape)
+        dataobj = np.concatenate((lower_pad, dataobj, higher_pad), axis=2)
+        self._dataobj = np.swapaxes(dataobj, axis, 2)
 
     def check_reg(self, imageobj, scale=10, **kwargs):
         fig = Viewer.check_reg(imageobj, self, scale=scale, norm=True, **kwargs)
