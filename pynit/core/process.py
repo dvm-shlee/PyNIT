@@ -13,7 +13,6 @@ import error
 
 class Analysis(object):
     """ Analysis tools for PyNIT objects
-
     """
     def __init__(self):
         self.__avail = [f for f in dir(self) if '__' not in f and 'avail' not in f]
@@ -34,10 +33,6 @@ class Analysis(object):
     @staticmethod
     def mask_average(imageobj, maskobj, **kwargs):
         """ Mask average timeseries
-
-        :param imageobj:
-        :param maskobj:
-        :return:
         """
         contra = None
         merged = None
@@ -65,11 +60,6 @@ class Analysis(object):
     @staticmethod
     def get_timetrace(imageobj, tempobj, **kwargs):
         """ Parsing timetrace from imageobj, with multiple rois
-
-        :param imageobj:
-        :param tempobj:
-        :param kwargs:
-        :return:
         """
         contra = None
         bilateral = None
@@ -114,49 +104,11 @@ class Analysis(object):
                         print("Time trace is extracted from the mask 'Cont_{}'".format(roi))
         return df
 
-    @staticmethod #TODO: replate all path to obj
-    def cal_mean_cbv(output_path, input_path, postfix_bold='BOLD', postfix_cbv='CBV', *args):
-        """ Calculate cbv
-
-        :param output_path:
-        :param input_path:
-        :param postfix_bold:
-        :param postfix_cbv:
-        :return:
-        """
-        # Get average images from MION injection scan
-        fname_bold = '{}_{}.nii'.format(os.path.splitext(output_path)[0], postfix_bold)
-        fname_cbv = '{}_{}.nii'.format(os.path.splitext(output_path)[0], postfix_cbv)
-        if os.path.exists(fname_bold) and os.path.exists(fname_cbv):
-            pass
-        else:
-            img = nib.load(input_path)
-            affn = img.get_affine()
-            img = img.get_data()
-            total_tr = img.shape[3]
-
-            epi_bold = np.average(img[:, :, :, :int(total_tr / 3)], 3)
-            epi_cbv = np.average(img[:, :, :, total_tr - int(total_tr / 3):], 3)
-
-            nii_bold = nib.Nifti1Image(epi_bold, affn)
-            nii_cbv = nib.Nifti1Image(epi_cbv, affn)
-
-            nii_bold.to_filename(fname_bold)
-            nii_cbv.to_filename(fname_cbv)
-
-    @staticmethod # TODO: replace all path to obj
-    def cal_mean(output_path, input_path, *args):
+    @staticmethod
+    def cal_mean(imgobj, *args):
         """ Calculate average
-
-        :param output_path:
-        :param input_path:
-        :return:
         """
-        img = nib.load(input_path)
-        affn = img.get_affine()
-        mean = np.average(img.get_data(), axis=3)
-        nii_mean = nib.Nifti1Image(mean, affn)
-        nii_mean.to_filename(output_path)
+        return np.average(imgobj.dataobj, axis=3)
 
 
 class Interface(object):

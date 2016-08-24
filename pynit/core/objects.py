@@ -320,7 +320,8 @@ class GroupImages(object):
         return self._panel
 
     def collect_timetrace(self, tempobj, **kwargs):
+        dfs = dict()
         for sub, imageobj in self._container.iteritems():
-            self._panel[sub] = Analysis.get_timetrace(imageobj, tempobj, **kwargs)
-
+            dfs[sub] = Analysis.get_timetrace(imageobj, tempobj, **kwargs)
+        self._panel = pd.Panel(dfs)
 
