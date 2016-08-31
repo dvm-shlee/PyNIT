@@ -1,10 +1,9 @@
-# import os
 import numpy as np
 import nibabel as nib
-import pandas as pd
+import os
 from .visual import Viewer
 from .utility import InternalMethods
-from .process import Analysis
+from .process import TempFile
 import error
 
 
@@ -120,14 +119,15 @@ class ImageObj(nib.nifti1.Nifti1Image):
         """
         InternalMethods.down_reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis)
 
-    def save_as(self, filename):
+    def save_as(self, filename, quiet=False):
         """ Save as a new file with current affine information
         """
         nii = nib.Nifti1Image(self.dataobj, self.affine)
         nii.header['sform_code'] = 0
         nii.header['qform_code'] = 1
         nii.to_filename(filename)
-        print("NifTi1 format image is saved to '{}'".format(filename))
+        if not quiet:
+            print("NifTi1 format image is saved to '{}'".format(filename))
 
     def padding(self, low, high, axis):
         dataobj = self._dataobj[...]
@@ -154,17 +154,29 @@ class ImageObj(nib.nifti1.Nifti1Image):
 class Template(object):
     """ TemplateObject for PyNIT
     """
-    def __init__(self, path=None):
+    def __init__(self, path=None, atlas=None):
         self._atlas = None
+        self._atlas_path = None
+        self._object = False
         if type(path) is ImageObj:
             self._image = path
+            self._object = True
         elif type(path) is str:
             try:
                 self.load(path)
             except:
                 raise error.InputPathError
+            if atlas:
+                try:
+                    self.set_atlas(atlas)
+                except:
+                    raise error.InputPathError
         else:
             raise error.InputFileError
+        if self._object:
+            self._path = TempFile(self._image, 'temp_template')
+        else:
+            self._path = path
 
     @property
     def image(self):
@@ -185,6 +197,18 @@ class Template(object):
     def label(self):
         return self._atlas.label
 
+    @property
+    def template_path(self):
+        return self._path
+
+    @property
+    def atlas_path(self):
+        return self._atlas_path
+
+    @property
+    def atlasobj(self):
+        return self._atlas
+
     def load(self, path):
         """ Import template
 
@@ -192,9 +216,11 @@ class Template(object):
         :return:
         """
         self._image = ImageObj.load(path)
+        self._path = path
 
     def set_atlas(self, path):
         self._atlas = Atlas(path)
+        self._atlas_path = TempFile(self.atlasobj.image, 'temp_atlas')
 
     def swap_axis(self, axis1, axis2):
         if self._atlas:
@@ -218,24 +244,34 @@ class Template(object):
 
     def show(self, scale=15, **kwargs):
         if self._atlas:
-            Viewer.atlas(self.image, self._atlas, scale=scale, **kwargs)
+            fig = Viewer.atlas(self.image, self._atlas, scale=scale, **kwargs)
         else:
-            Viewer.mosaic(self.image, scale=scale, **kwargs)
+            fig = Viewer.mosaic(self.image, scale=scale, **kwargs)
+        return fig
 
     def save_as(self, filename):
         self.image.save_as('{}_template.nii'.format(filename))
-        self._atlas.save_as('{}_atlas'.format(filename))
+        if self._atlas:
+            self._atlas.save_as('{}_atlas'.format(filename))
+    
+    def close(self):
+        if self._object:
+            os.remove(self._path)
+        if self._atlas:
+            os.remove(self._atlas_path)
 
     def __getitem__(self, idx):
         return self._atlas.__getitem__(idx)
 
     def __repr__(self):
-        return self._atlas.__repr__()
+        if self._atlas:
+            return self._atlas.__repr__()
+        else:
+            return self._path
 
 
 class Atlas(object):
     def __init__(self, path=None):
-        self._atlas = None
         self._label = None
         if type(path) is ImageObj:
             self._image = path
@@ -265,9 +301,25 @@ class Atlas(object):
     def load(self, path):
         self._image, self._label = InternalMethods.parsing_atlas(path)
 
-    def save_as(self, filename):
-        self._image.save_as("{}.nii".format(filename))
+    def save_as(self, filename, label_only=False):
+        if not label_only:
+            self._image.save_as("{}.nii".format(filename))
         InternalMethods.save_label(self._label, "{}.label".format(filename))
+
+    def extract(self, path):
+        if not os.path.exists(path):
+            try:
+                InternalMethods.mkdir(path)
+            except:
+                raise error.InputPathError
+        atlas = self._image.dataobj
+        num_of_rois = np.max(atlas)
+        for i in range(num_of_rois):
+            if not i:
+                pass
+            else:
+                label, roi = self[i]
+                roi.to_filename(os.path.join(path, "{}.nii".format(label)))
 
     def __getitem__(self, idx):
         if not self._image:
@@ -285,43 +337,42 @@ class Atlas(object):
         labels = None
         for idx in self.label.keys():
             if not idx:
-                pass
                 labels = '[{:>3}] {:>40}\n'.format(idx, self.label[idx][0])
             else:
                 labels = '{}[{:>3}] {:>40}\n'.format(labels, idx, self.label[idx][0])
         return labels
 
 
-class GroupImages(object):
-    """ Group handler for multiple but same sized of Image objects
-    """
-    def __init__(self):
-        self._container = dict()
-        self._panel = pd.Panel()
-
-    def __setitem__(self, key, value):
-        if self._container:
-            natives = [obj for obj in self._container.values()]
-            if not isinstance(natives[0], value):
-                raise error.ObjectMismatch
-            else:
-                if isinstance(value, ImageObj):
-                    if value.shape != natives[0].shape:
-                        raise error.ObjectMismatch
-                else:
-                    pass
-        self._container[key] = value
-
-    def __getitem__(self, key):
-        return self._container[key]
-
-    @property
-    def timetraces(self):
-        return self._panel
-
-    def collect_timetrace(self, tempobj, **kwargs):
-        dfs = dict()
-        for sub, imageobj in self._container.iteritems():
-            dfs[sub] = Analysis.get_timetrace(imageobj, tempobj, **kwargs)
-        self._panel = pd.Panel(dfs)
+# class GroupImages(object):
+#     """ Group handler for multiple but same sized of Image objects
+#     """
+#     def __init__(self):
+#         self._container = dict()
+#         self._panel = pd.Panel()
+#
+#     def __setitem__(self, key, value):
+#         if self._container:
+#             natives = [obj for obj in self._container.values()]
+#             if not isinstance(natives[0], value):
+#                 raise error.ObjectMismatch
+#             else:
+#                 if isinstance(value, ImageObj):
+#                     if value.shape != natives[0].shape:
+#                         raise error.ObjectMismatch
+#                 else:
+#                     pass
+#         self._container[key] = value
+#
+#     def __getitem__(self, key):
+#         return self._container[key]
+#
+#     @property
+#     def timetraces(self):
+#         return self._panel
+#
+#     def collect_timetrace(self, tempobj, **kwargs):
+#         dfs = dict()
+#         for sub, imageobj in self._container.iteritems():
+#             dfs[sub] = Analysis.get_timetrace(imageobj, tempobj, **kwargs)
+#         self._panel = pd.Panel(dfs)
 

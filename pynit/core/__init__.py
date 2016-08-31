@@ -1,8 +1,8 @@
-from .project import Project
+from .project import Project, Preprocess
 from .visual import Viewer, Plot
 from .process import Interface
 from .utility import InternalMethods
-from .process import Analysis, Interface
-from .objects import Template, GroupImages, ImageObj
+from .process import Analysis, Interface, TempFile
+from .objects import Template, ImageObj
 
-__all__ = ['Project', 'Viewer', 'Plot', 'Template', 'InternalMethods', 'Analysis', 'Interface']
+__all__ = ['Project', 'Viewer', 'Plot', 'Template', 'InternalMethods', 'Analysis', 'Interface', 'TempFile', 'Preprocess']

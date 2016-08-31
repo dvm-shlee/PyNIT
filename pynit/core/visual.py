@@ -1,5 +1,6 @@
 # Import external packages
 import numpy as np
+import scipy.ndimage as ndimage
 from skimage import feature
 # Import internal packages
 from .utility import InternalMethods
@@ -88,16 +89,22 @@ class Viewer(object):
             else:
                 pass
         # Check image dimension, only 3D and 4D is available
+        print(data.shape)
         try:
             if len(data.shape) == 3:
                 interact(imshow, slice_num=(0, imageobj.shape[axis]-1), frame=fixed(0))
+                print('interact')
             elif len(data.shape) == 4:
-                interact(imshow, slice_num=(0, imageobj.shape[axis]-1), frame=(0, imageobj.shape[axis+1]-1))
+                if data.shape[-1] == 1:
+                    interact(imshow, slice_num=(0, imageobj.shape[axis] - 1), frame=fixed(0))
+                else:
+                    interact(imshow, slice_num=(0, imageobj.shape[axis]-1), frame=(0, imageobj.shape[axis+1]-1))
             else:
                 raise error.ImageDimentionMismatched
         except:
             fig, axes = plt.subplots()
             data = InternalMethods.convert_to_3d(imageobj)
+            print('notinteract')
             axes.imshow(data[..., int(slice_num)].T, origin='lower', cmap='gray')
             axes.set_axis_off()
 
@@ -106,7 +113,7 @@ class Viewer(object):
         pass
 
     @staticmethod
-    def check_reg(fixed_img, moved_img, scale=15, norm=True, **kwargs):
+    def check_reg(fixed_img, moved_img, scale=15, norm=True, sigma=0.8, **kwargs):
         dim = list(moved_img.shape)
         resol = list(moved_img.header['pixdim'][1:4])
         # Convert 4D image to 3D or raise error
@@ -127,9 +134,13 @@ class Viewer(object):
         for i in range(slice_grid[1] * slice_grid[2]):
             ax = axes.flat[i]
             edge = data[:, :, i]
+            edge = feature.canny(edge, sigma=sigma)  # edge detection for second image
+            # edge = ndimage.gaussian_filter(edge, 3)
             mask = np.ones(edge.shape)
-            edge = feature.canny(edge, sigma=0.8)  # edge detection for second image
-            mask[edge == False] = np.nan
+            sx = ndimage.sobel(edge, axis=0, mode='constant')
+            sy = ndimage.sobel(edge, axis=1, mode='constant')
+            sob = np.hypot(sx, sy)
+            mask[sob == False] = np.nan
             m_norm = colors.Normalize(vmin=0, vmax=1.5)
             if i < slice_grid[0]:
                 ax.imshow(mask.T, origin='lower', interpolation='nearest', cmap=cmap, norm=m_norm, alpha=0.8)

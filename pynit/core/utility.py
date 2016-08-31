@@ -1,6 +1,5 @@
 from __future__ import print_function
 
-import inspect
 import os
 import re
 import shutil
@@ -18,13 +17,12 @@ from skimage import exposure
 
 import objects
 import error
-from .process import Interface
 
 
 class InternalMethods(object):
     """ Internal utility for PyNIT package
     """
-    # ImageObject handler collection
+    # Method collection for ImageObject handler
     @staticmethod
     def reset_orient(imageobj, affine):
         """ Reset to the original scanner space
@@ -79,6 +77,16 @@ class InternalMethods(object):
         else:
             raise error.InputPathError
         return img
+
+    @staticmethod
+    def load_temp(path=None, atlas=None):
+        """ Load imagefile
+
+        :param filename:
+        :return:
+        """
+        tempobj = objects.Template(path, atlas)
+        return tempobj
 
     @staticmethod
     def down_reslice(imageobj, ac_slice, ac_loc, slice_thickness, total_slice, axis=2):
@@ -169,7 +177,7 @@ class InternalMethods(object):
         affine = affns.from_matvec(resol, corr)
         InternalMethods.reset_orient(imageobj, affine)
 
-    # TemplateObject handler collection
+    # Method collection for templateObject handler
     @staticmethod
     def remove_nifti_ext(path):
         """ Remove extension
@@ -260,7 +268,7 @@ class InternalMethods(object):
                                                                                            rgb[2], roi)
             f.write(line)
 
-    # Viewer handler collection
+    # Method collection for viewer handler
     @staticmethod
     def set_viewaxes(axes):
         """ Set View Axes
@@ -281,9 +289,6 @@ class InternalMethods(object):
     @staticmethod
     def check_invert(kwargs):
         """ Check image invertion
-
-        :param kwargs:
-        :return:
         """
         invertx = False
         inverty = False
@@ -301,10 +306,6 @@ class InternalMethods(object):
     @staticmethod
     def apply_invert(data, *invert):
         """ Apply image invertion
-
-        :param data:
-        :param invert:
-        :return:
         """
         if invert[0]:
             data = nib.orientations.flip_axis(data, axis=0)
@@ -317,9 +318,6 @@ class InternalMethods(object):
     @staticmethod
     def convert_to_3d(imageobj):
         """ Reduce demension to 3D
-
-        :param imageobj:
-        :return:
         """
         dim = len(imageobj.shape)
         if dim == 4:
@@ -333,9 +331,6 @@ class InternalMethods(object):
     @staticmethod
     def apply_p2_98(data):
         """ Image normalization
-
-        :param data:
-        :return:
         """
         p2 = np.percentile(data, 2)
         p98 = np.percentile(data, 98)
@@ -345,13 +340,6 @@ class InternalMethods(object):
     @staticmethod
     def set_mosaic_fig(data, dim, resol, slice_axis, scale):
         """ Set environment for mosaic figure
-
-        :param data:
-        :param dim:
-        :param resol:
-        :param slice_axis:
-        :param scale:
-        :return:
         """
         num_of_slice = dim[slice_axis]
         num_height = int(np.sqrt(num_of_slice))
@@ -371,10 +359,6 @@ class InternalMethods(object):
     @staticmethod
     def check_sliceaxis_cmap(imageobj, kwargs):
         """ Check sliceaxis (minimal number os slice) and cmap
-
-        :param imageobj:
-        :param kwargs:
-        :return:
         """
         slice_axis = int(np.argmin(imageobj.shape))
         cmap = 'gray'
@@ -388,11 +372,6 @@ class InternalMethods(object):
     @staticmethod
     def check_slice(dataobj, axis, slice_num):
         """ Check initial slice number to show
-
-        :param dataobj:
-        :param axis:
-        :param slice_num:
-        :return:
         """
         if slice_num:
             slice_num = slice_num
@@ -400,13 +379,13 @@ class InternalMethods(object):
             slice_num = dataobj.shape[axis]/2
         return slice_num
 
+    # Method collection for project handler
     @staticmethod
     def path_splitter(path):
         """Split path structure into list
         """
         return path.strip(os.sep).split(os.sep)
 
-    # Project Handler collection
     @staticmethod
     def parsing(path, ds_type, idx):
         """Parsing the data information based on input data class
@@ -520,14 +499,14 @@ class InternalMethods(object):
         columns = df.columns
         return df.reset_index()[columns]
 
-    @staticmethod
-    def isnull(df):
-        """Check missing value
-
-        :param df: pandas.DataFrame
-        :return:
-        """
-        return pd.isnull(df)
+    # @staticmethod
+    # def isnull(df):
+    #     """Check missing value
+    #
+    #     :param df: pandas.DataFrame
+    #     :return:
+    #     """
+    #     return pd.isnull(df)
 
     @staticmethod
     def mk_main_folder(prj):
@@ -537,68 +516,59 @@ class InternalMethods(object):
                               os.path.join(prj.path, prj.ds_type[1]),
                               os.path.join(prj.path, prj.ds_type[2]))
 
-    @staticmethod
-    def check_args(command):
-        """Check arguments of input command
+    # @staticmethod
+    # def check_args(command):
+    #     """Check arguments of input command
+    #
+    #     :param command:
+    #     :return:
+    #         args
+    #         defaults
+    #         varargs
+    #         keywords
+    #     """
+    #     if command in dir(Interface):
+    #         argspec = dict(inspect.getargspec(getattr(Interface, command)).__dict__)
+    #     else:
+    #         raise error.CommandExecutionFailure
+    #     if argspec['defaults'] is None:
+    #         def_len = 0
+    #         defaults = None
+    #     else:
+    #         def_len = len(argspec['defaults'])
+    #         defaults = dict(zip(argspec['args'][len(argspec['args']) - def_len:], argspec['defaults']))
+    #     args = argspec['args'][1:(len(argspec['args']) - def_len)]
+    #     varargs = argspec['varargs']
+    #     kwargs = argspec['keywords']
+    #     return args, defaults, varargs, kwargs
 
-        :param command:
-        :return:
-            args
-            defaults
-            varargs
-            keywords
-        """
-        if command in dir(Interface):
-            argspec = dict(inspect.getargspec(getattr(Interface, command)).__dict__)
-        else:
-            raise error.CommandExecutionFailure
-        if argspec['defaults'] is None:
-            def_len = 0
-            defaults = None
-        else:
-            def_len = len(argspec['defaults'])
-            defaults = dict(zip(argspec['args'][len(argspec['args']) - def_len:], argspec['defaults']))
-        args = argspec['args'][1:(len(argspec['args']) - def_len)]
-        varargs = argspec['varargs']
-        kwargs = argspec['keywords']
-        return args, defaults, varargs, kwargs
-
-    @staticmethod
-    def filter_file_index(option, prj, file_index):
-        if file_index:
-            option.extend(prj.df.Abspath.tolist()[min(file_index):max(file_index) + 1])
-        else:
-            option.extend(prj.df.Abspath.tolist())
-        return option
+    # @staticmethod
+    # def filter_file_index(option, prj, file_index):
+    #     if file_index:
+    #         option.extend(prj.df.Abspath.tolist()[min(file_index):max(file_index) + 1])
+    #     else:
+    #         option.extend(prj.df.Abspath.tolist())
+    #     return option
 
     @staticmethod
     def get_step_name(prjobj, step):
-        """ Generate step name with step index
-
-        :param prjobj:
-        :param step:
-        :return:
-        """
-        if prjobj.pipeline:
-            if len(prjobj.executed_steps):
-                last_step = []
-                # Check the folder of last step if the step has been processed or not
-                for f in os.walk(os.path.join(prjobj.path, prjobj.ds_type[1], prjobj.executed_steps[-1])):
-                    last_step.extend(f[2])
-                fin_list = [s for s in prjobj.executed_steps if step in s]
-                # Check if the step name is overlapped or not
-                if len(fin_list):
-                    return fin_list[0]
-                else:
-                    if not len([f for f in last_step if '.nii' in f]):
-                        print('Last step folder will be returned instead, it is empty.')
-                        return prjobj.executed_steps[-1]
-                    else:
-                        return "_".join([str(len(prjobj.executed_steps)).zfill(3), step])
+        pipeline_path = os.path.join(prjobj.path, prjobj.ds_type[1], prjobj.pipeline)
+        executed_steps = [f for f in os.listdir(pipeline_path) if os.path.isdir(os.path.join(pipeline_path, f))]
+        if len(executed_steps):
+            overlapped = [old_step for old_step in executed_steps if step in old_step]
+            if len(overlapped):
+                print('Notice: existing path')
+                checked_files = []
+                for f in os.walk(os.path.join(pipeline_path, overlapped[0])):
+                    checked_files.extend(f[2])
+                if len(checked_files):
+                    print('Notice: Last step path is not empty')
+                return overlapped[0]
             else:
-                return "_".join([str(len(prjobj.executed_steps)).zfill(3), step])
+                return "_".join([str(len(executed_steps)+1).zfill(3), step])
         else:
-            return None
+            print('First step for the pipeline{pipeline} is initiated'.format(pipeline=prjobj.pipeline))
+            return "_".join([str(1).zfill(3), step])
 
     @staticmethod
     def mkdir(*paths):
@@ -611,13 +581,10 @@ class InternalMethods(object):
     @staticmethod
     def copyfile(output_path, input_path, *args):
         """ Copy File
-
-        :param output_path:
-        :param input_path:
-        :return:
         """
         shutil.copyfile(input_path, output_path)
 
+    # Method collection for dynamic analysis
     @staticmethod
     def seed_coords(tractobj, start_point, end_point):
         data = tractobj.dataobj
@@ -672,9 +639,9 @@ class InternalMethods(object):
         return travelseed_obj
 
 
-class Usage(object):
-    @staticmethod
-    def project_run():
-        output = """ Usage: <prj_instance>.run(command)
-        """
-        return output
+# class Usage(object):
+#     @staticmethod
+#     def project_run():
+#         output = """ Usage: <prj_instance>.run(command)
+#         """
+#         return output
