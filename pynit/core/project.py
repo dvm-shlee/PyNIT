@@ -17,7 +17,7 @@ class Preprocess(object):
         if prjobj.subjects:
             self._subjects = prjobj.subjects[:]
             if not prjobj.single_session:
-                self._sessions = prjobj.sessions[:]
+                self._sessions = sorted(prjobj.sessions[:])
         self._prjobj = prjobj
         self._prjobj.initiate_pipeline(pipeline)
         self._pipeline = pipeline
@@ -549,9 +549,9 @@ class Preprocess(object):
                 temp_path = os.path.join(step01, subj, "base")
                 tempobj.save_as(temp_path, quiet=True)
                 funcs = self._prjobj(dataclass, func, subj)
-                print(" +Filename: {}".format(warped.Filename))
+                print(" +Filename of fixed image: {}".format(warped.Filename))
                 for i, finfo in funcs.iterrows():
-                    print(" +Filename: {}".format(finfo.Filename))
+                    print(" +Filename of moving image: {}".format(finfo.Filename))
                     output_path = os.path.join(step01, subj, finfo.Filename)
                     self._prjobj.run('ants_WarpTimeSeriesImageMultiTransform', output_path,
                                      finfo.Abspath, warped.Abspath, warps, mats)
@@ -563,7 +563,36 @@ class Preprocess(object):
                 fig.savefig(os.path.join(step02, '{}.png'.format('-'.join([subj, 'checkatlas']))),
                             facecolor=fig.get_facecolor())
                 os.remove('{}_atlas.nii'.format(temp_path))
+                os.remove('{}_atlas.label'.format(temp_path))
                 os.remove('{}_template.nii'.format(temp_path))
+            else:
+                for sess in self.sessions:
+                    print(" :Session: {}".format(sess))
+                    mats = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
+                                        ext='.mat').Abspath.loc[0]
+                    warps = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
+                                         file_tag='_1Warp').Abspath.loc[0]
+                    warped = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
+                                          file_tag='_Warped').loc[0]
+                    temp_path = os.path.join(step01, subj, sess, "base")
+                    tempobj.save_as(temp_path, quiet=True)
+                    funcs = self._prjobj(dataclass, func, subj, sess)
+                    print(" +Filename of fixed image: {}".format(warped.Filename))
+                    for i, finfo in funcs.iterrows():
+                        print(" +Filename of moving image: {}".format(finfo.Filename))
+                        output_path = os.path.join(step01, subj, sess, finfo.Filename)
+                        self._prjobj.run('ants_WarpTimeSeriesImageMultiTransform', output_path,
+                                         finfo.Abspath, warped.Abspath, warps, mats)
+                    subjatlas = InternalMethods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
+                    fig = subjatlas.show(**kwargs)
+                    if type(fig) is tuple:
+                        fig = fig[0]
+                    fig.suptitle('Check atlas registration of {}'.format(subj), fontsize=12, color='yellow')
+                    fig.savefig(os.path.join(step02, '{}.png'.format('-'.join([subj, sess, 'checkatlas']))),
+                                facecolor=fig.get_facecolor())
+                    os.remove('{}_atlas.nii'.format(temp_path))
+                    os.remove('{}_atlas.label'.format(temp_path))
+                    os.remove('{}_template.nii'.format(temp_path))
         return {'func': step01, 'checkreg': step02}
 
     def warp_atlas(self, anat, tempobj, dtype='anat', **kwargs):
@@ -660,7 +689,7 @@ class Preprocess(object):
                                     facecolor=fig.get_facecolor())
         return {'anat': step01, 'atlas': step02, 'checkreg': step03}
 
-    def get_correlation_matrix(self, func, atlas, dtype='func'):
+    def get_correlation_matrix(self, func, atlas, dtype='func', **kwargs):
         tempobj = None
         if os.path.exists(func):
             dataclass = 1
@@ -692,7 +721,7 @@ class Preprocess(object):
                                       os.path.join(step03, subj))
                 for i, finfo in funcs.iterrows():
                     print(" +Filename: {}".format(finfo.Filename))
-                    df = Analysis.get_timetrace(InternalMethods.load(finfo.Abspath), tempobj, afni=True)
+                    df = Analysis.get_timetrace(InternalMethods.load(finfo.Abspath), tempobj, afni=True, **kwargs)
                     df.to_excel(os.path.join(step01, subj, "{}.xlsx".format(os.path.splitext(finfo.Filename)[0])))
                     df.corr().to_excel(os.path.join(step02, subj, "{}.xlsx".format(
                         os.path.splitext(finfo.Filename)[0])))
@@ -710,7 +739,7 @@ class Preprocess(object):
                                           os.path.join(step03, subj, sess))
                     for i, finfo in funcs.iterrows():
                         print("  +Filename: {}".format(finfo.Filename))
-                        df = Analysis.get_timetrace(InternalMethods.load(finfo.Abspath), tempobj, afni=True)
+                        df = Analysis.get_timetrace(InternalMethods.load(finfo.Abspath), tempobj, afni=True, **kwargs)
                         df.to_excel(os.path.join(step01, subj, sess, "{}.xlsx".format(
                             os.path.splitext(finfo.Filename)[0])))
                         df.corr().to_excel(
