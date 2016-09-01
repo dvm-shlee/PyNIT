@@ -526,7 +526,7 @@ class Preprocess(object):
                 warps = self._prjobj(1, os.path.basename(step01), subj, file_tag='_1InverseWarp').Abspath.loc[0]
                 warped = self._prjobj(1, os.path.basename(step01), subj, file_tag='_InverseWarped').Abspath.loc[0]
                 temp_path = os.path.join(step01, subj, "base")
-                tempobj.save_as(temp_path)
+                tempobj.save_as(temp_path, quiet=True)
                 anats = self._prjobj(dataclass, anat, subj)
                 output_path = os.path.join(step02, subj, "{}_atlas.nii".format(subj))
                 InternalMethods.mkdir(os.path.join(step02, subj), os.path.join(step03, subj))
@@ -549,11 +549,13 @@ class Preprocess(object):
                                          file_tag='_1InverseWarp').Abspath.loc[0]
                     warped = self._prjobj(1, os.path.basename(step01), subj, sess,
                                           file_tag='_InverseWarped').Abspath.loc[0]
+                    temp_path = os.path.join(step01, subj, sess, "base")
+                    tempobj.save_as(temp_path, quiet=True)
                     anats = self._prjobj(dataclass, anat, subj, sess)
                     output_path = os.path.join(step02, subj, sess, "{}_atlas.nii".format(sess))
                     InternalMethods.mkdir(os.path.join(step02, subj, sess), os.path.join(step03, subj, sess))
                     self._prjobj.run('ants_WarpImageMultiTransform', output_path,
-                                     tempobj.atlas_path, warped, True, '-i', mats, warps)
+                                     '{}_atlas.nii'.format(temp_path), warped, True, '-i', mats, warps)
                     tempobj.atlasobj.save_as(os.path.join(step02, subj, sess, "{}_atlas".format(sess)), label_only=True)
                     for i, finfo in anats.iterrows():
                         subjatlas = InternalMethods.load_temp(finfo.Abspath, output_path)
