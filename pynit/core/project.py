@@ -484,13 +484,18 @@ class Preprocess(object):
         pass
 
     def warp_atlas(self, anat, tempobj, dtype='anat', **kwargs):
+        """ Warp anatomical image to template and inverse transform the atlas image
+        """
+        # Check the source of input data
         if os.path.exists(anat):
             dataclass = 1
             anat = InternalMethods.path_splitter(anat)[-1]
         else:
             dataclass = 0
+        # Print step ans initiate the step
         print('Warp-{} to Tempalte'.format(anat))
         step01 = self.init_step('Warp-{}2temp'.format(dtype))
+        # Loop the subjects
         for subj in self.subjects:
             print("-{}".format(subj))
             InternalMethods.mkdir(os.path.join(step01, subj))
@@ -508,9 +513,11 @@ class Preprocess(object):
                     for i, finfo in anats.iterrows():
                         self._prjobj.run('ants_RegistrationSyn', os.path.join(step01, subj, sess, "{}".format(sess)),
                                          finfo.Abspath, base_path=tempobj.template_path, quick=False)
+        # Print step
         print('Warp-Atlas to {} and check registration'.format(anat))
         step02 = self.init_step('Warp-atlas2{}'.format(dtype))
         step03 = self.init_step('CheckAtlasRegistration-{}'.format(dtype))
+        # Loop the subjects
         for subj in self.subjects:
             print("-{}".format(subj))
             InternalMethods.mkdir(os.path.join(step02, subj))
@@ -518,10 +525,12 @@ class Preprocess(object):
                 mats = self._prjobj(1, os.path.basename(step01), subj, ext='.mat').Abspath.loc[0]
                 warps = self._prjobj(1, os.path.basename(step01), subj, file_tag='_1InverseWarp').Abspath.loc[0]
                 warped = self._prjobj(1, os.path.basename(step01), subj, file_tag='_InverseWarped').Abspath.loc[0]
+                temp_path = os.path.join(os.path.basename(step01), subj, "Template")
+                tempobj.save_as(temp_path)
                 anats = self._prjobj(dataclass, anat, subj)
                 output_path = os.path.join(step02, subj, "{}_atlas.nii".format(subj))
                 InternalMethods.mkdir(os.path.join(step02, subj), os.path.join(step03, subj))
-                self._prjobj.run('ants_WarpImageMultiTransform', output_path, tempobj.atlas_path, warped,
+                self._prjobj.run('ants_WarpImageMultiTransform', output_path, '{}_atlas.nii'.format(temp_path), warped,
                                  True, '-i', mats, warps)
                 tempobj.atlasobj.save_as(os.path.join(step02, subj, "{}_atlas".format(subj)), label_only=True)
                 for i, finfo in anats.iterrows():
