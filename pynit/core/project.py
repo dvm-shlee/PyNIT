@@ -525,7 +525,7 @@ class Preprocess(object):
                 mats = self._prjobj(1, os.path.basename(step01), subj, ext='.mat').Abspath.loc[0]
                 warps = self._prjobj(1, os.path.basename(step01), subj, file_tag='_1InverseWarp').Abspath.loc[0]
                 warped = self._prjobj(1, os.path.basename(step01), subj, file_tag='_InverseWarped').Abspath.loc[0]
-                temp_path = os.path.join(os.path.basename(step01), subj, "Template")
+                temp_path = os.path.join(step01, subj, "base")
                 tempobj.save_as(temp_path)
                 anats = self._prjobj(dataclass, anat, subj)
                 output_path = os.path.join(step02, subj, "{}_atlas.nii".format(subj))
