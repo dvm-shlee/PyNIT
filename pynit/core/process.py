@@ -123,7 +123,7 @@ class Analysis(object):
                             col = Analysis.mask_average(imageobj, maskobj, contra=True, afni=afni)
                         df["Cont_{}".format(roi)] = col
                         if not quiet:
-                            print("Time trace is extracted using the mask 'Cont_{}'".format(roi))
+                            print("  * Time trace is extracted using the mask 'Cont_{}'".format(roi))
         return df
 
     @staticmethod

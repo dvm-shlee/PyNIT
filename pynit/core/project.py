@@ -554,7 +554,7 @@ class Preprocess(object):
                     print(" +Filename: {}".format(finfo.Filename))
                     output_path = os.path.join(step01, subj, finfo.Filename)
                     self._prjobj.run('ants_WarpTimeSeriesImageMultiTransform', output_path,
-                                     '{}_atlas.nii'.format(temp_path), warped.Abspath, warps, mats)
+                                     finfo.Abspath, warped.Abspath, warps, mats)
                 subjatlas = InternalMethods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
                 fig = subjatlas.show(**kwargs)
                 if type(fig) is tuple:
@@ -562,6 +562,8 @@ class Preprocess(object):
                 fig.suptitle('Check atlas registration of {}'.format(subj), fontsize=12, color='yellow')
                 fig.savefig(os.path.join(step02, '{}.png'.format('-'.join([subj, 'checkatlas']))),
                             facecolor=fig.get_facecolor())
+                os.remove('{}_atlas.nii'.format(temp_path))
+                os.remove('{}_template.nii'.format(temp_path))
         return {'func': step01, 'checkreg': step02}
 
     def warp_atlas(self, anat, tempobj, dtype='anat', **kwargs):
