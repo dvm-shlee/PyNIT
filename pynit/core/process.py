@@ -475,6 +475,18 @@ class Interface(object):
         call(shl.split(cmd))
         # print(cmd)
 
+    @staticmethod
+    def ants_WarpTimeSeriesImageMultiTransform(output_path, input_path, base_path, atlas=False, *args):
+        # ANTs applying transform
+        cmd = ['WarpTimeSeriesImageMultiTransform', '4', str(input_path), str(output_path), '-R', str(base_path)]
+        if atlas:
+            cmd.append('--use-NN')
+        for arg in args:
+            cmd.append(arg)
+        cmd = list2cmdline(cmd)
+        call(shl.split(cmd))
+        # print(cmd)
+
 
 class TempFile(object):
     """Object for temporary file

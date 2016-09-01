@@ -525,6 +525,45 @@ class Preprocess(object):
     def bandpass_filtering(self):
         pass
 
+    def warp_func(self, warped_anat, func, tempobj, dtype='func', **kwargs):
+        # Check the source of input data
+        if os.path.exists(func):
+            dataclass = 1
+            func = InternalMethods.path_splitter(func)[-1]
+        else:
+            dataclass = 0
+        print("Warp-{} to Atlas and Check it's registration".format(func))
+        step01 = self.init_step('Warp-{}2atlas'.format(dtype))
+        step02 = self.init_step('CheckAtlasRegistration-{}'.format(dtype))
+        # Loop the subjects
+        for subj in self.subjects:
+            print("-Subject: {}".format(subj))
+            InternalMethods.mkdir(os.path.join(step01, subj))
+            if self._prjobj.single_session:
+                mats = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
+                                    ext='.mat').Abspath.loc[0]
+                warps = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
+                                     file_tag='_1Warp').Abspath.loc[0]
+                warped = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
+                                      file_tag='_Warped').loc[0]
+                temp_path = os.path.join(step01, subj, "base")
+                tempobj.save_as(temp_path, quiet=True)
+                funcs = self._prjobj(dataclass, func, subj)
+                print(" +Filename: {}".format(warped.Filename))
+                for i, finfo in funcs.iterrows():
+                    print(" +Filename: {}".format(finfo.Filename))
+                    output_path = os.path.join(step01, subj, finfo.Filename)
+                    self._prjobj.run('ants_WarpTimeSeriesImageMultiTransform', output_path,
+                                     '{}_atlas.nii'.format(temp_path), warped.Abspath, warps, mats)
+                subjatlas = InternalMethods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
+                fig = subjatlas.show(**kwargs)
+                if type(fig) is tuple:
+                    fig = fig[0]
+                fig.suptitle('Check atlas registration of {}'.format(subj), fontsize=12, color='yellow')
+                fig.savefig(os.path.join(step02, '{}.png'.format('-'.join([subj, 'checkatlas']))),
+                            facecolor=fig.get_facecolor())
+        return {'func': step01, 'checkreg': step02}
+
     def warp_atlas(self, anat, tempobj, dtype='anat', **kwargs):
         """ Warp anatomical image to template and inverse transform the atlas image
         """
