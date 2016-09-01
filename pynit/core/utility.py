@@ -468,7 +468,6 @@ class InternalMethods(object):
             if single_session:
                 return ['Pipeline', 'Result', 'Subject', 'Filename', 'Abspath']
             else:
-                print('Ho')
                 return ['Pipeline', 'Result', 'Subject', 'Session', 'Filename', 'Abspath']
         else:
             return None
