@@ -559,7 +559,7 @@ class Preprocess(object):
                                          os.path.join(step01, subj, sess, "{}".format(sess)),
                                          finfo.Abspath, base_path=tempobj.template_path, quick=False)
         # Print step
-        print('Warp-Atlas to {}'.format(anat))
+        print("Warp-Atlas to {} and Check it's registration".format(anat))
         step02 = self.init_step('Warp-atlas2{}'.format(dtype))
         step03 = self.init_step('CheckAtlasRegistration-{}'.format(dtype))
         # Loop the subjects
@@ -583,9 +583,7 @@ class Preprocess(object):
                                  '{}_atlas.nii'.format(temp_path), warped.Abspath,
                                  True, '-i', mats, warps)
                 tempobj.atlasobj.save_as(os.path.join(step02, subj, "{}_atlas".format(subj)), label_only=True)
-                print('Check registration {}'.format(anat))
                 for i, finfo in anats.iterrows():
-                    print(" +Filename: {}".format(finfo.Filename))
                     subjatlas = InternalMethods.load_temp(finfo.Abspath, output_path)
                     fig = subjatlas.show(**kwargs)
                     if type(fig) is tuple:
@@ -611,9 +609,7 @@ class Preprocess(object):
                     self._prjobj.run('ants_WarpImageMultiTransform', output_path,
                                      '{}_atlas.nii'.format(temp_path), warped.Abspath, True, '-i', mats, warps)
                     tempobj.atlasobj.save_as(os.path.join(step02, subj, sess, "{}_atlas".format(sess)), label_only=True)
-                    print('Check registration {}'.format(anat))
                     for i, finfo in anats.iterrows():
-                        print("  +Filename: {}".format(finfo.Filename))
                         subjatlas = InternalMethods.load_temp(finfo.Abspath, output_path)
                         fig = subjatlas.show(**kwargs)
                         if type(fig) is tuple:

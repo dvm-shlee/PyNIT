@@ -1,0 +1,81 @@
+#!/usr/bin/env python
+
+__author__ = 'SungHo Lee (shlee@unc.edu)'
+__version_info__ = ('2015', '09', '16')
+
+import os, argparse, glob
+
+parser = argparse.ArgumentParser(prog='checkscans', description="Check the Scans in the Subjects of Bruker's Raw files")
+parser.add_argument("input", help="Input Image", type=str)
+
+args = parser.parse_args()
+
+def check_subject(subject_path):
+    cur_path = os.getcwd()
+    path = os.path.join(cur_path, subject_path)
+    scan_list = []
+    for comp in os.listdir(path):
+        if os.path.isdir(os.path.join(path, comp)):
+            try:
+                comp = int(comp)
+                scan_list.append(comp)
+            except:
+                pass
+        elif comp == 'subject':
+            with open(os.path.join(path, 'subject'), "r") as subj_file:
+                for line in subj_file:
+                    #if '##ORIGIN=' in line:
+                        #origin = line[9:].strip()
+                    #elif '##OWNER=' in line:
+                        #owner = line[8:].strip()
+                    if '##$SUBJECT_id' in line:
+                        study_name = subj_file.next().strip()[1:-1]
+                    elif '##$SUBJECT_location=' in line:
+                        location = subj_file.next().strip()[1:-1]
+
+    print('\n\nFolder [ %s ]' % subject_path)
+    print('\nThe lists for subject id [ %s ]' % study_name)
+    print('The protocols are saved in the folder of [ %s ]\n' % location)
+
+    for scan in sorted(scan_list):
+        scan_path = os.path.join(path, str(scan))
+        if 'fid' in os.listdir(scan_path):
+            with open(os.path.join(scan_path, 'acqp')) as acqp_file:
+                for line in acqp_file:
+                    #if "##$ACQ_slice_thick=" in line:
+                        #slice_thick = line[19:]
+                    if "##$NSLICES=" in line:
+                        n_slices = line[11:].strip()
+                    elif "##$ACQ_protocol_name=" in line:
+                        protocol_name = acqp_file.next()[1:-2]
+                    elif "##$ACQ_echo_time=" in line:
+                        te = acqp_file.next().strip()
+                    elif "##$ACQ_repetition_time" in line:
+                        tr = acqp_file.next().strip()
+
+            with open(os.path.join(scan_path, 'method')) as mtd_file:
+                for line in mtd_file:
+                    if "##$PVM_Matrix=" in line:
+                        matrix = mtd_file.next().strip()
+                    elif "##$PVM_SpatDimEnum=" in line:
+                        dim = line[19:].strip()
+                        if dim == '3D':
+                            n_slices = ''
+                    elif "##$PVM_NRepetitions=" in line:
+                        frame = line[20:].strip()
+            print('[ %s ] %s (%s acqusition): < %s %s %s > TE: %s ms, TR: %s ms' % (scan, protocol_name,
+                                                                              dim, matrix, n_slices,
+                                                                              frame, te, tr))
+        else:
+            pass
+
+list = glob.glob(args.input+"*")
+if list == []:
+    print('This folder is not exist')
+else:
+    for folder in list:
+        if os.path.isdir(folder):
+            check_subject(folder)
+        else:
+            pass
+
