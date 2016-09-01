@@ -41,6 +41,7 @@ class Preprocess(object):
             if self._prjobj.single_session:
                 cbv_img = self._prjobj(0, func, subj)
                 for i, finfo in cbv_img.iterrows():
+                    print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, finfo.Filename), finfo.Abspath)
             else:
                 for sess in self.sessions:
@@ -48,6 +49,7 @@ class Preprocess(object):
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
                     cbv_img = self._prjobj(0, func, subj, sess)
                     for i, finfo in cbv_img.iterrows():
+                        print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, sess, finfo.Filename),
                                          finfo.Abspath)
 
@@ -60,6 +62,7 @@ class Preprocess(object):
             if self._prjobj.single_session:
                 cbv_img = self._prjobj(1, self._pipeline, os.path.basename(step01), subj)
                 for i, finfo in cbv_img.iterrows():
+                    print(" +Filename: {}".format(finfo.Filename))
                     shape = ImageObj.load(finfo.Abspath).shape
                     self._prjobj.run('afni_3dTstat', os.path.join(step02, subj, finfo.Filename),
                                      "{path}'[{start}..{end}]'".format(path=finfo.Abspath,
@@ -75,6 +78,7 @@ class Preprocess(object):
                     InternalMethods.mkdir(os.path.join(step02, subj, sess), os.path.join(step03, subj, sess))
                     cbv_img = self._prjobj(0, os.path.basename(step01), subj, sess)
                     for i, finfo in cbv_img.iterrows():
+                        print("  +Filename: {}".format(finfo.Filename))
                         shape = InternalMethods.load(finfo.Abspath).shape
                         self._prjobj.run('afni_3dTstat', os.path.join(step02, subj, sess, finfo.Filename),
                                          "{path}'[{start}..{end}]'".format(path=finfo.Abspath,
@@ -97,6 +101,7 @@ class Preprocess(object):
             if self._prjobj.single_session:
                 cbv_img = self._prjobj(1, self._pipeline, os.path.basename(step01), subj)
                 for i, finfo in cbv_img.iterrows():
+                    print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dTstat', os.path.join(step01, subj, finfo.Filename),
                                      finfo.Abspath)
             else:
@@ -105,6 +110,7 @@ class Preprocess(object):
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
                     cbv_img = self._prjobj(0, os.path.basename(step01), subj, sess)
                     for i, finfo in cbv_img.iterrows():
+                        print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dTstat', os.path.join(step01, subj, sess, finfo.Filename),
                                          finfo.Abspath)
         return {'meanfunc': step01}
@@ -125,6 +131,7 @@ class Preprocess(object):
             if self._prjobj.single_session:
                 epi = self._prjobj(dataclass, func, subj)
                 for i, finfo in epi.iterrows():
+                    print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dTshift', os.path.join(step01, subj, finfo.Filename),
                                      finfo.Abspath, tr=tr, tpattern=tpattern)
             else:
@@ -133,6 +140,7 @@ class Preprocess(object):
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
                     epi = self._prjobj(dataclass, func, subj, sess)
                     for i, finfo in epi.iterrows():
+                        print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dTshift', os.path.join(step01, subj, sess, finfo.Filename),
                                          finfo.Abspath, tr=tr, tpattern=tpattern)
         return {'func': step01}
@@ -154,6 +162,7 @@ class Preprocess(object):
                 epi = self._prjobj(dataclass, func, subj)
                 meanimg = self._prjobj(1, self._pipeline, os.path.basename(meanfunc), subj)
                 for i, finfo in epi.iterrows():
+                    print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
                                      base_slice=meanimg.Abspath[0])
             else:
@@ -163,6 +172,7 @@ class Preprocess(object):
                     epi = self._prjobj(dataclass, func, subj, sess)
                     meanimg = self._prjobj(1, self._pipeline, os.path.basename(meanfunc), subj, sess)
                     for i, finfo in epi.iterrows():
+                        print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, sess, finfo.Filename),
                                          finfo.Abspath, base_slice=meanimg.Abspath[0])
         return {'func': step01}
@@ -189,11 +199,13 @@ class Preprocess(object):
                 epi = self._prjobj(f_dataclass, func, subj)
                 t2 = self._prjobj(a_dataclass, anat, subj)
                 for i, finfo in epi.iterrows():
+                    print(" +Filename: {}".format(finfo.Filename))
                     epiimg = InternalMethods.load(finfo.Abspath)
                     if padding:
                         epiimg.padding(low=1, high=1, axis=zaxis)
                     epiimg.save_as(os.path.join(step01, subj, finfo.Filename), quiet=True)
                 for i, finfo in t2.iterrows():
+                    print(" +Filename: {}".format(finfo.Filename))
                     t2img = InternalMethods.load(finfo.Abspath)
                     if padding:
                         t2img.padding(low=1, high=1, axis=zaxis)
@@ -205,11 +217,13 @@ class Preprocess(object):
                     epi = self._prjobj(f_dataclass, func, subj, sess)
                     t2 = self._prjobj(a_dataclass, anat, subj, sess)
                     for i, finfo in epi.iterrows():
+                        print("  +Filename: {}".format(finfo.Filename))
                         epiimg = InternalMethods.load(finfo.Abspath)
                         if padding:
                             epiimg.padding(low=1, high=1, axis=zaxis)
                         epiimg.save_as(os.path.join(step01, subj, sess, finfo.Filename))
                     for i, finfo in t2.iterrows():
+                        print("  +Filename: {}".format(finfo.Filename))
                         t2img = InternalMethods.load(finfo.Abspath)
                         if padding:
                             t2img.padding(low=1, high=1, axis=zaxis)
@@ -444,7 +458,7 @@ class Preprocess(object):
                                          matrix_apply=param.Abspath.loc[0])
         return {'func': step01}
 
-    def global_regression(self, func, dtype='func'):
+    def global_regression(self, func, dtype='func', detrend=-1):
         if os.path.exists(func):
             dataclass = 1
             func = InternalMethods.path_splitter(func)[-1]
@@ -458,7 +472,7 @@ class Preprocess(object):
             if self._prjobj.single_session:
                 funcs = self._prjobj(dataclass, func, subj)
                 for i, finfo in funcs.iterrows():
-                    regressor = os.path.join(step01, subj, "gr_{}.1D".format(os.path.splitext(finfo.Filename)[0]))
+                    regressor = os.path.join(step01, subj, "{}.1D".format(os.path.splitext(finfo.Filename)[0]))
                     self._prjobj.run('afni_3dmaskave', regressor, finfo.Abspath, finfo.Abspath)
                     self._prjobj.run('afni_3dDetrend', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
                                      vector=regressor, polort='-1')
@@ -469,14 +483,41 @@ class Preprocess(object):
                     funcs = self._prjobj(dataclass, func, subj)
                     for i, finfo in funcs.iterrows():
                         regressor = os.path.join(func, subj, sess,
-                                                 "{}_globalregressor.1D".format(os.path.splitext(finfo.Filename)[0]))
+                                                 "{}.1D".format(os.path.splitext(finfo.Filename)[0]))
                         self._prjobj.run('afni_3dmaskave', regressor, finfo.Abspath, finfo.Abspath)
                         self._prjobj.run('afni_3dDetrend', os.path.join(step01, subj, sess, finfo.Filename),
-                                         finfo.Abspath, vector=regressor, polort='-1')
+                                         finfo.Abspath, vector=regressor, polort=str(detrend))
         return {'func': step01}
 
-    def motion_parameter_regression(self):
-        pass
+    def motion_parameter_regression(self, func, motioncorrected_func, dtype='func', detrend=-1):
+        if os.path.exists(func):
+            dataclass = 1
+            func = InternalMethods.path_splitter(func)[-1]
+        else:
+            dataclass = 0
+        print('GlobalRegression-{}'.format(func))
+        step01 = self.init_step('GlobalRegression-{}'.format(dtype))
+        for subj in self.subjects:
+            print("-Subject: {}".format(subj))
+            InternalMethods.mkdir(os.path.join(step01, subj))
+            if self._prjobj.single_session:
+                funcs = self._prjobj(dataclass, func, subj)
+                for i, finfo in funcs.iterrows():
+                    regressor = self._prjobj(dataclass, motioncorrected_func, subj, ext='.1D', ignore='.aff12',
+                                             file_tag=os.path.splitext(finfo.Filename)[0]).Abspath[0]
+                    self._prjobj.run('afni_3dDetrend', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
+                                     vector=regressor, polort='-1')
+            else:
+                for sess in self.sessions:
+                    print(" :Session: {}".format(sess))
+                    InternalMethods.mkdir(os.path.join(step01, subj, sess))
+                    funcs = self._prjobj(dataclass, func, subj)
+                    for i, finfo in funcs.iterrows():
+                        regressor = self._prjobj(dataclass, motioncorrected_func, subj, ext='.1D', ignore='.aff12',
+                                                 file_tag=os.path.splitext(finfo.Filename)[0]).Abspath[0]
+                        self._prjobj.run('afni_3dDetrend', os.path.join(step01, subj, sess, finfo.Filename),
+                                         finfo.Abspath, vector=regressor, polort=str(detrend))
+        return {'func': step01}
 
     def smoothing(self):
         pass
@@ -504,6 +545,7 @@ class Preprocess(object):
                 anats = self._prjobj(dataclass, anat, subj)
                 InternalMethods.mkdir(os.path.join(step01, subj))
                 for i, finfo in anats.iterrows():
+                    print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('ants_RegistrationSyn', os.path.join(step01, subj, "{}".format(subj)),
                                      finfo.Abspath, base_path=tempobj.template_path, quick=False)
             else:
@@ -512,10 +554,12 @@ class Preprocess(object):
                     anats = self._prjobj(dataclass, anat, subj, sess)
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
                     for i, finfo in anats.iterrows():
-                        self._prjobj.run('ants_RegistrationSyn', os.path.join(step01, subj, sess, "{}".format(sess)),
+                        print("  +Filename: {}".format(finfo.Filename))
+                        self._prjobj.run('ants_RegistrationSyn',
+                                         os.path.join(step01, subj, sess, "{}".format(sess)),
                                          finfo.Abspath, base_path=tempobj.template_path, quick=False)
         # Print step
-        print('Warp-Atlas to {} and check registration'.format(anat))
+        print('Warp-Atlas to {}'.format(anat))
         step02 = self.init_step('Warp-atlas2{}'.format(dtype))
         step03 = self.init_step('CheckAtlasRegistration-{}'.format(dtype))
         # Loop the subjects
@@ -523,18 +567,25 @@ class Preprocess(object):
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step02, subj))
             if self._prjobj.single_session:
-                mats = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, ext='.mat').Abspath.loc[0]
-                warps = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, file_tag='_1InverseWarp').Abspath.loc[0]
-                warped = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, file_tag='_InverseWarped').Abspath.loc[0]
+                mats = self._prjobj(1, self._pipeline, os.path.basename(step01), subj,
+                                    ext='.mat').Abspath.loc[0]
+                warps = self._prjobj(1, self._pipeline, os.path.basename(step01), subj,
+                                     file_tag='_1InverseWarp').Abspath.loc[0]
+                warped = self._prjobj(1, self._pipeline, os.path.basename(step01), subj,
+                                      file_tag='_InverseWarped').loc[0]
                 temp_path = os.path.join(step01, subj, "base")
                 tempobj.save_as(temp_path, quiet=True)
                 anats = self._prjobj(dataclass, anat, subj)
                 output_path = os.path.join(step02, subj, "{}_atlas.nii".format(subj))
                 InternalMethods.mkdir(os.path.join(step02, subj), os.path.join(step03, subj))
-                self._prjobj.run('ants_WarpImageMultiTransform', output_path, '{}_atlas.nii'.format(temp_path), warped,
+                print(" +Filename: {}".format(warped.Filename))
+                self._prjobj.run('ants_WarpImageMultiTransform', output_path,
+                                 '{}_atlas.nii'.format(temp_path), warped.Abspath,
                                  True, '-i', mats, warps)
                 tempobj.atlasobj.save_as(os.path.join(step02, subj, "{}_atlas".format(subj)), label_only=True)
+                print('Check registration {}'.format(anat))
                 for i, finfo in anats.iterrows():
+                    print(" +Filename: {}".format(finfo.Filename))
                     subjatlas = InternalMethods.load_temp(finfo.Abspath, output_path)
                     fig = subjatlas.show(**kwargs)
                     if type(fig) is tuple:
@@ -545,20 +596,24 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    mats = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, sess, ext='.mat').Abspath.loc[0]
+                    mats = self._prjobj(1, self._pipeline, os.path.basename(step01),
+                                        subj, sess, ext='.mat').Abspath.loc[0]
                     warps = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, sess,
                                          file_tag='_1InverseWarp').Abspath.loc[0]
                     warped = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, sess,
-                                          file_tag='_InverseWarped').Abspath.loc[0]
+                                          file_tag='_InverseWarped').loc[0]
                     temp_path = os.path.join(step01, subj, sess, "base")
                     tempobj.save_as(temp_path, quiet=True)
                     anats = self._prjobj(dataclass, anat, subj, sess)
                     output_path = os.path.join(step02, subj, sess, "{}_atlas.nii".format(sess))
                     InternalMethods.mkdir(os.path.join(step02, subj, sess), os.path.join(step03, subj, sess))
+                    print(" +Filename: {}".format(warped.Filename))
                     self._prjobj.run('ants_WarpImageMultiTransform', output_path,
-                                     '{}_atlas.nii'.format(temp_path), warped, True, '-i', mats, warps)
+                                     '{}_atlas.nii'.format(temp_path), warped.Abspath, True, '-i', mats, warps)
                     tempobj.atlasobj.save_as(os.path.join(step02, subj, sess, "{}_atlas".format(sess)), label_only=True)
+                    print('Check registration {}'.format(anat))
                     for i, finfo in anats.iterrows():
+                        print("  +Filename: {}".format(finfo.Filename))
                         subjatlas = InternalMethods.load_temp(finfo.Abspath, output_path)
                         fig = subjatlas.show(**kwargs)
                         if type(fig) is tuple:

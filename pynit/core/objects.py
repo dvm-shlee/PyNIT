@@ -249,10 +249,10 @@ class Template(object):
             fig = Viewer.mosaic(self.image, scale=scale, **kwargs)
         return fig
 
-    def save_as(self, filename):
-        self.image.save_as('{}_template.nii'.format(filename))
+    def save_as(self, filename, quiet=False):
+        self.image.save_as('{}_template.nii'.format(filename), quiet=quiet)
         if self._atlas:
-            self._atlas.save_as('{}_atlas'.format(filename))
+            self._atlas.save_as('{}_atlas'.format(filename), quiet=quiet)
     
     def close(self):
         if self._object:
@@ -301,9 +301,9 @@ class Atlas(object):
     def load(self, path):
         self._image, self._label = InternalMethods.parsing_atlas(path)
 
-    def save_as(self, filename, label_only=False):
+    def save_as(self, filename, label_only=False, quiet=False):
         if not label_only:
-            self._image.save_as("{}.nii".format(filename))
+            self._image.save_as("{}.nii".format(filename), quiet=quiet)
         InternalMethods.save_label(self._label, "{}.label".format(filename))
 
     def extract(self, path):
