@@ -429,13 +429,16 @@ class Interface(object):
         call(shl.split(cmd))
 
     @staticmethod
-    def afni_3dDeconvolve(output_path, input_path, *args, **kwargs):
+    def afni_3dDeconvolve(output_path, input_path, num_stimts=None, *args, **kwargs):
         """ AFNI 3Ddeconvolve command wrapper
         """
         cmd = ['3dDeconvolve']
         if input_path:
             cmd.append('-input')
             cmd.append("'{}'".format(str(input_path)))
+        if num_stimts:
+            cmd.append('-num_stimts')
+            cmd.append(str(num_stimts))
         if args:
             for arg in args:
                 cmd.append(arg)
