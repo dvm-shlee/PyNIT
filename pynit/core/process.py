@@ -361,7 +361,7 @@ class Interface(object):
 
     @staticmethod
     def afni_3dBandpass(output_path, input_path, norm=False, despike=False, mask=None, blur=False,
-                        band=False, dt='1', *args):
+                        band=False, dt='1'):
         # AFNI signal processing for resting state (3dBandpass)
         cmd = ['3dBandpass', '-input', input_path, '-prefix', output_path]
         if 'dt':
@@ -429,7 +429,7 @@ class Interface(object):
         call(shl.split(cmd))
 
     @staticmethod
-    def afni_3dDeconvolve(output_path, input_path, **kwargs):
+    def afni_3dDeconvolve(output_path, input_path, **kwargs): # TODO: Not working for GLM analysis, need to fix
         """ AFNI 3Ddeconvolve command wrapper
         """
         cmd = ['3dDeconvolve']

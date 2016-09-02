@@ -528,7 +528,7 @@ class Preprocess(object):
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
-                    funcs = self._prjobj(dataclass, func, subj)
+                    funcs = self._prjobj(dataclass, func, subj, sess)
                     for i, finfo in funcs.iterrows():
                         print("  +Filename: {}".format(finfo.Filename))
                         regressor = self._prjobj(dataclass, motioncorrected_func, subj, ext='.1D', ignore='.aff12',
@@ -537,86 +537,108 @@ class Preprocess(object):
                                          finfo.Abspath, vector=regressor, polort=str(detrend))
         return {'func': step01}
 
-    def smoothing(self):
-        pass
-
-    def bandpass_filtering(self):
-        pass
-
-    def warp_func(self, warped_anat, func, tempobj, dtype='func', **kwargs):
-        # Check the source of input data
+    def signal_processing(self, func, norm=False, despike=False, blur=False, band=False, dt='1', dtype='func'):
         if os.path.exists(func):
             dataclass = 1
             func = InternalMethods.path_splitter(func)[-1]
         else:
             dataclass = 0
-        print("Warp-{} to Atlas and Check it's registration".format(func))
-        step01 = self.init_step('Warp-{}2atlas'.format(dtype))
-        num_step = os.path.basename(step01).split('_')[0]
-        step02 = self.final_step('{}_CheckAtlasRegistration-{}'.format(num_step, dtype))
-        # Loop the subjects
+        print('-{}'.format(func))
+        step01 = self.init_step('SignalProcessing-{}'.format(dtype))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
-                InternalMethods.mkdir(os.path.join(step02, 'AllSubjects'))
-                mats = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
-                                    ext='.mat').Abspath.loc[0]
-                warps = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
-                                     file_tag='_1Warp').Abspath.loc[0]
-                warped = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
-                                      file_tag='_Warped').loc[0]
-                temp_path = os.path.join(step01, subj, "base")
-                tempobj.save_as(temp_path, quiet=True)
                 funcs = self._prjobj(dataclass, func, subj)
-                print(" +Filename of fixed image: {}".format(warped.Filename))
                 for i, finfo in funcs.iterrows():
-                    print(" +Filename of moving image: {}".format(finfo.Filename))
-                    output_path = os.path.join(step01, subj, finfo.Filename)
-                    self._prjobj.run('ants_WarpTimeSeriesImageMultiTransform', output_path,
-                                     finfo.Abspath, warped.Abspath, warps, mats)
-                subjatlas = InternalMethods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
-                fig = subjatlas.show(**kwargs)
-                if type(fig) is tuple:
-                    fig = fig[0]
-                fig.suptitle('Check atlas registration of {}'.format(subj), fontsize=12, color='yellow')
-                fig.savefig(os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'checkatlas']))),
-                            facecolor=fig.get_facecolor())
-                os.remove('{}_atlas.nii'.format(temp_path))
-                os.remove('{}_atlas.label'.format(temp_path))
-                os.remove('{}_template.nii'.format(temp_path))
+                    print(" +Filename: {}".format(finfo.Filename))
+                    self._prjobj.run('afni_3dBandpass', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
+                                     norm=norm, despike=despike, blur=blur, band=band, dt=dt)
             else:
-                InternalMethods.mkdir(os.path.join(step02, subj))
                 for sess in self.sessions:
-                    InternalMethods.mkdir(os.path.join(step02, subj, 'AllSessions'))
                     print(" :Session: {}".format(sess))
-                    mats = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
-                                        ext='.mat').Abspath.loc[0]
-                    warps = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
-                                         file_tag='_1Warp').Abspath.loc[0]
-                    warped = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
-                                          file_tag='_Warped').loc[0]
-                    temp_path = os.path.join(step01, subj, sess, "base")
-                    tempobj.save_as(temp_path, quiet=True)
+                    InternalMethods.mkdir(os.path.join(step01, subj, sess))
                     funcs = self._prjobj(dataclass, func, subj, sess)
-                    print(" +Filename of fixed image: {}".format(warped.Filename))
                     for i, finfo in funcs.iterrows():
-                        print(" +Filename of moving image: {}".format(finfo.Filename))
-                        output_path = os.path.join(step01, subj, sess, finfo.Filename)
-                        self._prjobj.run('ants_WarpTimeSeriesImageMultiTransform', output_path,
-                                         finfo.Abspath, warped.Abspath, warps, mats)
-                    subjatlas = InternalMethods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
-                    fig = subjatlas.show(**kwargs)
-                    if type(fig) is tuple:
-                        fig = fig[0]
-                    fig.suptitle('Check atlas registration of {}'.format(subj), fontsize=12, color='yellow')
-                    fig.savefig(os.path.join(step02, subj, 'AllSessions',
-                                             '{}.png'.format('-'.join([subj, sess, 'checkatlas']))),
-                                facecolor=fig.get_facecolor())
-                    os.remove('{}_atlas.nii'.format(temp_path))
-                    os.remove('{}_atlas.label'.format(temp_path))
-                    os.remove('{}_template.nii'.format(temp_path))
-        return {'func': step01, 'checkreg': step02}
+                        print("  +Filename: {}".format(finfo.Filename))
+                        self._prjobj.run('afni_3dBandpass', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
+                                         norm=norm, despike=despike, blur=blur, band=band, dt=dt)
+        return {'func': step01}
+
+    # def warp_func(self, warped_anat, func, tempobj, dtype='func', **kwargs):
+    #     # Check the source of input data
+    #     if os.path.exists(func):
+    #         dataclass = 1
+    #         func = InternalMethods.path_splitter(func)[-1]
+    #     else:
+    #         dataclass = 0
+    #     print("Warp-{} to Atlas and Check it's registration".format(func))
+    #     step01 = self.init_step('Warp-{}2atlas'.format(dtype))
+    #     num_step = os.path.basename(step01).split('_')[0]
+    #     step02 = self.final_step('{}_CheckAtlasRegistration-{}'.format(num_step, dtype))
+    #     # Loop the subjects
+    #     for subj in self.subjects:
+    #         print("-Subject: {}".format(subj))
+    #         InternalMethods.mkdir(os.path.join(step01, subj))
+    #         if self._prjobj.single_session:
+    #             InternalMethods.mkdir(os.path.join(step02, 'AllSubjects'))
+    #             mats = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
+    #                                 ext='.mat').Abspath.loc[0]
+    #             warps = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
+    #                                  file_tag='_1Warp').Abspath.loc[0]
+    #             warped = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
+    #                                   file_tag='_Warped').loc[0]
+    #             temp_path = os.path.join(step01, subj, "base")
+    #             tempobj.save_as(temp_path, quiet=True)
+    #             funcs = self._prjobj(dataclass, func, subj)
+    #             print(" +Filename of fixed image: {}".format(warped.Filename))
+    #             for i, finfo in funcs.iterrows():
+    #                 print(" +Filename of moving image: {}".format(finfo.Filename))
+    #                 output_path = os.path.join(step01, subj, finfo.Filename)
+    #                 self._prjobj.run('ants_WarpTimeSeriesImageMultiTransform', output_path,
+    #                                  finfo.Abspath, warped.Abspath, warps, mats)
+    #             subjatlas = InternalMethods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
+    #             fig = subjatlas.show(**kwargs)
+    #             if type(fig) is tuple:
+    #                 fig = fig[0]
+    #             fig.suptitle('Check atlas registration of {}'.format(subj), fontsize=12, color='yellow')
+    #             fig.savefig(os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'checkatlas']))),
+    #                         facecolor=fig.get_facecolor())
+    #             os.remove('{}_atlas.nii'.format(temp_path))
+    #             os.remove('{}_atlas.label'.format(temp_path))
+    #             os.remove('{}_template.nii'.format(temp_path))
+    #         else:
+    #             InternalMethods.mkdir(os.path.join(step02, subj))
+    #             for sess in self.sessions:
+    #                 InternalMethods.mkdir(os.path.join(step02, subj, 'AllSessions'))
+    #                 print(" :Session: {}".format(sess))
+    #                 mats = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
+    #                                     ext='.mat').Abspath.loc[0]
+    #                 warps = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
+    #                                      file_tag='_1Warp').Abspath.loc[0]
+    #                 warped = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
+    #                                       file_tag='_Warped').loc[0]
+    #                 temp_path = os.path.join(step01, subj, sess, "base")
+    #                 tempobj.save_as(temp_path, quiet=True)
+    #                 funcs = self._prjobj(dataclass, func, subj, sess)
+    #                 print(" +Filename of fixed image: {}".format(warped.Filename))
+    #                 for i, finfo in funcs.iterrows():
+    #                     print(" +Filename of moving image: {}".format(finfo.Filename))
+    #                     output_path = os.path.join(step01, subj, sess, finfo.Filename)
+    #                     self._prjobj.run('ants_WarpTimeSeriesImageMultiTransform', output_path,
+    #                                      finfo.Abspath, warped.Abspath, warps, mats)
+    #                 subjatlas = InternalMethods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
+    #                 fig = subjatlas.show(**kwargs)
+    #                 if type(fig) is tuple:
+    #                     fig = fig[0]
+    #                 fig.suptitle('Check atlas registration of {}'.format(subj), fontsize=12, color='yellow')
+    #                 fig.savefig(os.path.join(step02, subj, 'AllSessions',
+    #                                          '{}.png'.format('-'.join([subj, sess, 'checkatlas']))),
+    #                             facecolor=fig.get_facecolor())
+    #                 os.remove('{}_atlas.nii'.format(temp_path))
+    #                 os.remove('{}_atlas.label'.format(temp_path))
+    #                 os.remove('{}_template.nii'.format(temp_path))
+    #     return {'func': step01, 'checkreg': step02}
 
     def warp_anat_to_template(self, anat, tempobj, dtype='anat', **kwargs):
         # Check the source of input data
