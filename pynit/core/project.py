@@ -930,10 +930,11 @@ class Preprocess(object):
                 for i, finfo in funcs.iterrows():
                     print(" +Filename: {}".format(finfo.Filename))
                     output_path = os.path.join(step01, subj, finfo.Filename)
-                    self._prjobj.run('afni_3dDeconvolve', str(output_path), str(finfo.Abspath), nfirst='0',
-                                     polort='-1', num_stimts='1', stim_file=['1', "'{}'".format(paradigm)],
+                    self._prjobj.run('afni_3dDeconvolve', str(output_path), str(finfo.Abspath), "tout",
+                                     num_stimts='1',
+                                     nfirst='0', polort='-1', stim_file=['1', "'{}'".format(paradigm)],
                                      stim_label=['1', "'STIM'"], num_glt='1', glt_label=['1', "'STIM'"],
-                                     gltsym='SYM: +STIM', tout=True)
+                                     gltsym='SYM: +STIM')
         return {'func': step01}
 
     def init_step(self, title):

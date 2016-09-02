@@ -433,8 +433,6 @@ class Interface(object):
         """ AFNI 3Ddeconvolve command wrapper
         """
         cmd = ['3dDeconvolve']
-        tout = False
-        fout = False
         if input_path:
             cmd.append('-input')
             cmd.append("'{}'".format(str(input_path)))
@@ -449,10 +447,6 @@ class Interface(object):
                 elif type(kwargs[kwarg]) is str:
                     cmd.append(kwargs[kwarg])
                 else:
-                    if kwarg is 'tout':
-                        pass
-                    if kwarg is 'fout':
-                        pass
                     cmd.append(str(kwargs[kwarg]))
         if output_path:
             if '.nii' in output_path:
