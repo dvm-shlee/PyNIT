@@ -905,12 +905,12 @@ class Preprocess(object):
                             stim_type = "BLOCK({},{})".format(duration, peak)
                         else:
                             raise error.CommandExecutionFailure
-        output_path = os.path.join('.tmp', filename)
+        output_path = os.path.join('.tmp', '{}.xmat.1D'.format(filename))
         Interface.afni_3dDeconvolve(output_path, None, nodata=[str(num_of_time), str(tr)],
                                     num_stimts=num_stimts, polort=-1,
                                     stim_times=['1', "'1D: {}'".format(" ".join(onset)),
                                                 "'{}'".format(stim_type)])
-        return {'paradigm': '{}.xmat.1D'.format(output_path)}
+        return {'paradigm': output_path}
 
     def general_linear_model(self, func, paradigm, dtype='func'):
         if os.path.exists(func):
