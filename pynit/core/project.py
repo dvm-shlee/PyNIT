@@ -936,6 +936,7 @@ class Preprocess(object):
                                      num_stimts=1, stim_file=['1', paradigm], stim_label=['1', 'STIM'],
                                      num_glt=1, glt_label=['1', 'STIM'], gltsym="'SYM: +STIM'",
                                      tout=True)
+        return {'func': step01}
 
     def init_step(self, title):
         path = self._prjobj.initiate_step(title)
