@@ -908,7 +908,7 @@ class Preprocess(object):
         output_path = os.path.join('.tmp', '{}.xmat.1D'.format(filename))
         Interface.afni_3dDeconvolve(output_path, None, nodata=[str(num_of_time), str(tr)],
                                     num_stimts=num_stimts, polort=-1,
-                                    stim_times=['1', "'1D: {}'".format(" ".join(onset)),
+                                    stim_times=['1', '1D: {}'.format(" ".join(onset)),
                                                 "'{}'".format(stim_type)])
         return {'paradigm': output_path}
 

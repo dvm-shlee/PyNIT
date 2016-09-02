@@ -474,8 +474,8 @@ class Interface(object):
             stdout = check_output(shl.split(cmd))
             return stdout
         cmd = list2cmdline(cmd)
-        print(cmd)
-        # call(shl.split(cmd))
+        # print(cmd)
+        call(shl.split(cmd))
 
     # ANTs commands
     @staticmethod
