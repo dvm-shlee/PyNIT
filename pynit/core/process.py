@@ -440,7 +440,7 @@ class Interface(object):
             for arg in args:
                 cmd.append(arg)
         if kwargs:
-            print(kwargs.keys())
+            print(sorted(kwargs.keys()))
             for kwarg in kwargs.keys():
                 cmd.append("-{}".format(kwarg))
                 if type(kwargs[kwarg]) is list:
