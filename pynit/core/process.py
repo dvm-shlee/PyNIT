@@ -439,7 +439,6 @@ class Interface(object):
             cmd.append('-num_stimts')
             cmd.append('1')
         if kwargs:
-            print(sorted(kwargs.keys()))
             for kwarg in kwargs.keys():
                 cmd.append("-{}".format(kwarg))
                 if type(kwargs[kwarg]) is list:
@@ -465,8 +464,8 @@ class Interface(object):
             stdout = check_output(shl.split(cmd))
             return stdout
         cmd = list2cmdline(cmd)
-        print(cmd)
-        # call(shl.split(cmd))
+        # print(cmd)
+        call(shl.split(cmd))
 
     # ANTs commands
     @staticmethod
