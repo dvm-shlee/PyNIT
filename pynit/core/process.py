@@ -454,6 +454,7 @@ class Interface(object):
                     cmd.append(str(kwargs[kwarg]))
         if output_path:
             if '.nii' in output_path:
+                cmd.append('-tout')
                 cmd.append('-bucket')
                 cmd.append(str(output_path))
             elif '.1D' in output_path:
