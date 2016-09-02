@@ -428,6 +428,54 @@ class Interface(object):
         cmd = list2cmdline(cmd)
         call(shl.split(cmd))
 
+    @staticmethod
+    def afni_3dDeconvolve(output_path, input_path, *args, **kwargs):
+        """ AFNI 3Ddeconvolve command wrapper
+        """
+        cmd = ['3dDeconvolve']
+        tout = False
+        fout = False
+        if input_path:
+            cmd.append('-input')
+            cmd.append("'{}'".format(str(input_path)))
+        if args:
+            for arg in args:
+                cmd.append(arg)
+        if kwargs:
+            for kwarg in kwargs.keys():
+                cmd.append("-{}".format(kwarg))
+                if kwarg is 'tout':
+                    tout = kwargs[kwarg]
+                if kwarg is 'fout':
+                    fout = kwargs[kwarg]
+                if type(kwargs[kwarg]) is list:
+                    cmd.extend(kwargs[kwarg])
+                elif type(kwargs[kwarg]) is str:
+                    cmd.append(kwargs[kwarg])
+                else:
+                    cmd.append(str(kwargs[kwarg]))
+        if tout:
+            cmd.append('-tout')
+        if fout:
+            cmd.append('-fout')
+        if output_path:
+            if '.nii' in output_path:
+                cmd.append('-bucket')
+                cmd.append(str(output_path))
+            elif '.1D' in output_path:
+                cmd.append('-x1D')
+                cmd.append(str(output_path))
+            else:
+                raise error.CommandExecutionFailure
+        else:
+            cmd.append('-x1D')
+            cmd.append('stdout')
+            cmd = list2cmdline(cmd)
+            stdout = check_output(shl.split(cmd))
+            return stdout
+        cmd = list2cmdline(cmd)
+        call(shl.split(cmd))
+
     # ANTs commands
     @staticmethod
     def ants_BiasFieldCorrection(output_path, input_path, algorithm='n3', *args):

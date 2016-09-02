@@ -770,7 +770,7 @@ class Preprocess(object):
                                       file_tag='_InverseWarped').loc[0]
                 temp_path = os.path.join(step01, subj, "base")
                 tempobj.save_as(temp_path, quiet=True)
-                anats = self._prjobj(dataclass, anat, subj)
+                anats = self._prjobj(dataclass, self._pipeline, anat, subj)
                 output_path = os.path.join(step02, subj, "{}_atlas.nii".format(subj))
                 InternalMethods.mkdir(os.path.join(step02, subj), os.path.join(step03, subj))
                 print(" +Filename: {}".format(warped.Filename))
@@ -797,7 +797,7 @@ class Preprocess(object):
                                           file_tag='_InverseWarped').loc[0]
                     temp_path = os.path.join(step01, subj, sess, "base")
                     tempobj.save_as(temp_path, quiet=True)
-                    anats = self._prjobj(dataclass, anat, subj, sess)
+                    anats = self._prjobj(dataclass, self._pipeline, anat, subj, sess)
                     output_path = os.path.join(step02, subj, sess, "{}_atlas.nii".format(sess))
                     InternalMethods.mkdir(os.path.join(step02, subj, sess), os.path.join(step03, subj, sess))
                     print(" +Filename: {}".format(warped.Filename))
@@ -836,15 +836,13 @@ class Preprocess(object):
         step03 = self.final_step('{}_Zscore_Matrix-{}'.format(num_step, dtype))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            InternalMethods.mkdir(os.path.join(step01, subj))
+            InternalMethods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj), os.path.join(step03, subj))
             if self._prjobj.single_session:
                 if not tempobj:
                     atlas = self._prjobj(1, self._pipeline, atlas, subj).Abspath.loc[0]
                     warped = self._prjobj(1, self._pipeline, atlas, subj, file_tag='_InverseWarped').Abspath.loc[0]
                     tempobj = InternalMethods.load_temp(warped, atlas)
                 funcs = self._prjobj(dataclass, func, subj)
-                InternalMethods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj),
-                                      os.path.join(step03, subj))
                 for i, finfo in funcs.iterrows():
                     print(" +Filename: {}".format(finfo.Filename))
                     df = Analysis.get_timetrace(InternalMethods.load(finfo.Abspath), tempobj, afni=True, **kwargs)
@@ -873,6 +871,71 @@ class Preprocess(object):
                         np.arctanh(df.corr()).to_excel(
                             os.path.join(step03, subj, sess, "{}.xlsx".format(os.path.splitext(finfo.Filename)[0])))
         return {'timecourse': step01, 'cc_matrix': step02}
+
+    def set_stim_paradigm(self, num_of_time, tr, filename='stim_paradigm', *args, **kwargs):
+        onset = []
+        num_stimts = 1
+        duration = None
+        peak = 1
+        stim_type = None
+        if kwargs:
+            for kwarg in kwargs.keys():
+                if kwarg is 'onset':
+                    if type(kwargs[kwarg]) is not list:
+                        raise error.CommandExecutionFailure
+                    else:
+                        onset = kwargs[kwarg]
+                if kwarg is 'duration':
+                    if type(kwargs[kwarg]) is not int:
+                        raise error.CommandExecutionFailure
+                    else:
+                        duration = str(kwargs[kwarg])
+                if kwarg is 'peak':
+                    if type(kwargs[kwarg]) is not int:
+                        raise error.CommandExecutionFailure
+                    else:
+                        peak = str(kwargs[kwarg])
+                if kwarg is 'type':
+                    if type(kwargs[kwarg]) is not str:
+                        raise error.CommandExecutionFailure
+                    else:
+                        if kwargs[kwarg] is 'MION':
+                            stim_type = "MIONN({})".format(duration)
+                        elif kwargs[kwarg] is 'BLOCK':
+                            stim_type = "BLOCK({},{})".format(duration, peak)
+                        else:
+                            raise error.CommandExecutionFailure
+        stdout = Interface.afni_3dDeconvolve(None, None, nodata=[str(num_of_time), str(tr)],
+                                             num_stimts=num_stimts, polort=-1,
+                                             stim_times=[str(1), "'1D: {}'".format(" ".join(onset)),
+                                                         "'{}'".format(stim_type)])
+        output_path = os.path.join('.tmp', "{}.1D".format(filename))
+        with open(output_path, 'w') as f:
+            f.write(stdout)
+        return {'paradigm': output_path}
+
+    def general_linear_model(self, func, paradigm, dtype='func'):
+        if os.path.exists(func):
+            dataclass = 1
+            func = InternalMethods.path_splitter(func)[-1]
+        else:
+            dataclass = 0
+        print('GLM Analysis-{}'.format(func))
+        step01 = self.init_step('ExtractTimeCourse-{}'.format(dtype))
+        # num_step = os.path.basename(step02).split('_')[0]
+        # step02 = self.final_step('{}_ActivityMap-{}'.format(num_step, dtype))
+        for subj in self.subjects:
+            print("-Subject: {}".format(subj))
+            InternalMethods.mkdir(os.path.join(step01, subj))
+            if self._prjobj.single_session:
+                funcs = self._prjobj(dataclass, func, subj)
+                for i, finfo in funcs.iterrows():
+                    print(" +Filename: {}".format(finfo.Filename))
+                    output_path = os.path.join(step01, subj, finfo.Filename)
+                    self._prjobj.run('afni_3dDeconvolve', output_path, finfo.Abspath, nfirst=0, polort=1,
+                                     num_stimts=1, stim_file=['1', paradigm], stim_label=['1', 'STIM'],
+                                     num_glt=1, glt_label=['1', 'STIM'], gltsym="'SYM: +STIM'",
+                                     tout=True)
 
     def init_step(self, title):
         path = self._prjobj.initiate_step(title)
