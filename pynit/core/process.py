@@ -438,7 +438,7 @@ class Interface(object):
             cmd.append("'{}'".format(str(input_path)))
         if num_stimts:
             cmd.append('-num_stimts')
-            cmd.append(str(num_stimts))
+            cmd.append(num_stimts)
         if args:
             for arg in args:
                 cmd.append(arg)
