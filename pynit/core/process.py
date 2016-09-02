@@ -469,7 +469,7 @@ class Interface(object):
                 raise error.CommandExecutionFailure
         else:
             cmd.append('-x1D')
-            cmd.append('stdout')
+            cmd.append('stdout:')
             cmd = list2cmdline(cmd)
             stdout = check_output(shl.split(cmd))
             return stdout
