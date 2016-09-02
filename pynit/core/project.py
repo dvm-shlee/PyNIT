@@ -397,7 +397,7 @@ class Preprocess(object):
                                      facecolor=fig2.get_facecolor())
         return {'func': step01, 'anat':step02, 'realigned_func': step03, 'checkreg': step04}
 
-    def apply_brainmask(self, func, mask, padded=True, zaxis=2):
+    def apply_brainmask(self, func, mask, padded=True, zaxis=2, dtype='func'):
         axis = {0: 'x', 1: 'y', 2: 'z'}
         if os.path.exists(func):
             dataclass = 1
@@ -405,7 +405,7 @@ class Preprocess(object):
         else:
             dataclass = 0
         print('ApplyingBrainMask-{}'.format(func))
-        step01 = self.init_step('ApplyingBrainMask')
+        step01 = self.init_step('ApplyingBrainMask-{}'.format(dtype))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step01, subj))
@@ -912,29 +912,29 @@ class Preprocess(object):
                                                 "'{}'".format(stim_type)])
         return {'paradigm': output_path}
 
-    def general_linear_model(self, func, paradigm, dtype='func'):
-        if os.path.exists(func):
-            dataclass = 1
-            func = InternalMethods.path_splitter(func)[-1]
-        else:
-            dataclass = 0
-        print('GLM Analysis-{}'.format(func))
-        step01 = self.init_step('ExtractTimeCourse-{}'.format(dtype))
-        # num_step = os.path.basename(step02).split('_')[0]
-        # step02 = self.final_step('{}_ActivityMap-{}'.format(num_step, dtype))
-        for subj in self.subjects:
-            print("-Subject: {}".format(subj))
-            InternalMethods.mkdir(os.path.join(step01, subj))
-            if self._prjobj.single_session:
-                funcs = self._prjobj(dataclass, func, subj)
-                for i, finfo in funcs.iterrows():
-                    print(" +Filename: {}".format(finfo.Filename))
-                    output_path = os.path.join(step01, subj, finfo.Filename)
-                    self._prjobj.run('afni_3dDeconvolve', str(output_path), str(finfo.Abspath),
-                                     num_stimts='1', nfirst='0', polort='-1', stim_file=['1', "'{}'".format(paradigm)],
-                                     stim_label=['1', "'STIM'"], num_glt='1', glt_label=['1', "'STIM'"],
-                                     gltsym='SYM: +STIM')
-        return {'func': step01}
+    # def general_linear_model(self, func, paradigm, dtype='func'):
+    #     if os.path.exists(func):
+    #         dataclass = 1
+    #         func = InternalMethods.path_splitter(func)[-1]
+    #     else:
+    #         dataclass = 0
+    #     print('GLM Analysis-{}'.format(func))
+    #     step01 = self.init_step('ExtractTimeCourse-{}'.format(dtype))
+    #     # num_step = os.path.basename(step02).split('_')[0]
+    #     # step02 = self.final_step('{}_ActivityMap-{}'.format(num_step, dtype))
+    #     for subj in self.subjects:
+    #         print("-Subject: {}".format(subj))
+    #         InternalMethods.mkdir(os.path.join(step01, subj))
+    #         if self._prjobj.single_session:
+    #             funcs = self._prjobj(dataclass, func, subj)
+    #             for i, finfo in funcs.iterrows():
+    #                 print(" +Filename: {}".format(finfo.Filename))
+    #                 output_path = os.path.join(step01, subj, finfo.Filename)
+    #                 self._prjobj.run('afni_3dDeconvolve', str(output_path), str(finfo.Abspath),
+    #                                  num_stimts='1', nfirst='0', polort='-1', stim_file=['1', "'{}'".format(paradigm)],
+    #                                  stim_label=['1', "'STIM'"], num_glt='1', glt_label=['1', "'STIM'"],
+    #                                  gltsym='SYM: +STIM')
+    #     return {'func': step01}
 
     def init_step(self, title):
         path = self._prjobj.initiate_step(title)
