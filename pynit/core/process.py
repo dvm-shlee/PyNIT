@@ -429,7 +429,7 @@ class Interface(object):
         call(shl.split(cmd))
 
     @staticmethod
-    def afni_3dDeconvolve(output_path, input_path, num_stimts=None, *args, **kwargs):
+    def afni_3dDeconvolve(output_path, input_path, num_stimts=None, **kwargs):
         """ AFNI 3Ddeconvolve command wrapper
         """
         cmd = ['3dDeconvolve']
