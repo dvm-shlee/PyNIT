@@ -444,20 +444,16 @@ class Interface(object):
         if kwargs:
             for kwarg in kwargs.keys():
                 cmd.append("-{}".format(kwarg))
-                if kwarg is 'tout':
-                    tout = kwargs[kwarg]
-                if kwarg is 'fout':
-                    fout = kwargs[kwarg]
                 if type(kwargs[kwarg]) is list:
                     cmd.extend(kwargs[kwarg])
                 elif type(kwargs[kwarg]) is str:
                     cmd.append(kwargs[kwarg])
                 else:
+                    if kwarg is 'tout':
+                        pass
+                    if kwarg is 'fout':
+                        pass
                     cmd.append(str(kwargs[kwarg]))
-        if tout:
-            cmd.append('-tout')
-        if fout:
-            cmd.append('-fout')
         if output_path:
             if '.nii' in output_path:
                 cmd.append('-bucket')
