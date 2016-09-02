@@ -908,7 +908,7 @@ class Preprocess(object):
                             raise error.CommandExecutionFailure
         stdout = Interface.afni_3dDeconvolve(None, None, nodata=[str(num_of_time), str(tr)],
                                              num_stimts=num_stimts, polort=-1,
-                                             stim_times=[str(1), "'1D: {}'".format(" ".join(onset)),
+                                             stim_times=['1', "'1D: {}'".format(" ".join(onset)),
                                                          "'{}'".format(stim_type)])
         output_path = os.path.join('.tmp', "{}.1D".format(filename))
         with open(output_path, 'w') as f:
