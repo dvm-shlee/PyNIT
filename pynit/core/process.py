@@ -440,18 +440,15 @@ class Interface(object):
             for arg in args:
                 cmd.append(arg)
         if kwargs:
+            print(kwargs.keys())
             for kwarg in kwargs.keys():
-                if kwarg is 'num_stimts':
-                    cmd.append("-{}".format(kwarg))
-                    cmd.append(str(kwargs[kwarg]))
+                cmd.append("-{}".format(kwarg))
+                if type(kwargs[kwarg]) is list:
+                    cmd.extend(kwargs[kwarg])
+                elif type(kwargs[kwarg]) is str:
+                    cmd.append(kwargs[kwarg])
                 else:
-                    cmd.append("-{}".format(kwarg))
-                    if type(kwargs[kwarg]) is list:
-                        cmd.extend(kwargs[kwarg])
-                    elif type(kwargs[kwarg]) is str:
-                        cmd.append(kwargs[kwarg])
-                    else:
-                        cmd.append(str(kwargs[kwarg]))
+                    cmd.append(str(kwargs[kwarg]))
         if output_path:
             if '.nii' in output_path:
                 cmd.append('-bucket')
