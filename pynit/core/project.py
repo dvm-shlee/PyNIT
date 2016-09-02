@@ -872,7 +872,8 @@ class Preprocess(object):
                             os.path.join(step03, subj, sess, "{}.xlsx".format(os.path.splitext(finfo.Filename)[0])))
         return {'timecourse': step01, 'cc_matrix': step02}
 
-    def set_stim_paradigm(self, num_of_time, tr, filename='stim_paradigm', *args, **kwargs):
+    @staticmethod
+    def set_stim_paradigm(num_of_time, tr, filename='stim_paradigm', **kwargs):
         onset = []
         num_stimts = 1
         duration = None
@@ -895,7 +896,7 @@ class Preprocess(object):
                         raise error.CommandExecutionFailure
                     else:
                         peak = str(kwargs[kwarg])
-                if kwarg is 'type':
+                if kwarg is 'hrf_function':
                     if type(kwargs[kwarg]) is not str:
                         raise error.CommandExecutionFailure
                     else:
