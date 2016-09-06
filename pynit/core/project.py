@@ -545,7 +545,7 @@ class Preprocess(object):
                                          finfo.Abspath, vector=regressor, polort=str(detrend))
         return {'func': step01}
 
-    def signal_processing(self, func, norm=False, despike=False, blur=False, band=False, dt='1', dtype='func'):
+    def signal_processing(self, func, norm=False, despike=False, detrend=False, blur=False, band=False, dt='1', dtype='func'):
         if os.path.exists(func):
             dataclass = 1
             func = InternalMethods.path_splitter(func)[-1]
@@ -561,7 +561,7 @@ class Preprocess(object):
                 for i, finfo in funcs.iterrows():
                     print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dBandpass', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
-                                     norm=norm, despike=despike, blur=blur, band=band, dt=dt)
+                                     norm=norm, despike=despike, detrend=detrend, blur=blur, band=band, dt=dt)
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
@@ -570,7 +570,7 @@ class Preprocess(object):
                     for i, finfo in funcs.iterrows():
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dBandpass', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
-                                         norm=norm, despike=despike, blur=blur, band=band, dt=dt)
+                                         norm=norm, despike=despike, detrend=detrend, blur=blur, band=band, dt=dt)
         return {'func': step01}
 
     def warp_func(self, warped_anat, func, tempobj, dtype='func', **kwargs):
