@@ -1167,6 +1167,7 @@ class Project(object):
             if len(self.__df):
                 self.__df = self.__df[InternalMethods.reorder_columns(self.__dc_idx, self.single_session)]
             self.__update()
+            self.__empty_project = False
         else:
             self.__empty_project = True
 
