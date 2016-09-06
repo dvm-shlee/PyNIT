@@ -360,7 +360,7 @@ class Interface(object):
         call(shl.split(cmd))
 
     @staticmethod
-    def afni_3dBandpass(output_path, input_path, norm=False, despike=False, mask=None, blur=False,
+    def afni_3dBandpass(output_path, input_path, norm=False, detrend=False, despike=False, mask=None, blur=False,
                         band=False, dt='1'):
         # AFNI signal processing for resting state (3dBandpass)
         cmd = ['3dBandpass', '-input', input_path, '-prefix', output_path]
@@ -372,6 +372,8 @@ class Interface(object):
             cmd.append('-norm')
         if despike:
             cmd.append('-despike')
+        if not detrend:
+            cmd.append('-nodetrend')
         if mask:
             cmd.extend(['-mask', mask])
         if blur:
