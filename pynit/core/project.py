@@ -665,13 +665,26 @@ class Preprocess(object):
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
+                InternalMethods.mkdir(os.path.join(step02, 'AllSubjects'))
                 anats = self._prjobj(dataclass, anat, subj)
                 InternalMethods.mkdir(os.path.join(step01, subj))
                 for i, finfo in anats.iterrows():
                     print(" +Filename: {}".format(finfo.Filename))
-                    self._prjobj.run('ants_RegistrationSyn', os.path.join(step01, subj, "{}".format(subj)),
+                    output_path = os.path.join(step01, subj, "{}".format(subj))
+                    self._prjobj.run('ants_RegistrationSyn', output_path,
                                      finfo.Abspath, base_path=tempobj.template_path, quick=False)
+                    fig1 = Viewer.check_reg(InternalMethods.load(tempobj.template_path),
+                                            InternalMethods.load(output_path), sigma=2, **kwargs)
+                    fig1.suptitle('T2 to Atlas for {}'.format(subj), fontsize=12, color='yellow')
+                    fig1.savefig(os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'func2anat']))),
+                                 facecolor=fig1.get_facecolor())
+                    fig2 = Viewer.check_reg(InternalMethods.load(output_path),
+                                            InternalMethods.load(tempobj.template_path), sigma=2, **kwargs)
+                    fig2.suptitle('Atlas to T2 for {}'.format(subj), fontsize=12, color='yellow')
+                    fig2.savefig(os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'anat2func']))),
+                                 facecolor=fig2.get_facecolor())
             else:
+                InternalMethods.mkdir(os.path.join(step02, subj), os.path.join(step02, subj, 'AllSessions'))
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     anats = self._prjobj(dataclass, anat, subj, sess)
@@ -681,6 +694,18 @@ class Preprocess(object):
                         self._prjobj.run('ants_RegistrationSyn',
                                          os.path.join(step01, subj, sess, "{}".format(sess)),
                                          finfo.Abspath, base_path=tempobj.template_path, quick=False)
+                        fig1 = Viewer.check_reg(InternalMethods.load(tempobj.template_path),
+                                                InternalMethods.load(output_path), sigma=2, **kwargs)
+                        fig1.suptitle('T2 to Atlas for {}'.format(subj), fontsize=12, color='yellow')
+                        fig1.savefig(
+                            os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'func2anat']))),
+                            facecolor=fig1.get_facecolor())
+                        fig2 = Viewer.check_reg(InternalMethods.load(output_path),
+                                                InternalMethods.load(tempobj.template_path), sigma=2, **kwargs)
+                        fig2.suptitle('Atlas to T2 for {}'.format(subj), fontsize=12, color='yellow')
+                        fig2.savefig(
+                            os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'anat2func']))),
+                            facecolor=fig2.get_facecolor())
         return {'anat': step01}
 
     def warp_atlas_to_anat(self, anat, warped_anat, tempobj, dtype='anat', **kwargs):
