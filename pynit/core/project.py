@@ -674,14 +674,14 @@ class Preprocess(object):
                     self._prjobj.run('ants_RegistrationSyn', output_path,
                                      finfo.Abspath, base_path=tempobj.template_path, quick=False)
                     fig1 = Viewer.check_reg(InternalMethods.load(tempobj.template_path),
-                                            InternalMethods.load(output_path), sigma=2, **kwargs)
+                                            InternalMethods.load("{}_Warped.nii.gz".format(output_path)), sigma=2, **kwargs)
                     fig1.suptitle('T2 to Atlas for {}'.format(subj), fontsize=12, color='yellow')
-                    fig1.savefig(os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'func2anat']))),
+                    fig1.savefig(os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'anat2temp']))),
                                  facecolor=fig1.get_facecolor())
-                    fig2 = Viewer.check_reg(InternalMethods.load(output_path),
+                    fig2 = Viewer.check_reg(InternalMethods.load("{}_Warped.nii.gz".format(output_path)),
                                             InternalMethods.load(tempobj.template_path), sigma=2, **kwargs)
                     fig2.suptitle('Atlas to T2 for {}'.format(subj), fontsize=12, color='yellow')
-                    fig2.savefig(os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'anat2func']))),
+                    fig2.savefig(os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'temp2anat']))),
                                  facecolor=fig2.get_facecolor())
             else:
                 InternalMethods.mkdir(os.path.join(step02, subj), os.path.join(step02, subj, 'AllSessions'))
@@ -691,22 +691,24 @@ class Preprocess(object):
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
                     for i, finfo in anats.iterrows():
                         print("  +Filename: {}".format(finfo.Filename))
+                        output_path = os.path.join(step01, subj, sess, "{}".format(subj))
                         self._prjobj.run('ants_RegistrationSyn',
-                                         os.path.join(step01, subj, sess, "{}".format(sess)),
+                                         output_path,
                                          finfo.Abspath, base_path=tempobj.template_path, quick=False)
                         fig1 = Viewer.check_reg(InternalMethods.load(tempobj.template_path),
-                                                InternalMethods.load(output_path), sigma=2, **kwargs)
+                                                InternalMethods.load("{}_Warped.nii.gz".format(output_path)),
+                                                sigma=2, **kwargs)
                         fig1.suptitle('T2 to Atlas for {}'.format(subj), fontsize=12, color='yellow')
                         fig1.savefig(
-                            os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'func2anat']))),
+                            os.path.join(step02, subj, 'AllSessions', '{}.png'.format('-'.join([subj, 'anat2temp']))),
                             facecolor=fig1.get_facecolor())
-                        fig2 = Viewer.check_reg(InternalMethods.load(output_path),
+                        fig2 = Viewer.check_reg(InternalMethods.load("{}_Warped.nii.gz".format(output_path)),
                                                 InternalMethods.load(tempobj.template_path), sigma=2, **kwargs)
                         fig2.suptitle('Atlas to T2 for {}'.format(subj), fontsize=12, color='yellow')
                         fig2.savefig(
-                            os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'anat2func']))),
+                            os.path.join(step02, subj, 'AllSessions', '{}.png'.format('-'.join([subj, 'temp2anat']))),
                             facecolor=fig2.get_facecolor())
-        return {'anat': step01}
+        return {'warped_anat': step01, 'checkreg': step02}
 
     def warp_atlas_to_anat(self, anat, warped_anat, tempobj, dtype='anat', **kwargs):
         # Check the source of input data
