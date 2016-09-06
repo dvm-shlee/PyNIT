@@ -401,7 +401,7 @@ class Interface(object):
         try:
             stdout = check_output(shl.split(cmd))
         except:
-            print("Empty mask.".format(os.path.basename(mask_path)))
+            print("Error: Empty mask.")
         else:
             if not output_path:
                 stdout = stdout.split('\n')
