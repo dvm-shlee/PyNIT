@@ -403,7 +403,7 @@ class Preprocess(object):
                         fig2.savefig(os.path.join(step04, subj, 'AllSessions',
                                                   '{}.png'.format('-'.join([sess, 'anat2func']))),
                                      facecolor=fig2.get_facecolor())
-        return {'func': step01, 'anat':step02, 'realigned_func': step03, 'checkreg': step04}
+        return {'meanfunc': step01, 'anat':step02, 'realigned_func': step03, 'checkreg': step04}
 
     def apply_brainmask(self, func, mask, padded=True, zaxis=2, dtype='func'):
         axis = {0: 'x', 1: 'y', 2: 'z'}
