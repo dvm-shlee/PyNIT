@@ -355,6 +355,7 @@ class Preprocess(object):
         num_step = os.path.basename(step03).split('_')[0]
         step04 = self.final_step('{}_CheckRegistraton-{}'.format(num_step, dtype))
         for subj in self.subjects:
+            InternalMethods.mkdir(os.path.join(step04, 'AllSubjects'))
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step03, subj))
             if self._prjobj.single_session:
@@ -369,14 +370,15 @@ class Preprocess(object):
                     fig1 = Viewer.check_reg(InternalMethods.load(fixed_img),
                                             InternalMethods.load(moved_img), sigma=2, **kwargs)
                     fig1.suptitle('EPI to T2 for {}'.format(subj), fontsize=12, color='yellow')
-                    fig1.savefig(os.path.join(step04, '{}.png'.format('-'.join([subj, 'func2anat']))),
+                    fig1.savefig(os.path.join(step04, 'AllSubjects', '{}.png'.format('-'.join([subj, 'func2anat']))),
                                  facecolor=fig1.get_facecolor())
                     fig2 = Viewer.check_reg(InternalMethods.load(moved_img),
                                             InternalMethods.load(fixed_img), sigma=2, **kwargs)
                     fig2.suptitle('T2 to EPI for {}'.format(subj), fontsize=12, color='yellow')
-                    fig1.savefig(os.path.join(step04, '{}.png'.format('-'.join([subj, 'anat2func']))),
+                    fig2.savefig(os.path.join(step04, 'AllSubjects', '{}.png'.format('-'.join([subj, 'anat2func']))),
                                  facecolor=fig2.get_facecolor())
             else:
+                InternalMethods.mkdir(os.path.join(step04, subj), os.path.join(step04, subj, 'AllSessions'))
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     InternalMethods.mkdir(os.path.join(step03, subj, sess), os.path.join(step04, subj))
@@ -392,12 +394,14 @@ class Preprocess(object):
                         fig1 = Viewer.check_reg(InternalMethods.load(fixed_img),
                                                 InternalMethods.load(moved_img), sigma=2, **kwargs)
                         fig1.suptitle('EPI to T2 for {}'.format(subj), fontsize=12, color='yellow')
-                        fig1.savefig(os.path.join(step04, subj, '{}.png'.format('-'.join([sess, 'func2anat']))),
+                        fig1.savefig(os.path.join(step04, subj, 'AllSessions',
+                                                  '{}.png'.format('-'.join([sess, 'func2anat']))),
                                      facecolor=fig1.get_facecolor())
                         fig2 = Viewer.check_reg(InternalMethods.load(moved_img),
                                                 InternalMethods.load(fixed_img), sigma=2, **kwargs)
                         fig2.suptitle('T2 to EPI for {}'.format(subj), fontsize=12, color='yellow')
-                        fig1.savefig(os.path.join(step04, subj, '{}.png'.format('-'.join([sess, 'anat2func']))),
+                        fig2.savefig(os.path.join(step04, subj, 'AllSessions',
+                                                  '{}.png'.format('-'.join([sess, 'anat2func']))),
                                      facecolor=fig2.get_facecolor())
         return {'func': step01, 'anat':step02, 'realigned_func': step03, 'checkreg': step04}
 

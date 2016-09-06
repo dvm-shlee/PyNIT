@@ -365,8 +365,9 @@ class Interface(object):
         # AFNI signal processing for resting state (3dBandpass)
         cmd = ['3dBandpass', '-input', input_path, '-prefix', output_path]
         if 'dt':
-            cmd.append('-dt')
-            cmd.append(dt)
+            if type(dt) is int:
+                dt = str(dt)
+            cmd.extend(['-dt', dt])
         if norm:
             cmd.append('-norm')
         if despike:
@@ -374,9 +375,12 @@ class Interface(object):
         if mask:
             cmd.extend(['-mask', mask])
         if blur:
+            if type(blur) is int:
+                blur = str(blur)
             cmd.extend(['-blur', blur])
         if band:
             cmd.append('-band')
+            band = map(str, band)
             cmd.extend(band)
         cmd = list2cmdline(cmd)
         call(shl.split(cmd))
@@ -394,19 +398,23 @@ class Interface(object):
         cmd.append('-q')
         cmd.append("'{}'".format(input_path))
         cmd = list2cmdline(cmd)
-        stdout = check_output(shl.split(cmd))
-        if not output_path:
-            stdout = stdout.split('\n')
-            try:
-                stdout = map(float, stdout)
-            except:
-                stdout.pop()
-                stdout = map(float, stdout)
-            finally:
-                return stdout
+        try:
+            stdout = check_output(shl.split(cmd))
+        except:
+            print("Empty mask.".format(os.path.basename(mask_path)))
         else:
-            with open(output_path, 'w') as f:
-                f.write(stdout)
+            if not output_path:
+                stdout = stdout.split('\n')
+                try:
+                    stdout = map(float, stdout)
+                except:
+                    stdout.pop()
+                    stdout = map(float, stdout)
+                finally:
+                    return stdout
+            else:
+                with open(output_path, 'w') as f:
+                    f.write(stdout)
 
     @staticmethod
     def afni_3dDetrend(output_path, input_path, **kwargs):
@@ -423,7 +431,7 @@ class Interface(object):
                 cmd.append(kwargs['expr'])
             if 'polort' in kwargs.keys():
                 cmd.append("-polort")
-                cmd.append(kwargs['polort'])
+                cmd.append(str(kwargs['polort']))
         cmd.append("'{}'".format(input_path))
         cmd = list2cmdline(cmd)
         call(shl.split(cmd))
