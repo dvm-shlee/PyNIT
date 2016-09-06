@@ -308,7 +308,7 @@ class Preprocess(object):
                         os.remove(fpath)
         return {'meanfunc': step01, 'anat': step02}
 
-    def coregistration(self, meanfunc, anat, dtype=['func'], **kwargs):
+    def coregistration(self, meanfunc, anat, dtype='func', **kwargs):
         if os.path.exists(meanfunc):
             f_dataclass = 1
             meanfunc = InternalMethods.path_splitter(meanfunc)[-1]
