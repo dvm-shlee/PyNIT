@@ -111,7 +111,7 @@ class InternalMethods(object):
         for i in range(total_slice - ac_loc):
             idx.append(ac_slice + int(i * scale))
         imageobj._dataobj = data[:, :, idx]
-        affine, origin = affns.to_matvec(imageobj.affine)
+        affine, origin = affns.to_matvec(imageobj.affine[:, :])
         affine = np.diag(affine)
         affine[axis] = slice_thickness
         affine_mat = affns.from_matvec(np.diag(affine), origin)
@@ -173,7 +173,7 @@ class InternalMethods(object):
     def set_center(imageobj, corr):
         """ Applying center corrdinate to the object
         """
-        resol, origin = affns.to_matvec(imageobj.affine)
+        resol, origin = affns.to_matvec(imageobj.affine[:, :])
         affine = affns.from_matvec(resol, corr)
         InternalMethods.reset_orient(imageobj, affine)
 
