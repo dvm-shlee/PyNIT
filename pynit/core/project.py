@@ -308,7 +308,7 @@ class Preprocess(object):
                         os.remove(fpath)
         return {'meanfunc': step01, 'anat': step02}
 
-    def coregistration(self, meanfunc, anat, dtype='func', **kwargs):
+    def coregistration(self, meanfunc, anat, dtype=['func'], **kwargs):
         if os.path.exists(meanfunc):
             f_dataclass = 1
             meanfunc = InternalMethods.path_splitter(meanfunc)[-1]
@@ -321,7 +321,7 @@ class Preprocess(object):
             a_dataclass = 0
         print('BiasFieldCorrection-{} & {}'.format(meanfunc, anat))
         step01 = self.init_step('BiasFieldCorrection-{}'.format(dtype))
-        step02 = self.init_step('BiasFieldCorrection-{}'.format(anat))
+        step02 = self.init_step('BiasFieldCorrection-{}'.format(anat.split('-')[-1]))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj))
@@ -351,7 +351,7 @@ class Preprocess(object):
                         self._prjobj.run('ants_BiasFieldCorrection', os.path.join(step02, subj, sess, finfo.Filename),
                                          finfo.Abspath, algorithm='n4')
         print('Coregistration-{} to {}'.format(meanfunc, anat))
-        step03 = self.init_step('Coregistration-{} to {}'.format(dtype, anat))
+        step03 = self.init_step('Coregistration-{}2{}'.format(dtype, anat.split('-')[-1]))
         num_step = os.path.basename(step03).split('_')[0]
         step04 = self.final_step('{}_CheckRegistraton-{}'.format(num_step, dtype))
         for subj in self.subjects:
