@@ -1,8 +1,5 @@
-import numpy as np
-import nibabel as nib
-import os
 from .visual import Viewer
-from .utility import InternalMethods
+from .utility import InternalMethods, np, nib, os
 from .process import TempFile
 import error
 

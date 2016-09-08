@@ -1,8 +1,7 @@
 import os
-import pandas as pd
 from .objects import Reference, ImageObj
-from .process import Analysis, Interface, TempFile, np
-from .utility import InternalMethods
+from .process import Analysis, Interface, TempFile
+from .utility import InternalMethods, pd, np
 from .visual import Viewer
 import error
 

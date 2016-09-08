@@ -1,13 +1,10 @@
 # Standard library
-import os
 import shlex as shl
 from string import ascii_lowercase as lc
 from subprocess import list2cmdline, check_output, call
-import numpy as np
-import pandas as pd
 import error
 from shutil import rmtree
-from .utility import InternalMethods
+from .utility import InternalMethods, np, pd, os
 
 
 class Analysis(object):

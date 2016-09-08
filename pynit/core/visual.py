@@ -1,9 +1,8 @@
 # Import external packages
-import numpy as np
 import scipy.ndimage as ndimage
 from skimage import feature
 # Import internal packages
-from .utility import InternalMethods
+from .utility import InternalMethods, np
 from .process import Analysis
 import error
 # Import matplotlib for visualization
