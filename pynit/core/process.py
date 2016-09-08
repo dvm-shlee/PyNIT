@@ -101,7 +101,7 @@ class Analysis(object):
                 roi, maskobj = tempobj[idx]
                 if merged:
                     col = Analysis.mask_average(imageobj, maskobj, merge=True, afni=afni)
-                    roi = 'Bilateral_'.format(roi)
+                    roi = 'Bilateral_{}'.format(roi)
                 else:
                     if contra:
                         col = Analysis.mask_average(imageobj, maskobj, contra=True, afni=afni)
