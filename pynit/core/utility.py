@@ -583,6 +583,47 @@ class InternalMethods(object):
         """
         shutil.copyfile(input_path, output_path)
 
+    # Method collection for preprocessing
+    @staticmethod
+    def check_input_dataclass(datatype):
+        if os.path.exists(datatype):
+            dataclass = 1
+            datatype = InternalMethods.path_splitter(datatype)[-1]
+        else:
+            dataclass = 0
+        return dataclass, datatype
+
+    @staticmethod
+    def check_atals_datatype(atlas):
+        if type(atlas) is str:
+            atlas = os.path.basename(atlas)
+            tempobj = None
+        else:
+            try:
+                tempobj = atlas
+                atlas = tempobj.atlas_path
+            except:
+                raise error.InputObjectError
+        return atlas, tempobj
+
+    @staticmethod
+    def get_warp_matrix(preproc, inverse=False, *args):
+        if inverse:
+            mats = preproc._prjobj(1, preproc._pipeline, os.path.basename(args[0]),
+                                   *args[1:], ext='.mat').Abspath.loc[0]
+            warps = preproc._prjobj(1, preproc._pipeline, os.path.basename(args[0]),
+                                    *args[1:], file_tag='_1InverseWarp').Abspath.loc[0]
+            warped = preproc._prjobj(1, preproc._pipeline, os.path.basename(args[0]),
+                                     *args[1:], file_tag='_InverseWarped').loc[0]
+        else:
+            mats = preproc._prjobj(1, preproc._pipeline, os.path.basename(args[0]),
+                                   *args[1:], ext='.mat').Abspath.loc[0]
+            warps = preproc._prjobj(1, preproc._pipeline, os.path.basename(args[0]),
+                                    *args[1:], file_tag='_1Warp').Abspath.loc[0]
+            warped = preproc._prjobj(1, preproc._pipeline, os.path.basename(args[0]),
+                                     *args[1:], file_tag='_Warped').loc[0]
+        return mats, warps, warped
+
     # Method collection for dynamic analysis
     @staticmethod
     def seed_coords(tractobj, start_point, end_point):

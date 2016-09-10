@@ -32,13 +32,14 @@ class Preprocess(object):
     def cbv_meancalculation(self, func):
         """ CBV image preparation
         """
+        dataclass, func = InternalMethods.check_input_dataclass(func)
         print("MotionCorrection")
         step01 = self.init_step('MotionCorrection-CBVinduction')
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
-                cbv_img = self._prjobj(0, func, subj)
+                cbv_img = self._prjobj(dataclass, func, subj)
                 for i, finfo in cbv_img.iterrows():
                     print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, finfo.Filename), finfo.Abspath)
@@ -46,7 +47,7 @@ class Preprocess(object):
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
-                    cbv_img = self._prjobj(0, func, subj, sess)
+                    cbv_img = self._prjobj(dataclass, func, subj, sess)
                     for i, finfo in cbv_img.iterrows():
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, sess, finfo.Filename),
@@ -92,11 +93,12 @@ class Preprocess(object):
     def mean_calculation(self, func, dtype='func'):
         """ BOLD image preparation
         """
-        if os.path.exists(func):
-            dataclass = 1
-            func = InternalMethods.path_splitter(func)[-1]
-        else:
-            dataclass = 0
+        dataclass, func = InternalMethods.check_input_dataclass(func)
+        # if os.path.exists(func):
+        #     dataclass = 1
+        #     func = InternalMethods.path_splitter(func)[-1]
+        # else:
+        #     dataclass = 0
         step01 = self.init_step('MeanImageCalculation-{}'.format(dtype))
         print("MeanImageCalculation-{}".format(func))
         for subj in self.subjects:
@@ -120,11 +122,12 @@ class Preprocess(object):
     def slicetiming_correction(self, func, tr=1, tpattern='altplus', dtype='func'):
         """ SliceTiming Correction
         """
-        if os.path.exists(func):
-            dataclass = 1
-            func = InternalMethods.path_splitter(func)[-1]
-        else:
-            dataclass = 0
+        dataclass, func = InternalMethods.check_input_dataclass(func)
+        # if os.path.exists(func):
+        #     dataclass = 1
+        #     func = InternalMethods.path_splitter(func)[-1]
+        # else:
+        #     dataclass = 0
         print('SliceTimingCorrection-{}'.format(func))
         step01 = self.init_step('SliceTimingCorrection-{}'.format(dtype))
         for subj in self.subjects:
@@ -150,11 +153,12 @@ class Preprocess(object):
     def motion_correction(self, func, meanfunc, dtype='func'):
         """ Motion Correction
         """
-        if os.path.exists(func):
-            dataclass = 1
-            func = InternalMethods.path_splitter(func)[-1]
-        else:
-            dataclass = 0
+        dataclass, func = InternalMethods.check_input_dataclass(func)
+        # if os.path.exists(func):
+        #     dataclass = 1
+        #     func = InternalMethods.path_splitter(func)[-1]
+        # else:
+        #     dataclass = 0
         print('MotionCorrection-{}'.format(func))
         step01 = self.init_step('MotionCorrection-{}'.format(dtype))
         for subj in self.subjects:
@@ -180,16 +184,18 @@ class Preprocess(object):
         return {'func': step01}
 
     def maskdrawing_preparation(self, meanfunc, anat, padding=True, zaxis=2):
-        if os.path.exists(meanfunc):
-            f_dataclass = 1
-            meanfunc = InternalMethods.path_splitter(meanfunc)[-1]
-        else:
-            f_dataclass = 0
-        if os.path.exists(anat):
-            a_dataclass = 1
-            anat = InternalMethods.path_splitter(anat)[-1]
-        else:
-            a_dataclass = 0
+        f_dataclass, meanfunc = InternalMethods.check_input_dataclass(meanfunc)
+        a_dataclass, anat = InternalMethods.check_input_dataclass(anat)
+        # if os.path.exists(meanfunc):
+        #     f_dataclass = 1
+        #     meanfunc = InternalMethods.path_splitter(meanfunc)[-1]
+        # else:
+        #     f_dataclass = 0
+        # if os.path.exists(anat):
+        #     a_dataclass = 1
+        #     anat = InternalMethods.path_splitter(anat)[-1]
+        # else:
+        #     a_dataclass = 0
         print('MaskDrawing-{} & {}'.format(meanfunc, anat))
 
         step01 = self.init_step('MaskDrwaing-func')
@@ -234,8 +240,10 @@ class Preprocess(object):
 
     def compute_skullstripping(self, meanfunc, anat, padded=True, zaxis=2):
         axis = {0:'x', 1:'y', 2:'z'}
-        meanfunc = InternalMethods.path_splitter(meanfunc)[-1]
-        anat = InternalMethods.path_splitter(anat)[-1]
+        f_dataclass, meanfunc = InternalMethods.check_input_dataclass(meanfunc)
+        a_dataclass, anat = InternalMethods.check_input_dataclass(anat)
+        # meanfunc = InternalMethods.path_splitter(meanfunc)[-1]
+        # anat = InternalMethods.path_splitter(anat)[-1]
         print('SkullStripping-{} & {}'.format(meanfunc, anat))
         step01 = self.init_step('SkullStripped-meanfunc')
         step02 = self.init_step('SkullStripped-anat')
@@ -308,16 +316,18 @@ class Preprocess(object):
         return {'meanfunc': step01, 'anat': step02}
 
     def coregistration(self, meanfunc, anat, dtype='func', **kwargs):
-        if os.path.exists(meanfunc):
-            f_dataclass = 1
-            meanfunc = InternalMethods.path_splitter(meanfunc)[-1]
-        else:
-            f_dataclass = 0
-        if os.path.exists(anat):
-            a_dataclass = 1
-            anat = InternalMethods.path_splitter(anat)[-1]
-        else:
-            a_dataclass = 0
+        f_dataclass, meanfunc = InternalMethods.check_input_dataclass(meanfunc)
+        a_dataclass, anat = InternalMethods.check_input_dataclass(anat)
+        # if os.path.exists(meanfunc):
+        #     f_dataclass = 1
+        #     meanfunc = InternalMethods.path_splitter(meanfunc)[-1]
+        # else:
+        #     f_dataclass = 0
+        # if os.path.exists(anat):
+        #     a_dataclass = 1
+        #     anat = InternalMethods.path_splitter(anat)[-1]
+        # else:
+        #     a_dataclass = 0
         print('BiasFieldCorrection-{} & {}'.format(meanfunc, anat))
         step01 = self.init_step('BiasFieldCorrection-{}'.format(dtype))
         step02 = self.init_step('BiasFieldCorrection-{}'.format(anat.split('-')[-1]))
@@ -406,11 +416,12 @@ class Preprocess(object):
 
     def apply_brainmask(self, func, mask, padded=True, zaxis=2, dtype='func'):
         axis = {0: 'x', 1: 'y', 2: 'z'}
-        if os.path.exists(func):
-            dataclass = 1
-            func = InternalMethods.path_splitter(func)[-1]
-        else:
-            dataclass = 0
+        # if os.path.exists(func):
+        #     dataclass = 1
+        #     func = InternalMethods.path_splitter(func)[-1]
+        # else:
+        #     dataclass = 0
+        dataclass, func = InternalMethods.check_input_dataclass(func)
         print('ApplyingBrainMask-{}'.format(func))
         step01 = self.init_step('ApplyingBrainMask-{}'.format(dtype))
         for subj in self.subjects:
@@ -446,11 +457,12 @@ class Preprocess(object):
         return {'func': step01}
 
     def apply_transformation(self, func, realigned_func, dtype='func'):
-        if os.path.exists(func):
-            dataclass = 1
-            func = InternalMethods.path_splitter(func)[-1]
-        else:
-            dataclass = 0
+        # if os.path.exists(func):
+        #     dataclass = 1
+        #     func = InternalMethods.path_splitter(func)[-1]
+        # else:
+        #     dataclass = 0
+        dataclass, func = InternalMethods.check_input_dataclass(func)
         print('ApplyingTransformation-{}'.format(func))
         step01 = self.init_step('ApplyingTransformation-{}'.format(dtype))
         for subj in self.subjects:
@@ -480,11 +492,12 @@ class Preprocess(object):
         return {'func': step01}
 
     def global_regression(self, func, dtype='func', detrend=-1):
-        if os.path.exists(func):
-            dataclass = 1
-            func = InternalMethods.path_splitter(func)[-1]
-        else:
-            dataclass = 0
+        # if os.path.exists(func):
+        #     dataclass = 1
+        #     func = InternalMethods.path_splitter(func)[-1]
+        # else:
+        #     dataclass = 0
+        dataclass, func = InternalMethods.check_input_dataclass(func)
         print('GlobalRegression-{}'.format(func))
         step01 = self.init_step('GlobalRegression-{}'.format(dtype))
         for subj in self.subjects:
@@ -513,11 +526,12 @@ class Preprocess(object):
         return {'func': step01}
 
     def motion_parameter_regression(self, func, motioncorrected_func, dtype='func', detrend=-1):
-        if os.path.exists(func):
-            dataclass = 1
-            func = InternalMethods.path_splitter(func)[-1]
-        else:
-            dataclass = 0
+        # if os.path.exists(func):
+        #     dataclass = 1
+        #     func = InternalMethods.path_splitter(func)[-1]
+        # else:
+        #     dataclass = 0
+        dataclass, func = InternalMethods.check_input_dataclass(func)
         print('GlobalRegression-{}'.format(func))
         step01 = self.init_step('GlobalRegression-{}'.format(dtype))
         for subj in self.subjects:
@@ -545,11 +559,12 @@ class Preprocess(object):
         return {'func': step01}
 
     def signal_processing(self, func, norm=False, despike=False, detrend=False, blur=False, band=False, dt='1', dtype='func'):
-        if os.path.exists(func):
-            dataclass = 1
-            func = InternalMethods.path_splitter(func)[-1]
-        else:
-            dataclass = 0
+        # if os.path.exists(func):
+        #     dataclass = 1
+        #     func = InternalMethods.path_splitter(func)[-1]
+        # else:
+        #     dataclass = 0
+        dataclass, func = InternalMethods.check_input_dataclass(func)
         print('-{}'.format(func))
         step01 = self.init_step('SignalProcessing-{}'.format(dtype))
         for subj in self.subjects:
@@ -574,11 +589,12 @@ class Preprocess(object):
 
     def warp_func(self, warped_anat, func, tempobj, dtype='func', **kwargs):
         # Check the source of input data
-        if os.path.exists(func):
-            dataclass = 1
-            func = InternalMethods.path_splitter(func)[-1]
-        else:
-            dataclass = 0
+        dataclass, func = InternalMethods.check_input_dataclass(func)
+        # if os.path.exists(func):
+        #     dataclass = 1
+        #     func = InternalMethods.path_splitter(func)[-1]
+        # else:
+        #     dataclass = 0
         print("Warp-{} to Atlas and Check it's registration".format(func))
         step01 = self.init_step('Warp-{}2atlas'.format(dtype))
         num_step = os.path.basename(step01).split('_')[0]
@@ -589,12 +605,13 @@ class Preprocess(object):
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 InternalMethods.mkdir(os.path.join(step02, 'AllSubjects'))
-                mats = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
-                                    ext='.mat').Abspath.loc[0]
-                warps = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
-                                     file_tag='_1Warp').Abspath.loc[0]
-                warped = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
-                                      file_tag='_Warped').loc[0]
+                mats, warps, warped = InternalMethods.get_warp_matrix(self, warped_anat, subj, inverse=True)
+                # mats = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
+                #                     ext='.mat').Abspath.loc[0]
+                # warps = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
+                #                      file_tag='_1Warp').Abspath.loc[0]
+                # warped = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
+                #                       file_tag='_Warped').loc[0]
                 temp_path = os.path.join(step01, subj, "base")
                 tempobj.save_as(temp_path, quiet=True)
                 funcs = self._prjobj(dataclass, func, subj)
@@ -604,7 +621,9 @@ class Preprocess(object):
                     output_path = os.path.join(step01, subj, finfo.Filename)
                     self._prjobj.run('ants_WarpTimeSeriesImageMultiTransform', output_path,
                                      finfo.Abspath, warped.Abspath, warps, mats)
-                subjatlas = InternalMethods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
+                # subjatlas = InternalMethods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
+
+                subjatlas = InternalMethods.load_temp(finfo.Abspath, '{}_atlas.nii'.format(temp_path))
                 fig = subjatlas.show(**kwargs)
                 if type(fig) is tuple:
                     fig = fig[0]
@@ -619,12 +638,13 @@ class Preprocess(object):
                 for sess in self.sessions:
                     InternalMethods.mkdir(os.path.join(step02, subj, 'AllSessions'))
                     print(" :Session: {}".format(sess))
-                    mats = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
-                                        ext='.mat').Abspath.loc[0]
-                    warps = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
-                                         file_tag='_1Warp').Abspath.loc[0]
-                    warped = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
-                                          file_tag='_Warped').loc[0]
+                    mats, warps, warped = InternalMethods.get_warp_matrix(self, warped_anat, subj, sess, inverse=True)
+                    # mats = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
+                    #                     ext='.mat').Abspath.loc[0]
+                    # warps = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
+                    #                      file_tag='_1Warp').Abspath.loc[0]
+                    # warped = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
+                    #                       file_tag='_Warped').loc[0]
                     temp_path = os.path.join(step01, subj, sess, "base")
                     tempobj.save_as(temp_path, quiet=True)
                     funcs = self._prjobj(dataclass, func, subj, sess)
@@ -711,11 +731,12 @@ class Preprocess(object):
 
     def warp_atlas_to_anat(self, anat, warped_anat, tempobj, dtype='anat', **kwargs):
         # Check the source of input data
-        if os.path.exists(anat):
-            dataclass = 1
-            anat = InternalMethods.path_splitter(anat)[-1]
-        else:
-            dataclass = 0
+        # if os.path.exists(anat):
+        #     dataclass = 1
+        #     anat = InternalMethods.path_splitter(anat)[-1]
+        # else:
+        #     dataclass = 0
+        dataclass, anat = InternalMethods.check_input_dataclass(anat)
         print("Warp-Atlas to {} and Check it's registration".format(anat))
         step01 = self.init_step('Warp-atlas2{}'.format(dtype))
         num_step = os.path.basename(step01).split('_')[0]
@@ -725,12 +746,13 @@ class Preprocess(object):
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
-                mats = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
-                                    ext='.mat').Abspath.loc[0]
-                warps = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
-                                     file_tag='_1InverseWarp').Abspath.loc[0]
-                warped = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
-                                      file_tag='_InverseWarped').loc[0]
+                mats, warps, warped = InternalMethods.get_warp_matrix(self, warped_anat, subj, inverse=True)
+                # mats = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
+                #                     ext='.mat').Abspath.loc[0]
+                # warps = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
+                #                      file_tag='_1InverseWarp').Abspath.loc[0]
+                # warped = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
+                #                       file_tag='_InverseWarped').loc[0]
                 temp_path = os.path.join(warped_anat, subj, "base")
                 tempobj.save_as(temp_path, quiet=True)
                 anats = self._prjobj(dataclass, anat, subj)
@@ -752,12 +774,13 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    mats = self._prjobj(1, self._pipeline, os.path.basename(warped_anat),
-                                        subj, sess, ext='.mat').Abspath.loc[0]
-                    warps = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
-                                         file_tag='_1InverseWarp').Abspath.loc[0]
-                    warped = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
-                                          file_tag='_InverseWarped').loc[0]
+                    mats, warps, warped = InternalMethods.get_warp_matrix(self, warped_anat, subj, sess, inverse=True)
+                    # mats = self._prjobj(1, self._pipeline, os.path.basename(warped_anat),
+                    #                     subj, sess, ext='.mat').Abspath.loc[0]
+                    # warps = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
+                    #                      file_tag='_1InverseWarp').Abspath.loc[0]
+                    # warped = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
+                    #                       file_tag='_InverseWarped').loc[0]
                     temp_path = os.path.join(step01, subj, sess, "base")
                     tempobj.save_as(temp_path, quiet=True)
                     anats = self._prjobj(dataclass, anat, subj, sess)
@@ -782,11 +805,12 @@ class Preprocess(object):
         """ Warp anatomical image to template and inverse transform the atlas image
         """
         # Check the source of input data
-        if os.path.exists(anat):
-            dataclass = 1
-            anat = InternalMethods.path_splitter(anat)[-1]
-        else:
-            dataclass = 0
+        dataclass, anat = InternalMethods.check_input_dataclass(anat)
+        # if os.path.exists(anat):
+        #     dataclass = 1
+        #     anat = InternalMethods.path_splitter(anat)[-1]
+        # else:
+        #     dataclass = 0
         # Print step ans initiate the step
         print('Warp-{} to Tempalte'.format(anat))
         step01 = self.init_step('Warp-{}2temp'.format(dtype))
@@ -820,12 +844,13 @@ class Preprocess(object):
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step02, subj))
             if self._prjobj.single_session:
-                mats = self._prjobj(1, self._pipeline, os.path.basename(step01), subj,
-                                    ext='.mat').Abspath.loc[0]
-                warps = self._prjobj(1, self._pipeline, os.path.basename(step01), subj,
-                                     file_tag='_1InverseWarp').Abspath.loc[0]
-                warped = self._prjobj(1, self._pipeline, os.path.basename(step01), subj,
-                                      file_tag='_InverseWarped').loc[0]
+                mats, warps, warped = InternalMethods.get_warp_matrix(self, step01, subj, inverse=True)
+                # mats = self._prjobj(1, self._pipeline, os.path.basename(step01), subj,
+                #                     ext='.mat').Abspath.loc[0]
+                # warps = self._prjobj(1, self._pipeline, os.path.basename(step01), subj,
+                #                      file_tag='_1InverseWarp').Abspath.loc[0]
+                # warped = self._prjobj(1, self._pipeline, os.path.basename(step01), subj,
+                #                       file_tag='_InverseWarped').loc[0]
                 temp_path = os.path.join(step01, subj, "base")
                 tempobj.save_as(temp_path, quiet=True)
                 anats = self._prjobj(dataclass, self._pipeline, anat, subj)
@@ -847,12 +872,13 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    mats = self._prjobj(1, self._pipeline, os.path.basename(step01),
-                                        subj, sess, ext='.mat').Abspath.loc[0]
-                    warps = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, sess,
-                                         file_tag='_1InverseWarp').Abspath.loc[0]
-                    warped = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, sess,
-                                          file_tag='_InverseWarped').loc[0]
+                    mats, warps, warped = InternalMethods.get_warp_matrix(self, step01, subj, sess, inverse=True)
+                    # mats = self._prjobj(1, self._pipeline, os.path.basename(step01),
+                    #                     subj, sess, ext='.mat').Abspath.loc[0]
+                    # warps = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, sess,
+                    #                      file_tag='_1InverseWarp').Abspath.loc[0]
+                    # warped = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, sess,
+                    #                       file_tag='_InverseWarped').loc[0]
                     temp_path = os.path.join(step01, subj, sess, "base")
                     tempobj.save_as(temp_path, quiet=True)
                     anats = self._prjobj(dataclass, self._pipeline, anat, subj, sess)
@@ -873,20 +899,23 @@ class Preprocess(object):
         return {'anat': step01, 'atlas': step02, 'checkreg': step03}
 
     def get_correlation_matrix(self, func, atlas, dtype='func', **kwargs):
-        tempobj = None
-        if os.path.exists(func):
-            dataclass = 1
-            func = InternalMethods.path_splitter(func)[-1]
-        else:
-            dataclass = 0
-        if type(atlas) is str:
-            atlas = os.path.basename(atlas)
-        else:
-            try:
-                tempobj = atlas
-                atlas = tempobj.atlas_path
-            except:
-                raise error.InputObjectError
+
+        dataclass, func = InternalMethods.check_input_dataclass(func)
+        atlas, tempobj = InternalMethods.check_atals_datatype(atlas)
+        # if os.path.exists(func):
+        #     dataclass = 1
+        #     func = InternalMethods.path_splitter(func)[-1]
+        # else:
+        #     dataclass = 0
+        # tempobj = None
+        # if type(atlas) is str:
+        #     atlas = os.path.basename(atlas)
+        # else:
+        #     try:
+        #         tempobj = atlas
+        #         atlas = tempobj.atlas_path
+        #     except:
+        #         raise error.InputObjectError
         print('ExtractTimeCourseData-{}'.format(func))
         step01 = self.init_step('ExtractTimeCourse-{}'.format(dtype))
         step02 = self.init_step('CC_Matrix-{}'.format(dtype))
