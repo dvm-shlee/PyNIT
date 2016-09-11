@@ -129,7 +129,7 @@ class Preprocess(object):
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step02, subj))
             if self._prjobj.single_session:
-                funcs = self._prjobj(1, self._pipeline, os.path.basename(step01), subj)
+                funcs = self._prjobj(1, self._pipeline, os.path.basename(step01), subj).loc[0]
                 print(" +Filename: {}".format(funcs.Filename))
                 self._prjobj.run('afni_3dTstat', os.path.join(step02, subj, funcs.Filename),
                                  funcs.Abspath)
@@ -137,7 +137,7 @@ class Preprocess(object):
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     InternalMethods.mkdir(os.path.join(step02, subj, sess))
-                    funcs = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, sess)
+                    funcs = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, sess).loc[0]
                     print(" +Filename: {}".format(funcs.Filename))
                     self._prjobj.run('afni_3dTstat', os.path.join(step02, subj, sess, funcs.Filename),
                                      funcs.Abspath)
