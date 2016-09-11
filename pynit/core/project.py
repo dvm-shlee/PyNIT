@@ -150,7 +150,7 @@ class Preprocess(object):
                                          finfo.Abspath, tr=tr, tpattern=tpattern)
         return {'func': step01}
 
-    def motion_correction(self, func, meanfunc, dtype='func'):
+    def motion_correction(self, func, meanfunc=None, dtype='func'):
         """ Motion Correction
         """
         dataclass, func = InternalMethods.check_input_dataclass(func)
@@ -166,11 +166,15 @@ class Preprocess(object):
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 epi = self._prjobj(dataclass, func, subj)
-                meanimg = self._prjobj(1, self._pipeline, os.path.basename(meanfunc), subj)
+                if meanfunc:
+                    meanimg = self._prjobj(1, self._pipeline, os.path.basename(meanfunc), subj)
+                    meanimg = meanimg.Abspath[0]
+                else:
+                    meanimg = 0
                 for i, finfo in epi.iterrows():
                     print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
-                                     base_slice=meanimg.Abspath[0])
+                                     base_slice=meanimg)
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
