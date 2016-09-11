@@ -273,10 +273,10 @@ class Atlas(object):
         if type(path) is ImageObj:
             self._image = path
         elif type(path) is str:
-            try:
-                self.load(path)
-            except:
-                raise error.InputPathError
+            # try:
+            self.load(path)
+            # except:
+            # raise error.InputPathError
         else:
             raise error.InputFileError
 
@@ -315,9 +315,12 @@ class Atlas(object):
             if not i:
                 pass
             else:
-                label, roi = self[i]
-                roi.to_filename(os.path.join(path, "{}.nii".format(label)))
-
+                try:
+                    label, roi = self[i]
+                    roi.to_filename(os.path.join(path, "{}.nii".format(label)))
+                except:
+                    pass
+                
     def __getitem__(self, idx):
         if not self._image:
             return None

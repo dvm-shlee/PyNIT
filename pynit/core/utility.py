@@ -220,12 +220,13 @@ class InternalMethods(object):
                 filepath = os.path.basename(InternalMethods.remove_nifti_ext(path))
                 dirname = os.path.dirname(path)
                 for f in os.listdir(dirname):
-                    if '.lbl' in f:
-                        filepath = os.path.join(dirname, "{}.lbl".format(filepath))
-                    elif '.label' in f:
-                        filepath = os.path.join(dirname, "{}.label".format(filepath))
-                    else:
-                        filepath = filepath
+                    if filepath in f:
+                        if '.lbl' in f:
+                            filepath = os.path.join(dirname, "{}.lbl".format(filepath))
+                        elif '.label' in f:
+                            filepath = os.path.join(dirname, "{}.label".format(filepath))
+                        else:
+                            filepath = filepath
                 if filepath == os.path.basename(InternalMethods.remove_nifti_ext(path)):
                     raise error.NoLabelFile
             else:
