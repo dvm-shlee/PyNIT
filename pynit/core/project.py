@@ -52,7 +52,6 @@ class Preprocess(object):
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, sess, finfo.Filename),
                                          finfo.Abspath)
-
         step02 = self.init_step('MeanImageCalculation-BOLD')
         step03 = self.init_step('MeanImageCalculation-CBV')
         print("MeanImageCalculation-BOLD&CBV")
@@ -99,25 +98,50 @@ class Preprocess(object):
         #     func = InternalMethods.path_splitter(func)[-1]
         # else:
         #     dataclass = 0
-        step01 = self.init_step('MeanImageCalculation-{}'.format(dtype))
-        print("MeanImageCalculation-{}".format(func))
+        step01 = self.init_step('MotionCorrection-{}'.format(dtype))
+        print("MotionCorrection")
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
-                funcs = self._prjobj(dataclass, self._pipeline, os.path.basename(step01), subj).loc[0]
-                print(" +Filename: {}".format(funcs.Filename))
-                self._prjobj.run('afni_3dTstat', os.path.join(step01, subj, funcs.Filename),
-                                 funcs.Abspath)
+                firstfunc = self._prjobj(dataclass, func, subj)
+                for i, finfo in firstfunc.iterrows():
+                    if not i:
+                        print(" +Filename: {}".format(finfo.Filename))
+                        self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, finfo.Filename), finfo.Abspath)
+                    else:
+                        pass
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
-                    funcs = self._prjobj(dataclass, self._pipeline, os.path.basename(step01), subj, sess).loc[0]
+                    firstfunc = self._prjobj(dataclass, func, subj, sess)
+                    for i, finfo in firstfunc.iterrows():
+                        if not i:
+                            print("  +Filename: {}".format(finfo.Filename))
+                            self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, sess, finfo.Filename),
+                                             finfo.Abspath)
+                        else:
+                            pass
+        step02 = self.init_step('MeanImageCalculation-{}'.format(dtype))
+        print("MeanImageCalculation-{}".format(func))
+        for subj in self.subjects:
+            print("-Subject: {}".format(subj))
+            InternalMethods.mkdir(os.path.join(step02, subj))
+            if self._prjobj.single_session:
+                funcs = self._prjobj(1, self._pipeline, os.path.basename(step01), subj)
+                print(" +Filename: {}".format(funcs.Filename))
+                self._prjobj.run('afni_3dTstat', os.path.join(step02, subj, funcs.Filename),
+                                 funcs.Abspath)
+            else:
+                for sess in self.sessions:
+                    print(" :Session: {}".format(sess))
+                    InternalMethods.mkdir(os.path.join(step02, subj, sess))
+                    funcs = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, sess)
                     print(" +Filename: {}".format(funcs.Filename))
-                    self._prjobj.run('afni_3dTstat', os.path.join(step01, subj, sess, funcs.Filename),
+                    self._prjobj.run('afni_3dTstat', os.path.join(step02, subj, sess, funcs.Filename),
                                      funcs.Abspath)
-        return {'meanfunc': step01}
+        return {'firstfunc': step01, 'meanfunc': step02}
 
     def slicetiming_correction(self, func, tr=1, tpattern='altplus', dtype='func'):
         """ SliceTiming Correction
