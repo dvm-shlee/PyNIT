@@ -98,7 +98,7 @@ class Preprocess(object):
         #     func = InternalMethods.path_splitter(func)[-1]
         # else:
         #     dataclass = 0
-        step01 = self.init_step('MotionCorrection-{}'.format(dtype))
+        step01 = self.init_step('InitialPreparation-{}'.format(dtype))
         print("MotionCorrection")
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
