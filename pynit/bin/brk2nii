@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 __author__ = 'SungHo Lee (shlee@unc.edu)'
-__version_info__ = ('2016', '08', '07')
-__version__ = '-'.join(__version_info__) + 'REV04'
+__version_info__ = ('2016', '07', '20')
+__version__ = '-'.join(__version_info__) + 'REV03'
 
 import re, os, argparse, sys
 try:
@@ -10,13 +10,14 @@ try:
     import numpy as np
     import json
 except:
-    print("Required libraries (numpy, nibabel, json) are not installed")
+    print "Required libraries (numpy, nibabel, json) are not installed"
     sys.exit(0)
 
 parser = argparse.ArgumentParser(prog='Brk2Nii', description="Convert Bruker raw '2dseq' to Nifti formated image")
 parser.add_argument("pid", help="Proccessed ID (in case image is reconstructed)")
 parser.add_argument("path", help="Folder location for the Bruker raw data", type=str)
 parser.add_argument("filename", help="Filename w/o extension to export NifTi image", type=str)
+parser.add_argument("-o", "--ori", help="Reorientation to correct space", action="store_true", default=0)
 parser.add_argument("-p", "--param", help="Export parameters to 'txt' file", action="store_true", default=0)
 parser.add_argument("-V", "--version", action="version", version="%(prog)s ("+__version__+")")
 args = parser.parse_args()
@@ -98,7 +99,7 @@ frames = param_dict['Repetitions']
 if 'NSegments' in param_dict.keys():
     tr = param_dict['RepetitionTime'] * param_dict['NSegments'] * param_dict['NAverages']
 else:
-    tr = param_dict['RepetitionTIme'] * param_dict['NAverages']
+    tr = param_dict['RepetitionTime'] * param_dict['NAverages']
 if frames == 1:
     dim = []
 else:
@@ -159,13 +160,12 @@ print("Image dimension: %d, Image shape: %s" % (len(shape), str(shape)))
 try:
     img = np.transpose(np.fromfile(img_path, dtype=dt).reshape(dim))
 except BaseException("Unmatch matrix size!") as e:
-    print(e)
+    print e
     sys.exit(0)
 
 # Integrate header information from parameters
 img_affn = nib.affines.from_matvec(np.diag(resol), np.zeros(3))
 img_nii = nib.Nifti1Image(img, img_affn)
-affine = img_nii.header.get_base_affine()
 # SliceOrder - need to be modified if different case is exist
 # img_nii.header['intent_code'] need to be added if DTI image is performed
 if param_dict['OrderScheme'] == 'Interlaced':
@@ -186,9 +186,12 @@ else:
 img_nii.header['sform_code'] = 0
 img_nii.header['qform_code'] = 1
 # Apply qform affine matrix
-qform = np.diag(img_affn) * redirect
-i = np.argsort(reori)
-img_nii.set_qform(np.diag(qform)[i, :])
+if args.ori:
+    qform = np.diag(img_affn) * redirect
+    i = np.argsort(reori)
+    img_nii.set_qform(np.diag(qform)[i, :])
+else:
+    pass
 
 # Save to NifTi file
 img_nii.to_filename(args.filename)
