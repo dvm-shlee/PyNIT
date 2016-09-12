@@ -608,7 +608,11 @@ class InternalMethods(object):
         return atlas, tempobj
 
     @staticmethod
-    def get_warp_matrix(preproc, inverse=False, *args):
+    def get_warp_matrix(preproc, *args, **kwargs):
+        if 'inverse' in kwargs.keys():
+            inverse = kwargs['inverse']
+        else:
+            inverse = None
         if inverse:
             mats = preproc._prjobj(1, preproc._pipeline, os.path.basename(args[0]),
                                    *args[1:], ext='.mat').Abspath.loc[0]
