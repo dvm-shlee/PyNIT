@@ -315,7 +315,7 @@ class Plot(object):
         ax = sns.tsplot(dataframe.T.values, err_style=err_style, **kwargs)
 
     @staticmethod
-    def heatmap(dataframe, half=True, scale=1, vmin=-0.4, vmax=1.3, cmap='RdBu_r', **kwargs):
+    def heatmap(dataframe, half=True, scale=1, vmin=-1.5, vmax=1.5, cmap='RdBu_r', **kwargs):
         figsize = (6 * scale, 4 * scale)
         for arg in kwargs.keys():
             if arg is 'figsize':

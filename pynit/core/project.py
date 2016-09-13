@@ -293,8 +293,8 @@ class Preprocess(object):
                     self._prjobj.run('afni_3dcalc', fpath, 'a*step(b)',
                                      finfo.Abspath, epimask)
                     ss_epi = InternalMethods.load(fpath)
-                    if padded:
-                        exec('ss_epi.crop({}=[1, {}])'.format(axis[zaxis], ss_epi.shape[zaxis]-1))
+                    # if padded:
+                    #     exec('ss_epi.crop({}=[1, {}])'.format(axis[zaxis], ss_epi.shape[zaxis]-1))
                     ss_epi.save_as(os.path.join(step01, subj, filename), quiet=True)
                     os.remove(fpath)
                 for i, finfo in t2.iterrows():
@@ -304,8 +304,8 @@ class Preprocess(object):
                     self._prjobj.run('afni_3dcalc', fpath, 'a*step(b)',
                                      finfo.Abspath, t2mask)
                     ss_t2 = InternalMethods.load(fpath)
-                    if padded:
-                        exec('ss_t2.crop({}=[1, {}])'.format(axis[zaxis], ss_t2.shape[zaxis] - 1))
+                    # if padded:
+                    #     exec('ss_t2.crop({}=[1, {}])'.format(axis[zaxis], ss_t2.shape[zaxis] - 1))
                     ss_t2.save_as(os.path.join(step02, subj, filename), quiet=True)
                     os.remove(fpath)
             else:
@@ -344,18 +344,10 @@ class Preprocess(object):
         return {'meanfunc': step01, 'anat': step02}
 
     def coregistration(self, meanfunc, anat, dtype='func', **kwargs):
+        """ Method for mean functional image realignment to anatomical image of same subject
+        """
         f_dataclass, meanfunc = InternalMethods.check_input_dataclass(meanfunc)
         a_dataclass, anat = InternalMethods.check_input_dataclass(anat)
-        # if os.path.exists(meanfunc):
-        #     f_dataclass = 1
-        #     meanfunc = InternalMethods.path_splitter(meanfunc)[-1]
-        # else:
-        #     f_dataclass = 0
-        # if os.path.exists(anat):
-        #     a_dataclass = 1
-        #     anat = InternalMethods.path_splitter(anat)[-1]
-        # else:
-        #     a_dataclass = 0
         print('BiasFieldCorrection-{} & {}'.format(meanfunc, anat))
         step01 = self.init_step('BiasFieldCorrection-{}'.format(dtype))
         step02 = self.init_step('BiasFieldCorrection-{}'.format(anat.split('-')[-1]))
@@ -443,12 +435,9 @@ class Preprocess(object):
         return {'meanfunc': step01, 'anat':step02, 'realigned_func': step03, 'checkreg': step04}
 
     def apply_brainmask(self, func, mask, padded=True, zaxis=2, dtype='func'):
+        """ Method for applying brain mark to individual 3d+t functional images
+        """
         axis = {0: 'x', 1: 'y', 2: 'z'}
-        # if os.path.exists(func):
-        #     dataclass = 1
-        #     func = InternalMethods.path_splitter(func)[-1]
-        # else:
-        #     dataclass = 0
         dataclass, func = InternalMethods.check_input_dataclass(func)
         print('ApplyingBrainMask-{}'.format(func))
         step01 = self.init_step('ApplyingBrainMask-{}'.format(dtype))
@@ -485,11 +474,8 @@ class Preprocess(object):
         return {'func': step01}
 
     def apply_transformation(self, func, realigned_func, dtype='func'):
-        # if os.path.exists(func):
-        #     dataclass = 1
-        #     func = InternalMethods.path_splitter(func)[-1]
-        # else:
-        #     dataclass = 0
+        """ Method for applying transformation matrix to individual 3d+t functional images
+        """
         dataclass, func = InternalMethods.check_input_dataclass(func)
         print('ApplyingTransformation-{}'.format(func))
         step01 = self.init_step('ApplyingTransformation-{}'.format(dtype))
@@ -520,11 +506,8 @@ class Preprocess(object):
         return {'func': step01}
 
     def global_regression(self, func, dtype='func', detrend=-1):
-        # if os.path.exists(func):
-        #     dataclass = 1
-        #     func = InternalMethods.path_splitter(func)[-1]
-        # else:
-        #     dataclass = 0
+        """ Method for global signal regression of infividual functional image
+        """
         dataclass, func = InternalMethods.check_input_dataclass(func)
         print('GlobalRegression-{}'.format(func))
         step01 = self.init_step('GlobalRegression-{}'.format(dtype))
@@ -554,11 +537,8 @@ class Preprocess(object):
         return {'func': step01}
 
     def motion_parameter_regression(self, func, motioncorrected_func, dtype='func', detrend=-1):
-        # if os.path.exists(func):
-        #     dataclass = 1
-        #     func = InternalMethods.path_splitter(func)[-1]
-        # else:
-        #     dataclass = 0
+        """ Method for motion parameter regression of infividual functional image
+        """
         dataclass, func = InternalMethods.check_input_dataclass(func)
         print('GlobalRegression-{}'.format(func))
         step01 = self.init_step('GlobalRegression-{}'.format(dtype))
@@ -586,14 +566,29 @@ class Preprocess(object):
                                          finfo.Abspath, vector=regressor, polort=str(detrend))
         return {'func': step01}
 
-    def signal_processing(self, func, norm=False, despike=False, detrend=False, blur=False, band=False, dt='1', dtype='func'):
-        # if os.path.exists(func):
-        #     dataclass = 1
-        #     func = InternalMethods.path_splitter(func)[-1]
-        # else:
-        #     dataclass = 0
+    def signal_processing(self, func, dt=1, norm=False, despike=False, detrend=False,
+                          blur=False, band=False, dtype='func'):
+        """ Method for signal processing and spatial smoothing of individual functional image
+
+        Parameters
+        ----------
+        func        : str
+            Datatype or Absolute step path for the input functional image
+        dt          : int
+        norm        : boolean
+        despike     : boolean
+        detrend     : int
+        blur        : float
+        band        : list of float
+        dtype       : str
+            Surfix for the step path
+
+        Returns
+        -------
+        step_paths  : dict
+        """
         dataclass, func = InternalMethods.check_input_dataclass(func)
-        print('-{}'.format(func))
+        print('SignalProcessing-{}'.format(func))
         step01 = self.init_step('SignalProcessing-{}'.format(dtype))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
@@ -615,14 +610,27 @@ class Preprocess(object):
                                          norm=norm, despike=despike, detrend=detrend, blur=blur, band=band, dt=dt)
         return {'func': step01}
 
-    def warp_func(self, warped_anat, func, tempobj, dtype='func', **kwargs):
+    def warp_func(self, func, warped_anat, tempobj, dtype='func', **kwargs):
+        """ Method for warping the individual functional image to template space
+
+        Parameters
+        ----------
+        func        : str
+            Datatype or Absolute step path for the input functional image
+        warped_anat : str
+            Absolute step path which contains diffeomorphic map and transformation matrix
+            which is generated by the methods of 'pynit.Preprocessing.warp_anat_to_template'
+        tempobj     : pynit.Template
+            The template object which contains set of atlas
+        dtype       : str
+            Surfix for the step path
+
+        Returns
+        -------
+        step_paths  : dict
+        """
         # Check the source of input data
         dataclass, func = InternalMethods.check_input_dataclass(func)
-        # if os.path.exists(func):
-        #     dataclass = 1
-        #     func = InternalMethods.path_splitter(func)[-1]
-        # else:
-        #     dataclass = 0
         print("Warp-{} to Atlas and Check it's registration".format(func))
         step01 = self.init_step('Warp-{}2atlas'.format(dtype))
         num_step = os.path.basename(step01).split('_')[0]
@@ -633,13 +641,8 @@ class Preprocess(object):
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 InternalMethods.mkdir(os.path.join(step02, 'AllSubjects'))
+                # Grab the warping map and transform matrix
                 mats, warps, warped = InternalMethods.get_warp_matrix(self, warped_anat, subj, inverse=True)
-                # mats = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
-                #                     ext='.mat').Abspath.loc[0]
-                # warps = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
-                #                      file_tag='_1Warp').Abspath.loc[0]
-                # warped = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
-                #                       file_tag='_Warped').loc[0]
                 temp_path = os.path.join(step01, subj, "base")
                 tempobj.save_as(temp_path, quiet=True)
                 funcs = self._prjobj(dataclass, func, subj)
@@ -650,8 +653,7 @@ class Preprocess(object):
                     self._prjobj.run('ants_WarpTimeSeriesImageMultiTransform', output_path,
                                      finfo.Abspath, warped.Abspath, warps, mats)
                 # subjatlas = InternalMethods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
-
-                subjatlas = InternalMethods.load_temp(finfo.Abspath, '{}_atlas.nii'.format(temp_path))
+                subjatlas = InternalMethods.load_temp(output_path, '{}_atlas.nii'.format(temp_path))
                 fig = subjatlas.show(**kwargs)
                 if type(fig) is tuple:
                     fig = fig[0]
@@ -666,13 +668,8 @@ class Preprocess(object):
                 for sess in self.sessions:
                     InternalMethods.mkdir(os.path.join(step02, subj, 'AllSessions'))
                     print(" :Session: {}".format(sess))
+                    # Grab the warping map and transform matrix
                     mats, warps, warped = InternalMethods.get_warp_matrix(self, warped_anat, subj, sess, inverse=True)
-                    # mats = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
-                    #                     ext='.mat').Abspath.loc[0]
-                    # warps = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
-                    #                      file_tag='_1Warp').Abspath.loc[0]
-                    # warped = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
-                    #                       file_tag='_Warped').loc[0]
                     temp_path = os.path.join(step01, subj, sess, "base")
                     tempobj.save_as(temp_path, quiet=True)
                     funcs = self._prjobj(dataclass, func, subj, sess)
@@ -682,7 +679,8 @@ class Preprocess(object):
                         output_path = os.path.join(step01, subj, sess, finfo.Filename)
                         self._prjobj.run('ants_WarpTimeSeriesImageMultiTransform', output_path,
                                          finfo.Abspath, warped.Abspath, warps, mats)
-                    subjatlas = InternalMethods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
+                    # subjatlas = InternalMethods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
+                    subjatlas = InternalMethods.load_temp(output_path, '{}_atlas.nii'.format(temp_path))
                     fig = subjatlas.show(**kwargs)
                     if type(fig) is tuple:
                         fig = fig[0]
@@ -696,6 +694,21 @@ class Preprocess(object):
         return {'func': step01, 'checkreg': step02}
 
     def warp_anat_to_template(self, anat, tempobj, dtype='anat', **kwargs):
+        """ Method for warping the individual anatomical image to template
+
+        Parameters
+        ----------
+        anat        : str
+            Datatype or Absolute step path for the input anatomical image
+        tempobj     : pynit.Template
+            The template object which contains set of atlas
+        dtype       : str
+            Surfix for the step path
+
+        Returns
+        -------
+        step_paths  : dict
+        """
         # Check the source of input data
         if os.path.exists(anat):
             dataclass = 1
@@ -758,12 +771,24 @@ class Preprocess(object):
         return {'warped_anat': step01, 'checkreg': step02}
 
     def warp_atlas_to_anat(self, anat, warped_anat, tempobj, dtype='anat', **kwargs):
-        # Check the source of input data
-        # if os.path.exists(anat):
-        #     dataclass = 1
-        #     anat = InternalMethods.path_splitter(anat)[-1]
-        # else:
-        #     dataclass = 0
+        """ Method for warping the atlas to individual anatomical image space
+
+        Parameters
+        ----------
+        anat        : str
+            Datatype or Absolute step path for the input anatomical image
+        warped_anat : str
+            Absolute step path which contains diffeomorphic map and transformation matrix
+            which is generated by the methods of 'pynit.Preprocessing.warp_anat_to_template'
+        tempobj     : pynit.Template
+            The template object which contains set of atlas
+        dtype       : str
+            Surfix for the step path
+
+        Returns
+        -------
+        step_paths  : dict
+        """
         dataclass, anat = InternalMethods.check_input_dataclass(anat)
         print("Warp-Atlas to {} and Check it's registration".format(anat))
         step01 = self.init_step('Warp-atlas2{}'.format(dtype))
@@ -774,13 +799,8 @@ class Preprocess(object):
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
+                # Grab the warping map and transform matrix
                 mats, warps, warped = InternalMethods.get_warp_matrix(self, warped_anat, subj, inverse=True)
-                # mats = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
-                #                     ext='.mat').Abspath.loc[0]
-                # warps = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
-                #                      file_tag='_1InverseWarp').Abspath.loc[0]
-                # warped = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj,
-                #                       file_tag='_InverseWarped').loc[0]
                 temp_path = os.path.join(warped_anat, subj, "base")
                 tempobj.save_as(temp_path, quiet=True)
                 anats = self._prjobj(dataclass, anat, subj)
@@ -802,13 +822,8 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
+                    # Grab the warping map and transform matrix
                     mats, warps, warped = InternalMethods.get_warp_matrix(self, warped_anat, subj, sess, inverse=True)
-                    # mats = self._prjobj(1, self._pipeline, os.path.basename(warped_anat),
-                    #                     subj, sess, ext='.mat').Abspath.loc[0]
-                    # warps = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
-                    #                      file_tag='_1InverseWarp').Abspath.loc[0]
-                    # warped = self._prjobj(1, self._pipeline, os.path.basename(warped_anat), subj, sess,
-                    #                       file_tag='_InverseWarped').loc[0]
                     temp_path = os.path.join(step01, subj, sess, "base")
                     tempobj.save_as(temp_path, quiet=True)
                     anats = self._prjobj(dataclass, anat, subj, sess)
@@ -829,121 +844,93 @@ class Preprocess(object):
                                     facecolor=fig.get_facecolor())
         return {'atlas': step01, 'checkreg': step02}
 
-    def warp_atlas(self, anat, tempobj, dtype='anat', **kwargs):
-        """ Warp anatomical image to template and inverse transform the atlas image
-        """
-        # Check the source of input data
-        dataclass, anat = InternalMethods.check_input_dataclass(anat)
-        # if os.path.exists(anat):
-        #     dataclass = 1
-        #     anat = InternalMethods.path_splitter(anat)[-1]
-        # else:
-        #     dataclass = 0
-        # Print step ans initiate the step
-        print('Warp-{} to Tempalte'.format(anat))
-        step01 = self.init_step('Warp-{}2temp'.format(dtype))
-        # Loop the subjects
-        for subj in self.subjects:
-            print("-Subject: {}".format(subj))
-            InternalMethods.mkdir(os.path.join(step01, subj))
-            if self._prjobj.single_session:
-                anats = self._prjobj(dataclass, anat, subj)
-                InternalMethods.mkdir(os.path.join(step01, subj))
-                for i, finfo in anats.iterrows():
-                    print(" +Filename: {}".format(finfo.Filename))
-                    self._prjobj.run('ants_RegistrationSyn', os.path.join(step01, subj, "{}".format(subj)),
-                                     finfo.Abspath, base_path=tempobj.template_path, quick=False)
-            else:
-                for sess in self.sessions:
-                    print(" :Session: {}".format(sess))
-                    anats = self._prjobj(dataclass, anat, subj, sess)
-                    InternalMethods.mkdir(os.path.join(step01, subj, sess))
-                    for i, finfo in anats.iterrows():
-                        print("  +Filename: {}".format(finfo.Filename))
-                        self._prjobj.run('ants_RegistrationSyn',
-                                         os.path.join(step01, subj, sess, "{}".format(sess)),
-                                         finfo.Abspath, base_path=tempobj.template_path, quick=False)
-        # Print step
-        print("Warp-Atlas to {} and Check it's registration".format(anat))
-        step02 = self.init_step('Warp-atlas2{}'.format(dtype))
-        step03 = self.init_step('CheckAtlasRegistration-{}'.format(dtype))
-        # Loop the subjects
-        for subj in self.subjects:
-            print("-Subject: {}".format(subj))
-            InternalMethods.mkdir(os.path.join(step02, subj))
-            if self._prjobj.single_session:
-                mats, warps, warped = InternalMethods.get_warp_matrix(self, step01, subj, inverse=True)
-                # mats = self._prjobj(1, self._pipeline, os.path.basename(step01), subj,
-                #                     ext='.mat').Abspath.loc[0]
-                # warps = self._prjobj(1, self._pipeline, os.path.basename(step01), subj,
-                #                      file_tag='_1InverseWarp').Abspath.loc[0]
-                # warped = self._prjobj(1, self._pipeline, os.path.basename(step01), subj,
-                #                       file_tag='_InverseWarped').loc[0]
-                temp_path = os.path.join(step01, subj, "base")
-                tempobj.save_as(temp_path, quiet=True)
-                anats = self._prjobj(dataclass, self._pipeline, anat, subj)
-                output_path = os.path.join(step02, subj, "{}_atlas.nii".format(subj))
-                InternalMethods.mkdir(os.path.join(step02, subj), os.path.join(step03, subj))
-                print(" +Filename: {}".format(warped.Filename))
-                self._prjobj.run('ants_WarpImageMultiTransform', output_path,
-                                 '{}_atlas.nii'.format(temp_path), warped.Abspath,
-                                 True, '-i', mats, warps)
-                tempobj.atlasobj.save_as(os.path.join(step02, subj, "{}_atlas".format(subj)), label_only=True)
-                for i, finfo in anats.iterrows():
-                    subjatlas = InternalMethods.load_temp(finfo.Abspath, output_path)
-                    fig = subjatlas.show(**kwargs)
-                    if type(fig) is tuple:
-                        fig = fig[0]
-                    fig.suptitle('Check atlas registration of {}'.format(subj), fontsize=12, color='yellow')
-                    fig.savefig(os.path.join(step03, '{}.png'.format('-'.join([subj, 'checkatlas']))),
-                                 facecolor=fig.get_facecolor())
-            else:
-                for sess in self.sessions:
-                    print(" :Session: {}".format(sess))
-                    mats, warps, warped = InternalMethods.get_warp_matrix(self, step01, subj, sess, inverse=True)
-                    # mats = self._prjobj(1, self._pipeline, os.path.basename(step01),
-                    #                     subj, sess, ext='.mat').Abspath.loc[0]
-                    # warps = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, sess,
-                    #                      file_tag='_1InverseWarp').Abspath.loc[0]
-                    # warped = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, sess,
-                    #                       file_tag='_InverseWarped').loc[0]
-                    temp_path = os.path.join(step01, subj, sess, "base")
-                    tempobj.save_as(temp_path, quiet=True)
-                    anats = self._prjobj(dataclass, self._pipeline, anat, subj, sess)
-                    output_path = os.path.join(step02, subj, sess, "{}_atlas.nii".format(sess))
-                    InternalMethods.mkdir(os.path.join(step02, subj, sess), os.path.join(step03, subj, sess))
-                    print(" +Filename: {}".format(warped.Filename))
-                    self._prjobj.run('ants_WarpImageMultiTransform', output_path,
-                                     '{}_atlas.nii'.format(temp_path), warped.Abspath, True, '-i', mats, warps)
-                    tempobj.atlasobj.save_as(os.path.join(step02, subj, sess, "{}_atlas".format(sess)), label_only=True)
-                    for i, finfo in anats.iterrows():
-                        subjatlas = InternalMethods.load_temp(finfo.Abspath, output_path)
-                        fig = subjatlas.show(**kwargs)
-                        if type(fig) is tuple:
-                            fig = fig[0]
-                        fig.suptitle('Check atlas registration of {}'.format(sess), fontsize=12, color='yellow')
-                        fig.savefig(os.path.join(step03, subj, '{}.png'.format('-'.join([sess, 'checkatlas']))),
-                                    facecolor=fig.get_facecolor())
-        return {'anat': step01, 'atlas': step02, 'checkreg': step03}
+    # def warp_atlas(self, anat, tempobj, dtype='anat', **kwargs):
+    #     """ Warp anatomical image to template and inverse transform the atlas image
+    #     """
+    #     # Check the source of input data
+    #     dataclass, anat = InternalMethods.check_input_dataclass(anat)
+    #     print('Warp-{} to Tempalte'.format(anat))
+    #     step01 = self.init_step('Warp-{}2temp'.format(dtype))
+    #     # Loop the subjects
+    #     for subj in self.subjects:
+    #         print("-Subject: {}".format(subj))
+    #         InternalMethods.mkdir(os.path.join(step01, subj))
+    #         if self._prjobj.single_session:
+    #             anats = self._prjobj(dataclass, anat, subj)
+    #             InternalMethods.mkdir(os.path.join(step01, subj))
+    #             for i, finfo in anats.iterrows():
+    #                 print(" +Filename: {}".format(finfo.Filename))
+    #                 self._prjobj.run('ants_RegistrationSyn', os.path.join(step01, subj, "{}".format(subj)),
+    #                                  finfo.Abspath, base_path=tempobj.template_path, quick=False)
+    #         else:
+    #             for sess in self.sessions:
+    #                 print(" :Session: {}".format(sess))
+    #                 anats = self._prjobj(dataclass, anat, subj, sess)
+    #                 InternalMethods.mkdir(os.path.join(step01, subj, sess))
+    #                 for i, finfo in anats.iterrows():
+    #                     print("  +Filename: {}".format(finfo.Filename))
+    #                     self._prjobj.run('ants_RegistrationSyn',
+    #                                      os.path.join(step01, subj, sess, "{}".format(sess)),
+    #                                      finfo.Abspath, base_path=tempobj.template_path, quick=False)
+    #     # Print step
+    #     print("Warp-Atlas to {} and Check it's registration".format(anat))
+    #     step02 = self.init_step('Warp-atlas2{}'.format(dtype))
+    #     step03 = self.init_step('CheckAtlasRegistration-{}'.format(dtype))
+    #     # Loop the subjects
+    #     for subj in self.subjects:
+    #         print("-Subject: {}".format(subj))
+    #         InternalMethods.mkdir(os.path.join(step02, subj))
+    #         if self._prjobj.single_session:
+    #             # Grab the warping map and transform matrix
+    #             mats, warps, warped = InternalMethods.get_warp_matrix(self, step01, subj, inverse=True)
+    #             #
+    #             temp_path = os.path.join(step01, subj, "base")
+    #             tempobj.save_as(temp_path, quiet=True)
+    #             anats = self._prjobj(dataclass, self._pipeline, anat, subj)
+    #             output_path = os.path.join(step02, subj, "{}_atlas.nii".format(subj))
+    #             InternalMethods.mkdir(os.path.join(step02, subj), os.path.join(step03, subj))
+    #             print(" +Filename: {}".format(warped.Filename))
+    #             self._prjobj.run('ants_WarpImageMultiTransform', output_path,
+    #                              '{}_atlas.nii'.format(temp_path), warped.Abspath,
+    #                              True, '-i', mats, warps)
+    #             tempobj.atlasobj.save_as(os.path.join(step02, subj, "{}_atlas".format(subj)), label_only=True)
+    #             for i, finfo in anats.iterrows():
+    #                 subjatlas = InternalMethods.load_temp(finfo.Abspath, output_path)
+    #                 fig = subjatlas.show(**kwargs)
+    #                 if type(fig) is tuple:
+    #                     fig = fig[0]
+    #                 fig.suptitle('Check atlas registration of {}'.format(subj), fontsize=12, color='yellow')
+    #                 fig.savefig(os.path.join(step03, '{}.png'.format('-'.join([subj, 'checkatlas']))),
+    #                              facecolor=fig.get_facecolor())
+    #         else:
+    #             for sess in self.sessions:
+    #                 print(" :Session: {}".format(sess))
+    #                 # Grab the warping map and transform matrix
+    #                 mats, warps, warped = InternalMethods.get_warp_matrix(self, step01, subj, sess, inverse=True)
+    #                 temp_path = os.path.join(step01, subj, sess, "base")
+    #                 tempobj.save_as(temp_path, quiet=True)
+    #                 anats = self._prjobj(dataclass, self._pipeline, anat, subj, sess)
+    #                 output_path = os.path.join(step02, subj, sess, "{}_atlas.nii".format(sess))
+    #                 InternalMethods.mkdir(os.path.join(step02, subj, sess), os.path.join(step03, subj, sess))
+    #                 print(" +Filename: {}".format(warped.Filename))
+    #                 self._prjobj.run('ants_WarpImageMultiTransform', output_path,
+    #                                  '{}_atlas.nii'.format(temp_path), warped.Abspath, True, '-i', mats, warps)
+    #                 tempobj.atlasobj.save_as(os.path.join(step02, subj, sess, "{}_atlas".format(sess)), label_only=True)
+    #                 for i, finfo in anats.iterrows():
+    #                     subjatlas = InternalMethods.load_temp(finfo.Abspath, output_path)
+    #                     fig = subjatlas.show(**kwargs)
+    #                     if type(fig) is tuple:
+    #                         fig = fig[0]
+    #                     fig.suptitle('Check atlas registration of {}'.format(sess), fontsize=12, color='yellow')
+    #                     fig.savefig(os.path.join(step03, subj, '{}.png'.format('-'.join([sess, 'checkatlas']))),
+    #                                 facecolor=fig.get_facecolor())
+    #     return {'anat': step01, 'atlas': step02, 'checkreg': step03}
 
     def get_correlation_matrix(self, func, atlas, dtype='func', **kwargs):
-
+        """ Method for extracting timecourse, correlation matrix and calculating z-score matrix
+        """
         dataclass, func = InternalMethods.check_input_dataclass(func)
         atlas, tempobj = InternalMethods.check_atals_datatype(atlas)
-        # if os.path.exists(func):
-        #     dataclass = 1
-        #     func = InternalMethods.path_splitter(func)[-1]
-        # else:
-        #     dataclass = 0
-        # tempobj = None
-        # if type(atlas) is str:
-        #     atlas = os.path.basename(atlas)
-        # else:
-        #     try:
-        #         tempobj = atlas
-        #         atlas = tempobj.atlas_path
-        #     except:
-        #         raise error.InputObjectError
         print('ExtractTimeCourseData-{}'.format(func))
         step01 = self.init_step('ExtractTimeCourse-{}'.format(dtype))
         step02 = self.init_step('CC_Matrix-{}'.format(dtype))
