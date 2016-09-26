@@ -1435,25 +1435,25 @@ class Project(object):
         """
         if len(self.df):
             try:
-                self.__subjects = list(set(self.df.Subject.tolist()))
+                self.__subjects = sorted(list(set(self.df.Subject.tolist())))
                 if self.single_session:
                     self.__sessions = None
                 else:
-                    self.__sessions = list(set(self.df.Session.tolist()))
+                    self.__sessions = sorted(list(set(self.df.Session.tolist())))
                 if self.__dc_idx == 0:
-                    self.__dtypes = list(set(self.df.DataType.tolist()))
+                    self.__dtypes = sorted(list(set(self.df.DataType.tolist())))
                     self.__pipelines = None
                     self.__steps = None
                     self.__results = None
                 elif self.__dc_idx == 1:
                     self.__dtypes = None
-                    self.__pipelines = list(set(self.df.Pipeline.tolist()))
-                    self.__steps = list(set(self.df.Step.tolist()))
+                    self.__pipelines = sorted(list(set(self.df.Pipeline.tolist())))
+                    self.__steps = sorted(list(set(self.df.Step.tolist())))
                     self.__results = None
                 elif self.__dc_idx == 2:
                     self.__dtypes = None
-                    self.__pipelines = list(set(self.df.Pipeline.tolist()))
-                    self.__results = list(set(self.df.Result.tolist()))
+                    self.__pipelines = sorted(list(set(self.df.Pipeline.tolist())))
+                    self.__results = sorted(list(set(self.df.Result.tolist())))
                     self.__steps = None
             except:
                 raise error.UpdateFailed
