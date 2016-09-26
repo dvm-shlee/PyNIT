@@ -349,9 +349,14 @@ class Interface(object):
     def afni_3dTstat(output_path, input_path, **kwargs):
         # AFNI 3dTstat
         cmd = ['3dTstat', '-prefix', output_path]
-        if 'mean' in kwargs.keys():
-            if kwargs['mean']:
-                cmd.append('-mean')
+        for kwarg in kwargs.keys():
+            if kwargs[kwarg]:
+                if 'mean' in kwarg:
+                    cmd.append('-mean')
+                if 'median' in kwarg:
+                    cmd.append('-median')
+                if 'nzmedian' in kwargs:
+                    cmd.append('-nzmedian')
         cmd.append(input_path)
         cmd = list2cmdline(cmd)
         call(shl.split(cmd))
