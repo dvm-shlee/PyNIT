@@ -718,8 +718,10 @@ class Preprocess(object):
         # Print step ans initiate the step
         print('Warp-{} to Tempalte'.format(anat))
         step01 = self.init_step('Warp-{}2temp'.format(dtype))
+        print(step01)
         num_step = os.path.basename(step01).split('_')[0]
         step02 = self.final_step('{}_CheckRegistraton-{}'.format(num_step, dtype))
+        print(step02)
         # Loop the subjects
         for subj in self.subjects:
             print("-Subject: {}".format(subj))

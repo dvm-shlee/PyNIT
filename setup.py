@@ -20,6 +20,6 @@ setup(name='PyNIT',
       packages=find_packages(),
       install_requires=['numpy', 'nibabel', 'pandas',
                         'matplotlib', 'seaborn',
-                        'scikit-image']
+                        'scikit-image', 'xlrd', 'openpyxl']
      )
 
