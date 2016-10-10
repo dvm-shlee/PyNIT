@@ -91,6 +91,17 @@ class Preprocess(object):
 
     def mean_calculation(self, func, dtype='func'):
         """ BOLD image preparation
+
+        Parameters
+        ----------
+        func       : str
+            Datatype or absolute path of the input mean functional image
+        dtype      : str
+            Surfix for step path
+
+        Returns
+        -------
+        step_paths : dict
         """
         dataclass, func = InternalMethods.check_input_dataclass(func)
         # if os.path.exists(func):
@@ -144,7 +155,20 @@ class Preprocess(object):
         return {'firstfunc': step01, 'meanfunc': step02}
 
     def slicetiming_correction(self, func, tr=1, tpattern='altplus', dtype='func'):
-        """ SliceTiming Correction
+        """ Corrects for slice time differences when individual 2D slices are recorded over a 3D image
+
+        Parameters
+        ----------
+        func       : str
+            Data type or absolute path of the input functional image
+        tr         : int
+        tpattern   : str
+        dtype      : str
+            Surfix for the step paths
+
+        Returns
+        -------
+        step_paths : dict
         """
         dataclass, func = InternalMethods.check_input_dataclass(func)
         # if os.path.exists(func):
@@ -175,7 +199,21 @@ class Preprocess(object):
         return {'func': step01}
 
     def motion_correction(self, func, meanfunc=None, dtype='func'):
-        """ Motion Correction
+        """ Corrects for motion artifacts in the  input functional image
+
+        Parameters
+        ----------
+        func       : str
+            Datatype or absolute step path for the input functional image
+        meanfunc   : str
+            Datatype or absolute step path for the mean functional image
+        dtype      : str
+            Surfix for the step path
+
+
+        Returns
+        -------
+        step_paths : dict
         """
         dataclass, func = InternalMethods.check_input_dataclass(func)
         # if os.path.exists(func):
@@ -345,6 +383,20 @@ class Preprocess(object):
 
     def coregistration(self, meanfunc, anat, dtype='func', **kwargs):
         """ Method for mean functional image realignment to anatomical image of same subject
+
+        Parameters
+        ----------
+        meanfunc   : str
+            Datatype or absolute path of the input mean functional image
+        anat       : str
+            Datatype or absolute path of the input anatomical image
+        dtype      : str
+            Surfix for the step path
+        kwargs     :
+
+        Returns
+        -------
+        step_paths : dict
         """
         f_dataclass, meanfunc = InternalMethods.check_input_dataclass(meanfunc)
         a_dataclass, anat = InternalMethods.check_input_dataclass(anat)
@@ -436,6 +488,21 @@ class Preprocess(object):
 
     def apply_brainmask(self, func, mask, padded=True, zaxis=2, dtype='func'):
         """ Method for applying brain mark to individual 3d+t functional images
+
+        Parameters
+        ----------
+        func       : str
+            Datatype or absolute step path of the input functional image
+        mask       : str
+            Absolute step path which contains the mask of the functional image
+        padded     : bool
+        zaxis      : int
+        dtype      : str
+            Surfix for the step path
+
+        Returns
+        -------
+        step_paths : dict
         """
         axis = {0: 'x', 1: 'y', 2: 'z'}
         dataclass, func = InternalMethods.check_input_dataclass(func)
@@ -475,6 +542,19 @@ class Preprocess(object):
 
     def apply_transformation(self, func, realigned_func, dtype='func'):
         """ Method for applying transformation matrix to individual 3d+t functional images
+
+        Parameters
+        ----------
+        func           : str
+            Datatype or absolute step path for the input functional image
+        realigned_func : str
+            Absolute step path which contains the realigned functional image
+        dtype          : str
+            Surfix for the step path
+
+        Returns
+        -------
+        step_paths     : dict
         """
         dataclass, func = InternalMethods.check_input_dataclass(func)
         print('ApplyingTransformation-{}'.format(func))
@@ -506,7 +586,19 @@ class Preprocess(object):
         return {'func': step01}
 
     def global_regression(self, func, dtype='func', detrend=-1):
-        """ Method for global signal regression of infividual functional image
+        """ Method for global signal regression of individual functional image
+
+        Parameters
+        ----------
+        func       : str
+            Datatype or absolute step path for the input functional image
+        dtype      : str
+            Surfix for the step path
+        detrend    : int
+
+        Returns
+        -------
+        step_paths : dict
         """
         dataclass, func = InternalMethods.check_input_dataclass(func)
         print('GlobalRegression-{}'.format(func))
@@ -537,7 +629,21 @@ class Preprocess(object):
         return {'func': step01}
 
     def motion_parameter_regression(self, func, motioncorrected_func, dtype='func', detrend=-1):
-        """ Method for motion parameter regression of infividual functional image
+        """ Method for motion parameter regression of individual functional image
+
+        Parameters
+        ----------
+        func                 : str
+            Datatype or absolute path of the input functional image
+        motioncorrected_func : str
+            Absolute step path which contains the motion corrected functional image
+        dtype                : str
+            Surfix for the step path
+        detrend              : int
+
+        Returns
+        -------
+        step_paths          : dict
         """
         dataclass, func = InternalMethods.check_input_dataclass(func)
         print('GlobalRegression-{}'.format(func))
@@ -928,6 +1034,20 @@ class Preprocess(object):
 
     def get_correlation_matrix(self, func, atlas, dtype='func', **kwargs):
         """ Method for extracting timecourse, correlation matrix and calculating z-score matrix
+
+        Parameters
+        ----------
+        func       : str
+            Datatype or absolute path of the input mean functional image
+        atlas      : str
+        dtype      : str
+            Surfix for the step path
+        kwargs     :
+
+        Returns
+        -------
+        step_paths : dict
+
         """
         dataclass, func = InternalMethods.check_input_dataclass(func)
         atlas, tempobj = InternalMethods.check_atals_datatype(atlas)
