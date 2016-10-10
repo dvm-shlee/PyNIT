@@ -693,7 +693,7 @@ class Preprocess(object):
                     os.remove('{}_template.nii'.format(temp_path))
         return {'func': step01, 'checkreg': step02}
 
-    def warp_anat_to_template(self, anat, tempobj, dtype='anat', **kwargs):
+    def warp_anat_to_template(self, anat, tempobj, dtype='anat', **kwargs): # TODO: This code not work if the template image resolution is different with T2 image
         """ Method for warping the individual anatomical image to template
 
         Parameters
@@ -718,10 +718,8 @@ class Preprocess(object):
         # Print step ans initiate the step
         print('Warp-{} to Tempalte'.format(anat))
         step01 = self.init_step('Warp-{}2temp'.format(dtype))
-        print(step01)
         num_step = os.path.basename(step01).split('_')[0]
         step02 = self.final_step('{}_CheckRegistraton-{}'.format(num_step, dtype))
-        print(step02)
         # Loop the subjects
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
