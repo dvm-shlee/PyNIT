@@ -287,7 +287,7 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    InternalMethods.mkdir(os.path.join(step01, subj, sess))
+                    InternalMethods.mkdir(os.path.join(step01, subj, sess), os.path.join(step02, subj, sess))
                     epi = self._prjobj(f_dataclass, meanfunc, subj, sess)
                     t2 = self._prjobj(a_dataclass, anat, subj, sess)
                     for i, finfo in epi.iterrows():
@@ -349,7 +349,7 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    InternalMethods.mkdir(os.path.join(step01, subj, sess))
+                    InternalMethods.mkdir(os.path.join(step01, subj, sess), os.path.join(step02, subj, sess))
                     # Load image paths
                     epi = self._prjobj(1, self._pipeline, meanfunc, subj, sess, ignore='_mask')
                     t2 = self._prjobj(1, self._pipeline, anat, subj, sess, ignore='_mask')
