@@ -462,7 +462,7 @@ class Preprocess(object):
                 InternalMethods.mkdir(os.path.join(step04, subj), os.path.join(step04, subj, 'AllSessions'))
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    InternalMethods.mkdir(os.path.join(step03, subj, sess), os.path.join(step04, subj))
+                    InternalMethods.mkdir(os.path.join(step03, subj, sess))
                     epi = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, sess)
                     t2 = self._prjobj(1, self._pipeline, os.path.basename(step02), subj, sess)
                     for i, finfo in epi.iterrows():
@@ -772,7 +772,7 @@ class Preprocess(object):
             else:
                 InternalMethods.mkdir(os.path.join(step02, subj))
                 for sess in self.sessions:
-                    InternalMethods.mkdir(os.path.join(step02, subj, 'AllSessions'))
+                    InternalMethods.mkdir(os.path.join(step02, subj, 'AllSessions'), os.path.join(step01, subj, sess))
                     print(" :Session: {}".format(sess))
                     # Grab the warping map and transform matrix
                     mats, warps, warped = InternalMethods.get_warp_matrix(self, warped_anat, subj, sess, inverse=True)
@@ -1074,6 +1074,8 @@ class Preprocess(object):
                     np.arctanh(df.corr()).to_excel(
                         os.path.join(step03, subj, "{}.xlsx").format(os.path.splitext(finfo.Filename)[0]))
             else:
+                InternalMethods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj),
+                                      os.path.join(step03, subj))
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     if not tempobj:
