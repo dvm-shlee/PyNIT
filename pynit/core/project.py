@@ -536,7 +536,7 @@ class Preprocess(object):
                     for i, finfo in epi.iterrows():
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, sess, finfo.Filename), 'a*step(b)',
-                                         finfo.Abspath, temp_epimask)
+                                         finfo.Abspath, str(temp_epimask))
                     temp_epimask.close()
         return {'func': step01}
 
