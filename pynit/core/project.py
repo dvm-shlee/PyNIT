@@ -786,7 +786,7 @@ class Preprocess(object):
                     os.remove('{}_template.nii'.format(temp_path))
         return {'func': step01, 'checkreg': step02}
 
-    def warp_anat_to_template(self, anat, tempobj, dtype='anat', **kwargs): # TODO: This code not work if the template image resolution is different with T2 image
+    def warp_anat_to_template(self, anat, tempobj, dtype='anat', ttype='s', **kwargs): # TODO: This code not work if the template image resolution is different with T2 image
         """ Method for warping the individual anatomical image to template
 
         Parameters
@@ -797,6 +797,11 @@ class Preprocess(object):
             The template object which contains set of atlas
         dtype       : str
             Surfix for the step path
+
+        ttype       : str
+            Type of transformation
+            's' : Warping
+            'r' : Affine
 
         Returns
         -------
@@ -825,7 +830,7 @@ class Preprocess(object):
                     print(" +Filename: {}".format(finfo.Filename))
                     output_path = os.path.join(step01, subj, "{}".format(subj))
                     self._prjobj.run('ants_RegistrationSyn', output_path,
-                                     finfo.Abspath, base_path=tempobj.template_path, quick=False)
+                                     finfo.Abspath, base_path=tempobj.template_path, quick=False, ttype=ttype)
                     fig1 = Viewer.check_reg(InternalMethods.load(tempobj.template_path),
                                             InternalMethods.load("{}_Warped.nii.gz".format(output_path)), sigma=2, **kwargs)
                     fig1.suptitle('T2 to Atlas for {}'.format(subj), fontsize=12, color='yellow')
@@ -846,7 +851,7 @@ class Preprocess(object):
                         print("  +Filename: {}".format(finfo.Filename))
                         output_path = os.path.join(step01, subj, sess, "{}".format(subj))
                         self._prjobj.run('ants_RegistrationSyn', output_path,
-                                         finfo.Abspath, base_path=tempobj.template_path, quick=False)
+                                         finfo.Abspath, base_path=tempobj.template_path, quick=False, ttype=ttype)
                         fig1 = Viewer.check_reg(InternalMethods.load(tempobj.template_path),
                                                 InternalMethods.load("{}_Warped.nii.gz".format(output_path)),
                                                 sigma=2, **kwargs)
