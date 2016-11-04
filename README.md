@@ -10,7 +10,7 @@ While we are focusing on preclinical neuroimaging, we provide the Bruker raw dat
 
 We also provide command-line **checkscans** tools that can print out the session information into terminal windows includes scan number, name of protocol, and brief information for acquisition parameters. We will soon integrate this commands to Django based project organizer to help researcher organize their scan data to BIDS standard.
 
-# Other features
+## Additional features
 
 - Preprocessing() class is developed to apply AFNI and ANTs commands for resting state fMRI research. All steps will run though all subjects, session, and file you have. It need to be updated further. Current steps are optimized for functional MRI preprocessing pipeline in [Shihlab](http://shihlab.org)-located at University of North Carolina at Chapel Hill
 
