@@ -11,7 +11,7 @@ While we are focusing on preclinical neuroimaging, we provide the Bruker raw dat
 
 We also provide command-line **checkscans** tools that can print out the session information into terminal windows includes scan number, name of protocol, and brief information for acquisition parameters. Above commandline tools will be integrate into Django based project organizer to help researcher organize their scan data to BIDS standard using web-based user interface.
 
-## Basic data structure guideline for Project folder
+## Guideline of Project folder structure
 
 - Project folder has to have three data class as subfolders : Data, Processing, Results
 - Non-processed dataset need to be organized based on BIDS guideline as linked above, and have to be placed at subfolder 'Data'.
