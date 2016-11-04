@@ -13,10 +13,10 @@ We also provide command-line **checkscans** tools that can print out the session
 
 ## Basic data structure guideline for Project folder
 
-- Project folder has three data class: Data, Process, Results
-- Non-processed dataset need to be organized based on BIDS guideline and have to be placed at 'Data' folder under the project folder.
-- After initiate project, 'Process' and 'Results' folder are generated under the project folder.
-- All preprocess files derived from Data folder will be generated under 'Process' folder while results images and excel files are generated under 'Results' folder.
+- Project folder has to have three data class as subfolders : Data, Processing, Results
+- Non-processed dataset need to be organized based on BIDS guideline as linked above, and have to be placed at subfolder 'Data'.
+- After initiate project, 'Processing' and 'Results' folders will be generated.
+- All preprocessed files derived from 'Data' folder will be generated under 'Processing' folder while results images from the preprocessing steps and excel files for the z-scored matrixes are generated under 'Results' folder.
 
 ## Usage
 Initiate project
