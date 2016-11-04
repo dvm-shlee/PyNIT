@@ -2,7 +2,7 @@
 
 PyNIT is a Python project that provides a useful tools for *in vivo*  animal neuroimaging analysis.
 
-The major function of this package is **project handler** (Project() class) which provides collect and print out information of  structured neuroimage project folder (mainly based on [BIDS](http://bids.neuroimaging.io) with filtering function and iterator to utilized the information. This class is mainly utilize [pandas](http://pandas.pydata.org) DataFrame to make easy to handle the hierarchical data structure and multiple database-like informations including subjects, sessions, filename, absolute path, so on. This feature can be utilize for collecting and iterating the absolute path of the image files to load, apply preprocessing steps, and analyze multiple image data easily. 
+The major function of this package is **project handler** (Project() class) which provides methods to collect and print out information of structured neuroimage project folder (based on [BIDS](http://bids.neuroimaging.io) with filtering function and iterator to utilized the information. This class is mainly utilize [pandas](http://pandas.pydata.org) DataFrame to make easy to handle the hierarchical data structure and multiple database-like informations including subjects, sessions, filename, absolute path, so on. This feature can be utilize for collecting and iterating the absolute path of the image files to load, apply preprocessing steps, and analyze multiple image data easily. 
 
 The purpose of developing this package is to provide the handy environments for processing, manipulating, and visualizing neuroimage data to translational and preclinical neuroscientists who are familiar with python language or jupyter environment.
 
