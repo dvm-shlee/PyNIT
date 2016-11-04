@@ -22,7 +22,7 @@ We also provide command-line **checkscans** tools that can print out the session
 
 - Preprocess() class is developed to apply [AFNI](https://afni.nimh.nih.gov) and [ANTs](http://stnava.github.io/ANTs/) commandline tools for resting state fMRI. All steps will run though all subjects, session, and file you have. It need to be updated further. Current steps are optimized for functional MRI preprocessing pipeline of [Shihlab](http://shihlab.org)-located at University of North Carolina at Chapel Hill to extract time course from ROIs, generating Z-scored correlation matrix. Example jupyter notebook with sample data will be provided soon.
 
-- Template() class provides some handy opiton for merging multiple binary ROI into [ITK-snap](http://www.itksnap.org/pmwiki/pmwiki.php) segmentation file with labels, providing some useful methods to manipulate template image such as crop, flip, reslice, swap-axis, and plotting tempalate image with ROIs to generating figure for publication. This class mainly utilize [Nibabel](http://nipy.org/nibabel/) package to load and write Nifti files and [Matplotlib](http://matplotlib.org) to plot image into Jupyter notebook environment.
+- Template() class provides some handy opiton for merging multiple binary ROI into [ITK-snap](http://www.itksnap.org/pmwiki/pmwiki.php) segmentation file with labels, providing some useful methods to manipulate template image such as crop, flip, reslice, swap-axis, and plotting tempalate image with ROIs to generating figure for publication. This class mainly utilize [Nibabel](http://nipy.org/nibabel/) package to load and write Nifti files and [Matplotlib](http://matplotlib.org) to plot image on Jupyter notebook.
 
 ## License
 PyNIT is licensed under the term of the GNU GENERAL PUBLIC LICENSE Version 3
@@ -77,6 +77,15 @@ Load Nifti image and plot interactive brain slice
 ```
 img = pn.load('image_path')
 img.show()
+```
+
+Load template image with atlas
+```
+temp_path = '~/template.nii'
+atlas_path = '~/atlas.nii' # should have .label file that has same filename
+
+tmpobj = pn.Template(temp_path, atlas_path)
+tmpobj.show(ligend=True)
 ```
 
 ## Author
