@@ -12,7 +12,7 @@ We also provide command-line **checkscans** tools that can print out the session
 
 # Other features
 
-- Preprocessing() class is developed to apply AFNI and ANTs commands for resting state fMRI research. All steps will run though all subjects, session, and file you have. It need to be updated further. Current steps are optimized for [Shihlab](http://shihlab.org) functional MRI preprocessing pipeline
+- Preprocessing() class is developed to apply AFNI and ANTs commands for resting state fMRI research. All steps will run though all subjects, session, and file you have. It need to be updated further. Current steps are optimized for functional MRI preprocessing pipeline in [Shihlab](http://shihlab.org)-located at University of North Carolina at Chapel Hill
 
 - Template() class provides some handy opiton for merging multiple binary ROI into ITK-snap segmentation file with labels, image mannipulating such as crop, flip, swap-axis, and plotting tempalate image with ROIs. This class mainly utilize [Nibabel](http://nipy.org/nibabel/) package for handling Nifti file format.
 
