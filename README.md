@@ -26,7 +26,7 @@ Install PyNIT with:
 git clone https://github.com/dvm-shlee/pynit.git
 ```
 
-Update
+Update with:
 ```
 git pull
 ```
@@ -35,7 +35,7 @@ git pull
 Under construction...
 
 ## Author
-The main author of PyNIT is [SungHo Lee](shlee@unc.edu).
+The main author of PyNIT is SungHo Lee <shlee@unc.edu>
 
 ## Examples
 Initiate project.
