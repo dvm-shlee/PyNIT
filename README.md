@@ -43,7 +43,7 @@ prj.df
 
 Print out absolute path for each files
 ```
-for i, finfo in prj
+for i, finfo in prj:
     print(finfo.Abspath)
 ```
 
