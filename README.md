@@ -35,7 +35,7 @@ git pull
 Under construction...
 
 ## Author
-The main author of PyNIT is SungHo Lee
+The main author of PyNIT is currently SungHo Lee, please join us to improve this project.
 
 ## Examples
 Initiate project.
