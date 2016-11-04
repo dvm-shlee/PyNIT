@@ -15,14 +15,15 @@ We also provide command-line **checkscans** tools that can print out the session
 
 - Project folder has three data class: Data, Process, Results
 - Non-processed dataset need to be organized based on BIDS guideline and have to be placed at 'Data' folder under the project folder.
-- After initiate project, 
+- After initiate project, 'Process' and 'Results' folder are generated under the project folder.
+- All preprocess files derived from Data folder will be generated under 'Process' folder while results images and excel files are generated under 'Results' folder.
 
 ## Usage
 Initiate project
 ```
 import pynit as pn
 
-prj_path = '~/2016_Rat_rsfMRI'
+prj_path = '~/2016_Rat_rsfMRI' # Project root folder, which has 'Data' as subfolder
 prj = pn.Project(prj_path)
 ```
 
@@ -34,6 +35,7 @@ prj.summary
 Applying filter
 ```
 prj.set_filter('subj1', 'sess1', file_tag='run01', ignore='evoked')
+prj.reload()
 ```
 
 Printing project data structure
