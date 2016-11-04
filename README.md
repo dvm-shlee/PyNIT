@@ -15,7 +15,7 @@ We also provide command-line **checkscans** tools that can print out the session
 
 - Preprocessing() class is developed to apply [AFNI](https://afni.nimh.nih.gov) and [ANTs](http://stnava.github.io/ANTs/) commands for resting state fMRI research. All steps will run though all subjects, session, and file you have. It need to be updated further. Current steps are optimized for functional MRI preprocessing pipeline in [Shihlab](http://shihlab.org)-located at University of North Carolina at Chapel Hill to extract time course from ROIs, generating Z-scored correlation matrix.
 
-- Template() class provides some handy opiton for merging multiple binary ROI into [ITK-snap](http://www.itksnap.org/pmwiki/pmwiki.php) segmentation file with labels, providing some useful methods to manipulate template image such as crop, flip, reslice, swap-axis, and plotting tempalate image with ROIs to generating figure for publication. This class mainly utilize [Nibabel](http://nipy.org/nibabel/) package for handling Nifti file format and [Matplotlib](http://matplotlib.org) for plotting image.
+- Template() class provides some handy opiton for merging multiple binary ROI into [ITK-snap](http://www.itksnap.org/pmwiki/pmwiki.php) segmentation file with labels, providing some useful methods to manipulate template image such as crop, flip, reslice, swap-axis, and plotting tempalate image with ROIs to generating figure for publication. This class mainly utilize [Nibabel](http://nipy.org/nibabel/) package to load and write Nifti files and [Matplotlib](http://matplotlib.org) to plot image into Jupyter notebook environment.
 
 ## License
 PyNIT is licensed under the term of the GNU GENERAL PUBLIC LICENSE Version 3
