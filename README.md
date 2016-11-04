@@ -6,4 +6,6 @@ This package provides useful project handling tools for preclinical fMRI.
 
 ## Code
 Install PyNIT with:
-> git clone 
+'''
+git clone 
+'''
