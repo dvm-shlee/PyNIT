@@ -13,9 +13,9 @@ We also provide command-line **checkscans** tools that can print out the session
 
 ## Additional features
 
-- Preprocessing() class is developed to apply AFNI and ANTs commands for resting state fMRI research. All steps will run though all subjects, session, and file you have. It need to be updated further. Current steps are optimized for functional MRI preprocessing pipeline in [Shihlab](http://shihlab.org)-located at University of North Carolina at Chapel Hill to extract time course from ROIs, generating Z-scored correlation matrix.
+- Preprocessing() class is developed to apply [AFNI](https://afni.nimh.nih.gov) and [ANTs](http://stnava.github.io/ANTs/) commands for resting state fMRI research. All steps will run though all subjects, session, and file you have. It need to be updated further. Current steps are optimized for functional MRI preprocessing pipeline in [Shihlab](http://shihlab.org)-located at University of North Carolina at Chapel Hill to extract time course from ROIs, generating Z-scored correlation matrix.
 
-- Template() class provides some handy opiton for merging multiple binary ROI into ITK-snap segmentation file with labels, providing some useful methods to manipulate template image such as crop, flip, reslice, swap-axis, and plotting tempalate image with ROIs to generating figure for publication. This class mainly utilize [Nibabel](http://nipy.org/nibabel/) package for handling Nifti file format and [Matplotlib](http://matplotlib.org) for plotting image.
+- Template() class provides some handy opiton for merging multiple binary ROI into [ITK-snap](http://www.itksnap.org/pmwiki/pmwiki.php) segmentation file with labels, providing some useful methods to manipulate template image such as crop, flip, reslice, swap-axis, and plotting tempalate image with ROIs to generating figure for publication. This class mainly utilize [Nibabel](http://nipy.org/nibabel/) package for handling Nifti file format and [Matplotlib](http://matplotlib.org) for plotting image.
 
 ## License
 PyNIT is licensed under the term of the GNU GENERAL PUBLIC LICENSE Version 3
@@ -36,26 +36,3 @@ Under construction...
 
 ## Author
 The main author of PyNIT is currently SungHo Lee, please join us to improve this project.
-
-## Examples
-Initiate project.
-```
-[IN]
-import pynit as pn
-prj_path = '[Your project path]'
-prj = pn.Project(prj_path)
-
-prj.summary
-
-[OUT]
-Project summary
-Project: [Your project path]
-Selected DataClass: Data
-
-Subject(s): ['Subj1', 'Subj2', .... ]
-Session(s): ['Sess1', 'Sess2']
-DataType(s): ['func', 'anat']
-
-Applied filters
-Set file extension(s): ['.nii', '.nii.gz']
-```
