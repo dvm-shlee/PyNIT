@@ -9,7 +9,7 @@ The purpose of developing this package is to provide the handy environments for 
 
 While we are focusing on preclinical neuroimaging, we provide the Bruker raw data converter **brk2nii** in this package located at 'pynit/bin' folder. The converter is optimized for Bruker 9.4T scanner, Paravision version 5.1 environments. If you have any problems to use this converter for the raw data from other version of Paravision, please provide us the sample rawfiles to test a code. Currently, DTI image cannot be converted with this converter. We will update this function soon.
 
-We also provide command-line **checkscans** tools that can print out the session information into terminal windows includes scan number, name of protocol, and brief information for acquisition parameters. We will soon integrate this commands to Django based project organizer to help researcher organize their scan data to BIDS standard.
+We also provide command-line **checkscans** tools that can print out the session information into terminal windows includes scan number, name of protocol, and brief information for acquisition parameters. Above commandline tools will be integrate into Django based project organizer to help researcher organize their scan data to BIDS standard using web-based interface.
 
 ## Basic data structure of Project
 
