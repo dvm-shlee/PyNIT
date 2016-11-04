@@ -43,7 +43,7 @@ Printing project data structure
 prj.df
 ```
 
-Print out absolute path for each files
+Print out absolute path for each file
 ```
 for i, finfo in prj:
     print(finfo.Abspath)
