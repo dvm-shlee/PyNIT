@@ -76,7 +76,7 @@ git pull
 ```
 
 ## Documentation
-Under construction...
+Comming soon...
 
 ## Author
 The main author of PyNIT is currently SungHo Lee, please join us if you want to involve this project.
