@@ -1,4 +1,5 @@
 # PyNIT (Python NeuroImaging Toolkit)
+### Version: 0.1.1
 
 PyNIT is a Python project that provides a useful tools for *in vivo*  animal neuroimaging analysis.
 
@@ -12,11 +13,12 @@ We also provide command-line **checkscans** tools that can print out the session
 
 ## Additional features
 
-- Preprocessing() class is developed to apply AFNI and ANTs commands for resting state fMRI research. All steps will run though all subjects, session, and file you have. It need to be updated further. Current steps are optimized for functional MRI preprocessing pipeline in [Shihlab](http://shihlab.org)-located at University of North Carolina at Chapel Hill
+- Preprocessing() class is developed to apply AFNI and ANTs commands for resting state fMRI research. All steps will run though all subjects, session, and file you have. It need to be updated further. Current steps are optimized for functional MRI preprocessing pipeline in [Shihlab](http://shihlab.org)-located at University of North Carolina at Chapel Hill to extract time course from ROIs, generating Z-scored correlation matrix.
 
-- Template() class provides some handy opiton for merging multiple binary ROI into ITK-snap segmentation file with labels, image mannipulating such as crop, flip, swap-axis, and plotting tempalate image with ROIs. This class mainly utilize [Nibabel](http://nipy.org/nibabel/) package for handling Nifti file format.
+- Template() class provides some handy opiton for merging multiple binary ROI into ITK-snap segmentation file with labels, providing some useful methods to manipulate template image such as crop, flip, reslice, swap-axis, and plotting tempalate image with ROIs to generating figure for publication. This class mainly utilize [Nibabel](http://nipy.org/nibabel/) package for handling Nifti file format and [Matplotlib](http://matplotlib.org) for plotting image.
 
-- Other hidden function need to be optimized more. Will update soon.
+## License
+PyNIT is licensed under the term of the GNU GENERAL PUBLIC LICENSE Version 3
 
 ## Code
 Install PyNIT with:
@@ -24,13 +26,19 @@ Install PyNIT with:
 git clone https://github.com/dvm-shlee/pynit.git
 ```
 
-Update code
+Update
 ```
 git pull
 ```
 
+## Documentation
+Under construction...
+
+## Author
+The main author of PyNIT is [SungHo Lee](shlee@unc.edu).
+
 ## Examples
-Initiate project
+Initiate project.
 ```
 [IN]
 import pynit as pn
