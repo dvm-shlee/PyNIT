@@ -801,7 +801,7 @@ class Preprocess(object):
         ttype       : str
             Type of transformation
             's' : Warping
-            'r' : Affine
+            'a' : Affine
 
         Returns
         -------
@@ -1350,6 +1350,7 @@ class Project(object):
                     else:
                         raise error.FilterInputTypeError
         self.__df = self.applying_filters(self.__df)
+        # self.reload()
         self.__update()
 
     def applying_filters(self, df):
@@ -1499,13 +1500,15 @@ class Project(object):
     def __call__(self, dc_id, *args, **kwargs):
         """Return DataFrame followed applying filters
         """
-        if self.__empty_project:
-            return None
-        else:
-            copy = self.copy()
-            copy.dataclass = dc_id
-            copy.set_filters(*args, **kwargs)
-            return copy.df
+        # if self.__empty_project:
+        #     return None
+        # else:
+        copy = self.copy()
+        copy.dataclass = dc_id
+        copy.set_filters(*args, **kwargs)
+        # copy.reload()
+        return copy.df
+
 
     def __repr__(self):
         """Return absolute path for current filtered dataframe
