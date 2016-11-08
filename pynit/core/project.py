@@ -328,7 +328,7 @@ class Preprocess(object):
                 else:
                     for sess in self.sessions:
                         print(" :Session: {}".format(sess))
-                        InternalMethods.mkdir(os.path.join(step03, subj, sess))
+                        InternalMethods.mkdir(os.path.join(step04, subj, sess))
                         param = self._prjobj(s3_dataclass, s3_func, subj, sess)
                         epi = self._prjobj(s1_dataclass, s1_func, subj, sess)
                         for i, finfo in epi.iterrows():
@@ -835,7 +835,7 @@ class Preprocess(object):
             if self._prjobj.single_session:
                 InternalMethods.mkdir(os.path.join(step02, 'AllSubjects'))
                 # Grab the warping map and transform matrix
-                mats, warps, warped = InternalMethods.get_warp_matrix(self, warped_anat, subj, inverse=True)
+                mats, warps, warped = InternalMethods.get_warp_matrix(self, warped_anat, subj, inverse=False)
                 temp_path = os.path.join(step01, subj, "base")
                 tempobj.save_as(temp_path, quiet=True)
                 funcs = self._prjobj(dataclass, func, subj)
@@ -862,7 +862,7 @@ class Preprocess(object):
                     InternalMethods.mkdir(os.path.join(step02, subj, 'AllSessions'), os.path.join(step01, subj, sess))
                     print(" :Session: {}".format(sess))
                     # Grab the warping map and transform matrix
-                    mats, warps, warped = InternalMethods.get_warp_matrix(self, warped_anat, subj, sess, inverse=True)
+                    mats, warps, warped = InternalMethods.get_warp_matrix(self, warped_anat, subj, sess, inverse=False)
                     temp_path = os.path.join(step01, subj, sess, "base")
                     tempobj.save_as(temp_path, quiet=True)
                     funcs = self._prjobj(dataclass, func, subj, sess)
