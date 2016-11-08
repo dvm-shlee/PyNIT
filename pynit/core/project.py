@@ -154,7 +154,7 @@ class Preprocess(object):
                                      funcs.Abspath)
         return {'firstfunc': step01, 'meanfunc': step02}
 
-    def slicetiming_correction(self, func, tr=1, tpattern='altplus', dtype='func'):
+    def slicetiming_correction(self, func, tr=None, tpattern='altplus', dtype='func'):
         """ Corrects for slice time differences when individual 2D slices are recorded over a 3D image
 
         Parameters
@@ -198,14 +198,14 @@ class Preprocess(object):
                                          finfo.Abspath, tr=tr, tpattern=tpattern)
         return {'func': step01}
 
-    def motion_correction(self, func, meanfunc=None, dtype='func'):
+    def motion_correction(self, func, base=None, baseidx=0, meancbv=None, dtype='func'):
         """ Corrects for motion artifacts in the  input functional image
 
         Parameters
         ----------
         func       : str
             Datatype or absolute step path for the input functional image
-        meanfunc   : str
+        base       : str
             Datatype or absolute step path for the mean functional image
         dtype      : str
             Surfix for the step path
@@ -215,17 +215,19 @@ class Preprocess(object):
         -------
         step_paths : dict
         """
-        dataclass, func = InternalMethods.check_input_dataclass(func)
+        s0_dataclass, s0_func = InternalMethods.check_input_dataclass(func)
         print('MotionCorrection-{}'.format(func))
         step01 = self.init_step('MotionCorrection-{}'.format(dtype))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
-                epi = self._prjobj(dataclass, func, subj)
-                if meanfunc:
-                    meanimg = self._prjobj(1, self._pipeline, os.path.basename(meanfunc), subj)
-                    meanimg = meanimg.Abspath[0]
+                epi = self._prjobj(s0_dataclass, s0_func, subj)
+                if base:
+                    if type(base) == str:
+                        meanimg = self._prjobj(1, self._pipeline, os.path.basename(base), subj).Abspath[baseidx]
+                    else:
+                        meanimg = base
                 else:
                     meanimg = 0
                 for i, finfo in epi.iterrows():
@@ -236,17 +238,101 @@ class Preprocess(object):
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
-                    epi = self._prjobj(dataclass, func, subj, sess)
-                    if meanfunc:
-                        meanimg = self._prjobj(1, self._pipeline, os.path.basename(meanfunc), subj, sess)
-                        meanimg = meanimg.Abspath[0]
+                    epi = self._prjobj(s0_dataclass, s0_func, subj, sess)
+                    if base:
+                        if type(base) == str:
+                            meanimg = self._prjobj(1, self._pipeline, os.path.basename(base), subj, sess).Abspath[baseidx]
+                        else:
+                            meanimg = base
                     else:
                         meanimg = 0
                     for i, finfo in epi.iterrows():
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, sess, finfo.Filename),
                                          finfo.Abspath, base_slice=meanimg)
-        return {'func': step01}
+        if meancbv:
+            # Calculate mean image for each 3D+time data
+            s1_dataclass, s1_func = InternalMethods.check_input_dataclass(step01)
+            print('MeanCalculation-{}'.format(s1_func))
+            step02 = self.init_step('MeanFunctionalImages-{}'.format(dtype))
+            for subj in self.subjects:
+                print("-Subject: {}".format(subj))
+                InternalMethods.mkdir(os.path.join(step02, subj))
+                if self._prjobj.single_session:
+                    epi = self._prjobj(s1_dataclass, s1_func, subj)
+                    for i, finfo in epi.iterrows():
+                        print(" +Filename: {}".format(finfo.Filename))
+                        self._prjobj.run('afni_3dTstat', os.path.join(step02, subj, finfo.Filename), finfo.Abspath,
+                                         mean=True)
+                else:
+                    for sess in self.sessions:
+                        print(" :Session: {}".format(sess))
+                        InternalMethods.mkdir(os.path.join(step02, subj, sess))
+                        epi = self._prjobj(s1_dataclass, s1_func, subj, sess)
+
+                        for i, finfo in epi.iterrows():
+                            print("  +Filename: {}".format(finfo.Filename))
+                            self._prjobj.run('afni_3dTstat', os.path.join(step02, subj, sess, finfo.Filename),
+                                             finfo.Abspath, mean=True)
+            # Realigning each run of CBV images
+            s2_dataclass, s2_func = InternalMethods.check_input_dataclass(step02)
+            print('IntersubjectRealign-{}'.format(func))
+            step03 = self.init_step('InterSubjectRealign-{}'.format(dtype))
+            for subj in self.subjects:
+                print("-Subject: {}".format(subj))
+                InternalMethods.mkdir(os.path.join(step03, subj))
+                if self._prjobj.single_session:
+                    epi = self._prjobj(s2_dataclass, s2_func, subj)
+                    baseimg = self._prjobj(1, os.path.basename(meancbv), subj).Abspath[0]
+                    for i, finfo in epi.iterrows():
+                        print(" +Filename: {}".format(finfo.Filename))
+                        self._prjobj.run('afni_3dvolreg', os.path.join(step03, subj, finfo.Filename), finfo.Abspath,
+                                         base_slice=baseimg)
+                else:
+                    for sess in self.sessions:
+                        print(" :Session: {}".format(sess))
+                        InternalMethods.mkdir(os.path.join(step03, subj, sess))
+                        epi = self._prjobj(s2_dataclass, s2_func, subj, sess)
+                        baseimg = self._prjobj(1, os.path.basename(meancbv), subj, sess).Abspath[0]
+                        for i, finfo in epi.iterrows():
+                            print("  +Filename: {}".format(finfo.Filename))
+                            self._prjobj.run('afni_3dvolreg', os.path.join(step03, subj, sess, finfo.Filename),
+                                             finfo.Abspath, base_slice=baseimg)
+            # Realigning each run of CBV images
+            s3_dataclass, s3_func = InternalMethods.check_input_dataclass(step03)
+            print('InterSubj-ApplyTranform-{}'.format(func))
+            step04 = self.init_step('InterSubj-ApplyTransform-{}'.format(dtype))
+            for subj in self.subjects:
+                print("-Subject: {}".format(subj))
+                InternalMethods.mkdir(os.path.join(step04, subj))
+                if self._prjobj.single_session:
+                    param = self._prjobj(s3_dataclass, s3_func, subj)
+                    epi = self._prjobj(s1_dataclass, s1_func, subj)
+                    for i, finfo in epi.iterrows():
+                        print(" +Filename: {}".format(finfo.Filename))
+                        if finfo.Filename != param.Filename[i]:
+                            raise error.ObjectMismatch()
+                        else:
+                            self._prjobj.run('afni_3dAllineate', os.path.join(step04, subj, finfo.Filename), finfo.Abspath,
+                                            matrix_apply=str(os.path.splitext(param.Abspath[i])[0]+'.aff12.1D'))
+                else:
+                    for sess in self.sessions:
+                        print(" :Session: {}".format(sess))
+                        InternalMethods.mkdir(os.path.join(step03, subj, sess))
+                        param = self._prjobj(s3_dataclass, s3_func, subj, sess)
+                        epi = self._prjobj(s1_dataclass, s1_func, subj, sess)
+                        for i, finfo in epi.iterrows():
+                            print(" +Filename: {}".format(finfo.Filename))
+                            if finfo.Filename != param.Filename[i]:
+                                print finfo.Filename, param.Filename[i]
+                                raise error.ObjectMismatch()
+                            else:
+                                self._prjobj.run('afni_3dAllineate', os.path.join(step04, subj, sess, finfo.Filename),
+                                                 finfo.Abspath,
+                                                 matrix_apply=os.path.splitext(param.Abspath[i])[0] + '.aff12.1D')
+            return {'func': step04}
+        else:
+            return {'func': step01}
 
     def maskdrawing_preparation(self, meanfunc, anat, padding=True, zaxis=2):
         f_dataclass, meanfunc = InternalMethods.check_input_dataclass(meanfunc)
