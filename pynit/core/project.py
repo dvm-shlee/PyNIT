@@ -283,7 +283,10 @@ class Preprocess(object):
                 InternalMethods.mkdir(os.path.join(step03, subj))
                 if self._prjobj.single_session:
                     epi = self._prjobj(s2_dataclass, s2_func, subj)
-                    baseimg = self._prjobj(1, os.path.basename(meancbv), subj).Abspath[0]
+                    try:
+                        baseimg = self._prjobj(1, os.path.basename(meancbv), subj).Abspath[0]
+                    except:
+                        baseimg = 0
                     for i, finfo in epi.iterrows():
                         print(" +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dvolreg', os.path.join(step03, subj, finfo.Filename), finfo.Abspath,
@@ -293,7 +296,10 @@ class Preprocess(object):
                         print(" :Session: {}".format(sess))
                         InternalMethods.mkdir(os.path.join(step03, subj, sess))
                         epi = self._prjobj(s2_dataclass, s2_func, subj, sess)
-                        baseimg = self._prjobj(1, os.path.basename(meancbv), subj, sess).Abspath[0]
+                        try:
+                            baseimg = self._prjobj(1, os.path.basename(meancbv), subj, sess).Abspath[0]
+                        except:
+                            baseimg = 0
                         for i, finfo in epi.iterrows():
                             print("  +Filename: {}".format(finfo.Filename))
                             self._prjobj.run('afni_3dvolreg', os.path.join(step03, subj, sess, finfo.Filename),
