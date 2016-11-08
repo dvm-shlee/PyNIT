@@ -316,11 +316,15 @@ class Preprocess(object):
                     epi = self._prjobj(s1_dataclass, s1_func, subj)
                     for i, finfo in epi.iterrows():
                         print(" +Filename: {}".format(finfo.Filename))
-                        if finfo.Filename != param.Filename[i]:
-                            raise error.ObjectMismatch()
-                        else:
-                            self._prjobj.run('afni_3dAllineate', os.path.join(step04, subj, finfo.Filename), finfo.Abspath,
-                                            matrix_apply=str(os.path.splitext(param.Abspath[i])[0]+'.aff12.1D'))
+                        try:
+                            if finfo.Filename != param.Filename[i]:
+                                raise error.ObjectMismatch()
+                            else:
+                                self._prjobj.run('afni_3dAllineate', os.path.join(step04, subj, finfo.Filename), finfo.Abspath,
+                                                matrix_apply=str(os.path.splitext(param.Abspath[i])[0]+'.aff12.1D'))
+                        except:
+                            print('  ::Skipped')
+                            pass
                 else:
                     for sess in self.sessions:
                         print(" :Session: {}".format(sess))
@@ -329,13 +333,17 @@ class Preprocess(object):
                         epi = self._prjobj(s1_dataclass, s1_func, subj, sess)
                         for i, finfo in epi.iterrows():
                             print(" +Filename: {}".format(finfo.Filename))
-                            if finfo.Filename != param.Filename[i]:
-                                print finfo.Filename, param.Filename[i]
-                                raise error.ObjectMismatch()
-                            else:
-                                self._prjobj.run('afni_3dAllineate', os.path.join(step04, subj, sess, finfo.Filename),
-                                                 finfo.Abspath,
-                                                 matrix_apply=os.path.splitext(param.Abspath[i])[0] + '.aff12.1D')
+                            try:
+                                if finfo.Filename != param.Filename[i]:
+                                    print finfo.Filename, param.Filename[i]
+                                    raise error.ObjectMismatch()
+                                else:
+                                    self._prjobj.run('afni_3dAllineate', os.path.join(step04, subj, sess, finfo.Filename),
+                                                    finfo.Abspath,
+                                                   matrix_apply=os.path.splitext(param.Abspath[i])[0] + '.aff12.1D')
+                            except:
+                                print('  ::Skipped')
+                                pass
             return {'func': step04}
         else:
             return {'func': step01}
