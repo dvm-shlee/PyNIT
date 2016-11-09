@@ -200,13 +200,14 @@ class InternalMethods(object):
         label = dict()
         affine = list()
         if os.path.isdir(path):
+            # print(path)
             atlasdata = None
             list_of_rois = [img for img in os.listdir(path) if '.nii' in img]
             rgbs = np.random.rand(len(list_of_rois), 3)
             label[0] = 'Clear Label', [.0, .0, .0]
 
             for idx, img in enumerate(list_of_rois):
-                imageobj = objects.ImageObj.load(os.path.join(path, img))
+                imageobj = objects.ImageObj.load(os.path.join   (path, img))
                 affine.append(imageobj.affine)
                 if not idx:
                     atlasdata = np.asarray(imageobj.dataobj)
@@ -597,7 +598,7 @@ class InternalMethods(object):
     @staticmethod
     def check_atals_datatype(atlas):
         if type(atlas) is str:
-            atlas = os.path.basename(atlas)
+            # atlas = os.path.basename(atlas)
             tempobj = None
         else:
             try:

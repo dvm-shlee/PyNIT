@@ -1089,7 +1089,7 @@ class Preprocess(object):
                                     facecolor=fig.get_facecolor())
         return {'atlas': step01, 'checkreg': step02}
 
-    def get_timetrace(self, func, atlas, dtype='func', **kwargs):
+    def get_timetrace(self, func, atlas, dtype='func', file_tag=None, ignore=None, **kwargs):
         """ Method for extracting timecourse from mask
 
         Parameters
@@ -1116,10 +1116,19 @@ class Preprocess(object):
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 if not tempobj:
-                    atlas = self._prjobj(1, self._pipeline, atlas, subj).df.Abspath.loc[0]
-                    warped = self._prjobj(1, self._pipeline, atlas, subj, file_tag='_InverseWarped').df.Abspath.loc[0]
+                    # atlas = self._prjobj(1, self._pipeline, atlas, subj).df.Abspath.loc[0]
+                    warped = self._prjobj(1, self._pipeline, subj, file_tag='_InverseWarped').df.Abspath.loc[0]
                     tempobj = InternalMethods.load_temp(warped, atlas)
-                funcs = self._prjobj(dataclass, func, subj)
+                if not file_tag:
+                    if not ignore:
+                        funcs = self._prjobj(dataclass, func, subj)
+                    else:
+                        funcs = self._prjobj(dataclass, func, subj, ignore=ignore)
+                else:
+                    if not ignore:
+                        funcs = self._prjobj(dataclass, func, subj, file_tag=file_tag)
+                    else:
+                        funcs = self._prjobj(dataclass, func, subj, file_tag=file_tag, ignore=ignore)
                 for i, finfo in funcs:
                     print(" +Filename: {}".format(finfo.Filename))
                     df = Analysis.get_timetrace(InternalMethods.load(finfo.Abspath), tempobj, afni=True, **kwargs)
@@ -1129,11 +1138,20 @@ class Preprocess(object):
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     if not tempobj:
-                        atlas = self._prjobj(1, self._pipeline, atlas, subj, sess).df.Abspath.loc[0]
-                        warped = self._prjobj(1, self._pipeline, atlas, subj, sess,
+                        # atlas = self._prjobj(1, self._pipeline, atlas, subj, sess).df.Abspath.loc[0]
+                        warped = self._prjobj(1, self._pipeline, subj, sess,
                                               file_tag='_InverseWarped').df.Abspath.loc[0]
                         tempobj = InternalMethods.load_temp(warped, atlas)
-                    funcs = self._prjobj(dataclass, func, subj, sess)
+                    if not file_tag:
+                        if not ignore:
+                            funcs = self._prjobj(dataclass, func, subj, sess)
+                        else:
+                            funcs = self._prjobj(dataclass, func, subj, sess, ignore=ignore)
+                    else:
+                        if not ignore:
+                            funcs = self._prjobj(dataclass, func, subj, sess, file_tag=file_tag)
+                        else:
+                            funcs = self._prjobj(dataclass, func, subj, sess, file_tag=file_tag, ignore=ignore)
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
                     for i, finfo in funcs:
                         print("  +Filename: {}".format(finfo.Filename))
@@ -1171,8 +1189,8 @@ class Preprocess(object):
             InternalMethods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj), os.path.join(step03, subj))
             if self._prjobj.single_session:
                 if not tempobj:
-                    atlas = self._prjobj(1, self._pipeline, atlas, subj).df.Abspath.loc[0]
-                    warped = self._prjobj(1, self._pipeline, atlas, subj, file_tag='_InverseWarped').df.Abspath.loc[0]
+                    # atlas = self._prjobj(1, self._pipeline, atlas, subj).df.Abspath.loc[0]
+                    warped = self._prjobj(1, self._pipeline, subj, file_tag='_InverseWarped').df.Abspath.loc[0]
                     tempobj = InternalMethods.load_temp(warped, atlas)
                 funcs = self._prjobj(dataclass, func, subj)
                 for i, finfo in funcs:
@@ -1189,8 +1207,8 @@ class Preprocess(object):
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     if not tempobj:
-                        atlas = self._prjobj(1, self._pipeline, atlas, subj, sess).df.Abspath.loc[0]
-                        warped = self._prjobj(1, self._pipeline, atlas, subj, sess,
+                        # atlas = self._prjobj(1, self._pipeline, atlas, subj, sess).df.Abspath.loc[0]
+                        warped = self._prjobj(1, self._pipeline, subj, sess,
                                               file_tag='_InverseWarped').df.Abspath.loc[0]
                         tempobj = InternalMethods.load_temp(warped, atlas)
                     funcs = self._prjobj(dataclass, func, subj, sess)
