@@ -29,7 +29,7 @@ class Preprocess(object):
     def sessions(self):
         return self._sessions
 
-    def cbv_meancalculation(self, func):
+    def cbv_meancalculation(self, func, **kwargs):
         """ CBV image preparation
         """
         dataclass, func = InternalMethods.check_input_dataclass(func)
@@ -39,16 +39,16 @@ class Preprocess(object):
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
-                cbv_img = self._prjobj(dataclass, func, subj)
-                for i, finfo in cbv_img.iterrows():
+                cbv_img = self._prjobj(dataclass, func, subj, **kwargs)
+                for i, finfo in cbv_img:
                     print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, finfo.Filename), finfo.Abspath)
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
-                    cbv_img = self._prjobj(dataclass, func, subj, sess)
-                    for i, finfo in cbv_img.iterrows():
+                    cbv_img = self._prjobj(dataclass, func, subj, sess, **kwargs)
+                    for i, finfo in cbv_img:
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, sess, finfo.Filename),
                                          finfo.Abspath)
@@ -59,8 +59,8 @@ class Preprocess(object):
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step02, subj), os.path.join(step03, subj))
             if self._prjobj.single_session:
-                cbv_img = self._prjobj(1, self._pipeline, os.path.basename(step01), subj)
-                for i, finfo in cbv_img.iterrows():
+                cbv_img = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, **kwargs)
+                for i, finfo in cbv_img:
                     print(" +Filename: {}".format(finfo.Filename))
                     shape = ImageObj.load(finfo.Abspath).shape
                     self._prjobj.run('afni_3dTstat', os.path.join(step02, subj, finfo.Filename),
@@ -75,8 +75,8 @@ class Preprocess(object):
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     InternalMethods.mkdir(os.path.join(step02, subj, sess), os.path.join(step03, subj, sess))
-                    cbv_img = self._prjobj(1, os.path.basename(step01), subj, sess)
-                    for i, finfo in cbv_img.iterrows():
+                    cbv_img = self._prjobj(1, os.path.basename(step01), subj, sess, **kwargs)
+                    for i, finfo in cbv_img:
                         print("  +Filename: {}".format(finfo.Filename))
                         shape = InternalMethods.load(finfo.Abspath).shape
                         self._prjobj.run('afni_3dTstat', os.path.join(step02, subj, sess, finfo.Filename),
@@ -89,7 +89,7 @@ class Preprocess(object):
                                                                            end=shape[-1] - 1))
         return {'CBVinduction': step01, 'meanBOLD': step02, 'meanCBV': step03}
 
-    def mean_calculation(self, func, dtype='func'):
+    def mean_calculation(self, func, dtype='func', **kwargs):
         """ BOLD image preparation
 
         Parameters
@@ -115,32 +115,24 @@ class Preprocess(object):
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
-                firstfunc = self._prjobj(dataclass, func, subj)
-                for i, finfo in firstfunc.iterrows():
-                    if not i:
-                        print(" +Filename: {}".format(finfo.Filename))
-                        self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, finfo.Filename), finfo.Abspath)
-                    else:
-                        pass
+                finfo = self._prjobj(dataclass, func, subj, **kwargs).df.loc[0]
+                print(" +Filename: {}".format(finfo.Filename))
+                self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, finfo.Filename), finfo.Abspath)
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
-                    firstfunc = self._prjobj(dataclass, func, subj, sess)
-                    for i, finfo in firstfunc.iterrows():
-                        if not i:
-                            print("  +Filename: {}".format(finfo.Filename))
-                            self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, sess, finfo.Filename),
-                                             finfo.Abspath)
-                        else:
-                            pass
+                    finfo = self._prjobj(dataclass, func, subj, sess, **kwargs).df.loc[0]
+                    print("  +Filename: {}".format(finfo.Filename))
+                    self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, sess, finfo.Filename), finfo.Abspath)
         step02 = self.init_step('MeanImageCalculation-{}'.format(dtype))
         print("MeanImageCalculation-{}".format(func))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step02, subj))
             if self._prjobj.single_session:
-                funcs = self._prjobj(1, self._pipeline, os.path.basename(step01), subj).loc[0]
+                funcs = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, **kwargs)
+                funcs = funcs.df.loc[0]
                 print(" +Filename: {}".format(funcs.Filename))
                 self._prjobj.run('afni_3dTstat', os.path.join(step02, subj, funcs.Filename),
                                  funcs.Abspath)
@@ -148,13 +140,14 @@ class Preprocess(object):
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     InternalMethods.mkdir(os.path.join(step02, subj, sess))
-                    funcs = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, sess).loc[0]
+                    funcs = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, sess, **kwargs)
+                    funcs = funcs.df.loc[0]
                     print(" +Filename: {}".format(funcs.Filename))
                     self._prjobj.run('afni_3dTstat', os.path.join(step02, subj, sess, funcs.Filename),
                                      funcs.Abspath)
         return {'firstfunc': step01, 'meanfunc': step02}
 
-    def slicetiming_correction(self, func, tr=None, tpattern='altplus', dtype='func'):
+    def slicetiming_correction(self, func, tr=None, tpattern='altplus', dtype='func', **kwargs):
         """ Corrects for slice time differences when individual 2D slices are recorded over a 3D image
 
         Parameters
@@ -182,8 +175,8 @@ class Preprocess(object):
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
-                epi = self._prjobj(dataclass, func, subj)
-                for i, finfo in epi.iterrows():
+                epi = self._prjobj(dataclass, func, subj, **kwargs)
+                for i, finfo in epi:
                     print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dTshift', os.path.join(step01, subj, finfo.Filename),
                                      finfo.Abspath, tr=tr, tpattern=tpattern)
@@ -191,14 +184,14 @@ class Preprocess(object):
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
-                    epi = self._prjobj(dataclass, func, subj, sess)
-                    for i, finfo in epi.iterrows():
+                    epi = self._prjobj(dataclass, func, subj, sess, **kwargs)
+                    for i, finfo in epi:
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dTshift', os.path.join(step01, subj, sess, finfo.Filename),
                                          finfo.Abspath, tr=tr, tpattern=tpattern)
         return {'func': step01}
 
-    def motion_correction(self, func, base=None, baseidx=0, meancbv=None, dtype='func'):
+    def motion_correction(self, func, base=None, baseidx=0, meancbv=None, dtype='func', **kwargs):
         """ Corrects for motion artifacts in the  input functional image
 
         Parameters
@@ -207,6 +200,8 @@ class Preprocess(object):
             Datatype or absolute step path for the input functional image
         base       : str
             Datatype or absolute step path for the mean functional image
+        baseidx    :
+        meancbv   :
         dtype      : str
             Surfix for the step path
 
@@ -222,15 +217,17 @@ class Preprocess(object):
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
-                epi = self._prjobj(s0_dataclass, s0_func, subj)
+                epi = self._prjobj(s0_dataclass, s0_func, subj, **kwargs)
                 if base:
                     if type(base) == str:
-                        meanimg = self._prjobj(1, self._pipeline, os.path.basename(base), subj).Abspath[baseidx]
+                        meanimg = self._prjobj(1, self._pipeline, os.path.basename(base), subj, **kwargs)
+                        meanimg = meanimg.df.Abspath[baseidx]
+
                     else:
                         meanimg = base
                 else:
                     meanimg = 0
-                for i, finfo in epi.iterrows():
+                for i, finfo in epi:
                     print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
                                      base_slice=meanimg)
@@ -238,15 +235,16 @@ class Preprocess(object):
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
-                    epi = self._prjobj(s0_dataclass, s0_func, subj, sess)
+                    epi = self._prjobj(s0_dataclass, s0_func, subj, sess, **kwargs)
                     if base:
                         if type(base) == str:
-                            meanimg = self._prjobj(1, self._pipeline, os.path.basename(base), subj, sess).Abspath[baseidx]
+                            meanimg = self._prjobj(1, self._pipeline, os.path.basename(base), subj, sess)
+                            meanimg = meanimg.df.Abspath[baseidx]
                         else:
                             meanimg = base
                     else:
                         meanimg = 0
-                    for i, finfo in epi.iterrows():
+                    for i, finfo in epi:
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, sess, finfo.Filename),
                                          finfo.Abspath, base_slice=meanimg)
@@ -259,8 +257,8 @@ class Preprocess(object):
                 print("-Subject: {}".format(subj))
                 InternalMethods.mkdir(os.path.join(step02, subj))
                 if self._prjobj.single_session:
-                    epi = self._prjobj(s1_dataclass, s1_func, subj)
-                    for i, finfo in epi.iterrows():
+                    epi = self._prjobj(s1_dataclass, s1_func, subj, **kwargs)
+                    for i, finfo in epi:
                         print(" +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dTstat', os.path.join(step02, subj, finfo.Filename), finfo.Abspath,
                                          mean=True)
@@ -268,9 +266,9 @@ class Preprocess(object):
                     for sess in self.sessions:
                         print(" :Session: {}".format(sess))
                         InternalMethods.mkdir(os.path.join(step02, subj, sess))
-                        epi = self._prjobj(s1_dataclass, s1_func, subj, sess)
+                        epi = self._prjobj(s1_dataclass, s1_func, subj, sess, **kwargs)
 
-                        for i, finfo in epi.iterrows():
+                        for i, finfo in epi:
                             print("  +Filename: {}".format(finfo.Filename))
                             self._prjobj.run('afni_3dTstat', os.path.join(step02, subj, sess, finfo.Filename),
                                              finfo.Abspath, mean=True)
@@ -282,12 +280,12 @@ class Preprocess(object):
                 print("-Subject: {}".format(subj))
                 InternalMethods.mkdir(os.path.join(step03, subj))
                 if self._prjobj.single_session:
-                    epi = self._prjobj(s2_dataclass, s2_func, subj)
+                    epi = self._prjobj(s2_dataclass, s2_func, subj, **kwargs)
                     try:
-                        baseimg = self._prjobj(1, os.path.basename(meancbv), subj).Abspath[0]
+                        baseimg = self._prjobj(1, os.path.basename(meancbv), subj).df.Abspath[0]
                     except:
                         baseimg = 0
-                    for i, finfo in epi.iterrows():
+                    for i, finfo in epi:
                         print(" +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dvolreg', os.path.join(step03, subj, finfo.Filename), finfo.Abspath,
                                          base_slice=baseimg)
@@ -295,12 +293,13 @@ class Preprocess(object):
                     for sess in self.sessions:
                         print(" :Session: {}".format(sess))
                         InternalMethods.mkdir(os.path.join(step03, subj, sess))
-                        epi = self._prjobj(s2_dataclass, s2_func, subj, sess)
+                        epi = self._prjobj(s2_dataclass, s2_func, subj, sess, **kwargs)
                         try:
-                            baseimg = self._prjobj(1, os.path.basename(meancbv), subj, sess).Abspath[0]
+                            baseimg = self._prjobj(1, os.path.basename(meancbv), subj, sess)
+                            baseimg = baseimg.df.Abspath[0]
                         except:
                             baseimg = 0
-                        for i, finfo in epi.iterrows():
+                        for i, finfo in epi:
                             print("  +Filename: {}".format(finfo.Filename))
                             self._prjobj.run('afni_3dvolreg', os.path.join(step03, subj, sess, finfo.Filename),
                                              finfo.Abspath, base_slice=baseimg)
@@ -312,9 +311,9 @@ class Preprocess(object):
                 print("-Subject: {}".format(subj))
                 InternalMethods.mkdir(os.path.join(step04, subj))
                 if self._prjobj.single_session:
-                    param = self._prjobj(s3_dataclass, s3_func, subj)
-                    epi = self._prjobj(s1_dataclass, s1_func, subj)
-                    for i, finfo in epi.iterrows():
+                    param = self._prjobj(s3_dataclass, s3_func, subj).df
+                    epi = self._prjobj(s1_dataclass, s1_func, subj, **kwargs)
+                    for i, finfo in epi:
                         print(" +Filename: {}".format(finfo.Filename))
                         try:
                             if finfo.Filename != param.Filename[i]:
@@ -329,9 +328,9 @@ class Preprocess(object):
                     for sess in self.sessions:
                         print(" :Session: {}".format(sess))
                         InternalMethods.mkdir(os.path.join(step04, subj, sess))
-                        param = self._prjobj(s3_dataclass, s3_func, subj, sess)
-                        epi = self._prjobj(s1_dataclass, s1_func, subj, sess)
-                        for i, finfo in epi.iterrows():
+                        param = self._prjobj(s3_dataclass, s3_func, subj, sess).df
+                        epi = self._prjobj(s1_dataclass, s1_func, subj, sess, **kwargs)
+                        for i, finfo in epi:
                             print(" +Filename: {}".format(finfo.Filename))
                             try:
                                 if finfo.Filename != param.Filename[i]:
@@ -348,7 +347,7 @@ class Preprocess(object):
         else:
             return {'func': step01}
 
-    def maskdrawing_preparation(self, meanfunc, anat, padding=True, zaxis=2):
+    def maskdrawing_preparation(self, meanfunc, anat, padding=False, zaxis=2):
         f_dataclass, meanfunc = InternalMethods.check_input_dataclass(meanfunc)
         a_dataclass, anat = InternalMethods.check_input_dataclass(anat)
         print('MaskDrawing-{} & {}'.format(meanfunc, anat))
@@ -361,13 +360,13 @@ class Preprocess(object):
             if self._prjobj.single_session:
                 epi = self._prjobj(f_dataclass, meanfunc, subj)
                 t2 = self._prjobj(a_dataclass, anat, subj)
-                for i, finfo in epi.iterrows():
+                for i, finfo in epi:
                     print(" +Filename: {}".format(finfo.Filename))
                     epiimg = InternalMethods.load(finfo.Abspath)
                     if padding:
                         epiimg.padding(low=1, high=1, axis=zaxis)
                     epiimg.save_as(os.path.join(step01, subj, finfo.Filename), quiet=True)
-                for i, finfo in t2.iterrows():
+                for i, finfo in t2:
                     print(" +Filename: {}".format(finfo.Filename))
                     t2img = InternalMethods.load(finfo.Abspath)
                     if padding:
@@ -379,13 +378,13 @@ class Preprocess(object):
                     InternalMethods.mkdir(os.path.join(step01, subj, sess), os.path.join(step02, subj, sess))
                     epi = self._prjobj(f_dataclass, meanfunc, subj, sess)
                     t2 = self._prjobj(a_dataclass, anat, subj, sess)
-                    for i, finfo in epi.iterrows():
+                    for i, finfo in epi:
                         print("  +Filename: {}".format(finfo.Filename))
                         epiimg = InternalMethods.load(finfo.Abspath)
                         if padding:
                             epiimg.padding(low=1, high=1, axis=zaxis)
                         epiimg.save_as(os.path.join(step01, subj, sess, finfo.Filename))
-                    for i, finfo in t2.iterrows():
+                    for i, finfo in t2:
                         print("  +Filename: {}".format(finfo.Filename))
                         t2img = InternalMethods.load(finfo.Abspath)
                         if padding:
@@ -393,7 +392,7 @@ class Preprocess(object):
                         t2img.save_as(os.path.join(step02, subj, sess, finfo.Filename))
         return {'meanfunc': step01, 'anat': step02}
 
-    def compute_skullstripping(self, meanfunc, anat, padded=True, zaxis=2):
+    def compute_skullstripping(self, meanfunc, anat, padded=False, zaxis=2):
         axis = {0:'x', 1:'y', 2:'z'}
         f_dataclass, meanfunc = InternalMethods.check_input_dataclass(meanfunc)
         a_dataclass, anat = InternalMethods.check_input_dataclass(anat)
@@ -408,10 +407,10 @@ class Preprocess(object):
                 epi = self._prjobj(1, self._pipeline, meanfunc, subj, ignore='_mask')
                 t2 = self._prjobj(1, self._pipeline, anat, subj, ignore='_mask')
                 # Load mask image obj
-                epimask = self._prjobj(1, self._pipeline, meanfunc, subj, file_tag='_mask').Abspath[0]
-                t2mask = self._prjobj(1, self._pipeline, anat, subj, file_tag='_mask').Abspath[0]
+                epimask = self._prjobj(1, self._pipeline, meanfunc, subj, file_tag='_mask').df.Abspath[0]
+                t2mask = self._prjobj(1, self._pipeline, anat, subj, file_tag='_mask').df.Abspath[0]
                 # Execute process
-                for i, finfo in epi.iterrows():
+                for i, finfo in epi:
                     print(" +Filename of meanfunc: {}".format(finfo.Filename))
                     filename = finfo.Filename
                     fpath = os.path.join(step01, subj, '_{}'.format(filename))
@@ -422,7 +421,7 @@ class Preprocess(object):
                         exec('ss_epi.crop({}=[1, {}])'.format(axis[zaxis], ss_epi.shape[zaxis]-1))
                     ss_epi.save_as(os.path.join(step01, subj, filename), quiet=True)
                     os.remove(fpath)
-                for i, finfo in t2.iterrows():
+                for i, finfo in t2:
                     print(" +Filename of anat: {}".format(finfo.Filename))
                     filename = finfo.Filename
                     fpath = os.path.join(step02, subj, '_{}'.format(filename))
@@ -441,10 +440,10 @@ class Preprocess(object):
                     epi = self._prjobj(1, self._pipeline, meanfunc, subj, sess, ignore='_mask')
                     t2 = self._prjobj(1, self._pipeline, anat, subj, sess, ignore='_mask')
                     # Load mask image obj
-                    epimask = self._prjobj(1, self._pipeline, meanfunc, subj, sess, file_tag='_mask').Abspath[0]
-                    t2mask = self._prjobj(1, self._pipeline, anat, subj, sess, file_tag='_mask').Abspath[0]
+                    epimask = self._prjobj(1, self._pipeline, meanfunc, subj, sess, file_tag='_mask').df.Abspath[0]
+                    t2mask = self._prjobj(1, self._pipeline, anat, subj, sess, file_tag='_mask').df.Abspath[0]
                     # Execute process
-                    for i, finfo in epi.iterrows():
+                    for i, finfo in epi:
                         print("  +Filename of meanfunc: {}".format(finfo.Filename))
                         filename = finfo.Filename
                         fpath = os.path.join(step01, subj, sess, '_{}'.format(filename))
@@ -455,7 +454,7 @@ class Preprocess(object):
                             exec('ss_epi.crop({}=[1, {}])'.format(axis[zaxis], ss_epi.shape[zaxis] - 1))
                         ss_epi.save_as(os.path.join(step01, subj, sess, filename), quiet=True)
                         os.remove(fpath)
-                    for i, finfo in t2.iterrows():
+                    for i, finfo in t2:
                         print("  +Filename of anat: {}".format(finfo.Filename))
                         filename = finfo.Filename
                         fpath = os.path.join(step02, subj, sess, '_{}'.format(filename))
@@ -496,11 +495,11 @@ class Preprocess(object):
             if self._prjobj.single_session:
                 epi = self._prjobj(f_dataclass, meanfunc, subj)
                 t2 = self._prjobj(a_dataclass, anat, subj)
-                for i, finfo in epi.iterrows():
+                for i, finfo in epi:
                     print(" +Filename of func: {}".format(finfo.Filename))
                     self._prjobj.run('ants_BiasFieldCorrection', os.path.join(step01, subj, finfo.Filename),
                                      finfo.Abspath, algorithm='n4')
-                for i, finfo in t2.iterrows():
+                for i, finfo in t2:
                     print(" +Filename of anat: {}".format(finfo.Filename))
                     self._prjobj.run('ants_BiasFieldCorrection', os.path.join(step02, subj, finfo.Filename),
                                      finfo.Abspath, algorithm='n4')
@@ -510,11 +509,11 @@ class Preprocess(object):
                     InternalMethods.mkdir(os.path.join(step01, subj, sess), os.path.join(step02, subj, sess))
                     epi = self._prjobj(f_dataclass, meanfunc, subj, sess)
                     t2 = self._prjobj(f_dataclass, anat, subj, sess)
-                    for i, finfo in epi.iterrows():
+                    for i, finfo in epi:
                         print("  +Filename of func: {}".format(finfo.Filename))
                         self._prjobj.run('ants_BiasFieldCorrection', os.path.join(step01, subj, sess, finfo.Filename),
                                          finfo.Abspath, algorithm='n4')
-                    for i, finfo in t2.iterrows():
+                    for i, finfo in t2:
                         print("  +Filename of anat: {}".format(finfo.Filename))
                         self._prjobj.run('ants_BiasFieldCorrection', os.path.join(step02, subj, sess, finfo.Filename),
                                          finfo.Abspath, algorithm='n4')
@@ -529,9 +528,9 @@ class Preprocess(object):
             if self._prjobj.single_session:
                 epi = self._prjobj(1, self._pipeline, os.path.basename(step01), subj)
                 t2 = self._prjobj(1, self._pipeline, os.path.basename(step02), subj)
-                for i, finfo in epi.iterrows():
+                for i, finfo in epi:
                     print(" +Filename: {}".format(finfo.Filename))
-                    fixed_img = t2.Abspath[0]
+                    fixed_img = t2.df.Abspath[0]
                     moved_img = os.path.join(step03, subj, finfo.Filename)
                     self._prjobj.run('afni_3dAllineate', moved_img, finfo.Abspath, onepass=True, EPI=True,
                                      base=fixed_img, cmass='+xy', matrix_save=os.path.join(step03, subj, subj))
@@ -552,9 +551,9 @@ class Preprocess(object):
                     InternalMethods.mkdir(os.path.join(step03, subj, sess))
                     epi = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, sess)
                     t2 = self._prjobj(1, self._pipeline, os.path.basename(step02), subj, sess)
-                    for i, finfo in epi.iterrows():
+                    for i, finfo in epi:
                         print("  +Filename of anat: {}".format(finfo.Filename))
-                        fixed_img = t2.Abspath[0]
+                        fixed_img = t2.df.Abspath[0]
                         moved_img = os.path.join(step03, subj, sess, finfo.Filename)
                         self._prjobj.run('afni_3dAllineate', moved_img, finfo.Abspath, onepass=True, EPI=True,
                                          base=fixed_img, cmass='+xy',
@@ -573,7 +572,7 @@ class Preprocess(object):
                                      facecolor=fig2.get_facecolor())
         return {'meanfunc': step01, 'anat':step02, 'realigned_func': step03, 'checkreg': step04}
 
-    def apply_brainmask(self, func, mask, padded=True, zaxis=2, dtype='func'):
+    def apply_brainmask(self, func, mask, padded=False, zaxis=2, dtype='func'):
         """ Method for applying brain mark to individual 3d+t functional images
 
         Parameters
@@ -600,12 +599,12 @@ class Preprocess(object):
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 epi = self._prjobj(dataclass, func, subj)
-                epimask = self._prjobj(1, self._pipeline, os.path.basename(mask), subj, file_tag='_mask')
+                epimask = self._prjobj(1, self._pipeline, os.path.basename(mask), subj, file_tag='_mask').df
                 maskobj = InternalMethods.load(epimask.Abspath[0])
                 if padded:
                     exec ('maskobj.crop({}=[1, {}])'.format(axis[zaxis], maskobj.shape[zaxis] - 1))
                 temp_epimask = TempFile(maskobj, 'epimask_{}'.format(subj))
-                for i, finfo in epi.iterrows():
+                for i, finfo in epi:
                     print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, finfo.Filename), 'a*step(b)',
                                      finfo.Abspath, str(temp_epimask))
@@ -615,12 +614,12 @@ class Preprocess(object):
                     print(" :Session: {}".format(sess))
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
                     epi = self._prjobj(dataclass, func, subj, sess)
-                    epimask = self._prjobj(1, self._pipeline, os.path.basename(mask), subj, sess, file_tag='_mask')
+                    epimask = self._prjobj(1, self._pipeline, os.path.basename(mask), subj, sess, file_tag='_mask').df
                     maskobj = InternalMethods.load(epimask.Abspath[0])
                     if padded:
                         exec ('maskobj.crop({}=[1, {}])'.format(axis[zaxis], maskobj.shape[zaxis] - 1))
                     temp_epimask = TempFile(maskobj, 'epimask_{}_{}'.format(subj, sess))
-                    for i, finfo in epi.iterrows():
+                    for i, finfo in epi:
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, sess, finfo.Filename), 'a*step(b)',
                                          finfo.Abspath, str(temp_epimask))
@@ -653,11 +652,11 @@ class Preprocess(object):
                 ref = self._prjobj(1, self._pipeline, os.path.basename(realigned_func), subj)
                 param = self._prjobj(1, self._pipeline, os.path.basename(realigned_func), subj, ext='.1D')
                 funcs = self._prjobj(dataclass, os.path.basename(func), subj)
-                for i, finfo in funcs.iterrows():
+                for i, finfo in funcs:
                     print(" +Filename: {}".format(finfo.Filename))
                     moved_img = os.path.join(step01, subj, finfo.Filename)
-                    self._prjobj.run('afni_3dAllineate', moved_img, finfo.Abspath, master=ref.Abspath.loc[0],
-                                     matrix_apply=param.Abspath.loc[0])
+                    self._prjobj.run('afni_3dAllineate', moved_img, finfo.Abspath, master=ref.df.Abspath.loc[0],
+                                     matrix_apply=param.df.Abspath.loc[0])
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
@@ -665,11 +664,11 @@ class Preprocess(object):
                     ref = self._prjobj(1, self._pipeline, os.path.basename(realigned_func), subj, sess)
                     param = self._prjobj(1, self._pipeline, os.path.basename(realigned_func), subj, sess, ext='.1D')
                     funcs = self._prjobj(dataclass, os.path.basename(func), subj, sess)
-                    for i, finfo in funcs.iterrows():
+                    for i, finfo in funcs:
                         print("  +Filename: {}".format(finfo.Filename))
                         moved_img = os.path.join(step01, subj, sess, finfo.Filename)
-                        self._prjobj.run('afni_3dAllineate', moved_img, finfo.Abspath, master=ref.Abspath.loc[0],
-                                         matrix_apply=param.Abspath.loc[0])
+                        self._prjobj.run('afni_3dAllineate', moved_img, finfo.Abspath, master=ref.df.Abspath.loc[0],
+                                         matrix_apply=param.df.Abspath.loc[0])
         return {'func': step01}
 
     def global_regression(self, func, dtype='func', detrend=-1):
@@ -695,7 +694,7 @@ class Preprocess(object):
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 funcs = self._prjobj(dataclass, func, subj)
-                for i, finfo in funcs.iterrows():
+                for i, finfo in funcs:
                     print(" +Filename: {}".format(finfo.Filename))
                     regressor = os.path.join(step01, subj, "{}.1D".format(os.path.splitext(finfo.Filename)[0]))
                     self._prjobj.run('afni_3dmaskave', regressor, finfo.Abspath, finfo.Abspath)
@@ -706,7 +705,7 @@ class Preprocess(object):
                     print(" :Session: {}".format(sess))
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
                     funcs = self._prjobj(dataclass, func, subj)
-                    for i, finfo in funcs.iterrows():
+                    for i, finfo in funcs:
                         print("  +Filename: {}".format(finfo.Filename))
                         regressor = os.path.join(func, subj, sess,
                                                  "{}.1D".format(os.path.splitext(finfo.Filename)[0]))
@@ -740,7 +739,7 @@ class Preprocess(object):
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 funcs = self._prjobj(dataclass, func, subj)
-                for i, finfo in funcs.iterrows():
+                for i, finfo in funcs:
                     print(" +Filename: {}".format(finfo.Filename))
                     regressor = self._prjobj(dataclass, motioncorrected_func, subj, ext='.1D', ignore='.aff12',
                                              file_tag=os.path.splitext(finfo.Filename)[0]).Abspath[0]
@@ -751,13 +750,61 @@ class Preprocess(object):
                     print(" :Session: {}".format(sess))
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
                     funcs = self._prjobj(dataclass, func, subj, sess)
-                    for i, finfo in funcs.iterrows():
+                    for i, finfo in funcs:
                         print("  +Filename: {}".format(finfo.Filename))
                         regressor = self._prjobj(dataclass, motioncorrected_func, subj, ext='.1D', ignore='.aff12',
                                                  file_tag=os.path.splitext(finfo.Filename)[0]).Abspath[0]
                         self._prjobj.run('afni_3dDetrend', os.path.join(step01, subj, sess, finfo.Filename),
                                          finfo.Abspath, vector=regressor, polort=str(detrend))
         return {'func': step01}
+
+    def cbv_calculation(self, func, meanBOLD, mean_range=10, dtype='func', **kwargs):
+        """
+
+        Parameters
+        ----------
+        func
+        meanBOLD
+        dtype
+        kwargs
+
+        Returns
+        -------
+
+        """
+        dataclass, func = InternalMethods.check_input_dataclass(func)
+        mb_dataclass, meanBOLD = InternalMethods.check_input_dataclass(meanBOLD)
+        print('CBV_Calculation-{}'.format(func))
+        step01 = self.init_step('CBV_Calculation-{}'.format(dtype))
+        for subj in self.subjects:
+            print("-Subject: {}".format(subj))
+            InternalMethods.mkdir(os.path.join(step01, subj))
+            if self._prjobj.single_session:
+                funcs = self._prjobj(dataclass, func, subj)
+                szero = self._prjobj(mb_dataclass, meanBOLD, subj).df.loc[0]
+                for i, finfo in funcs:
+                    imgobj = InternalMethods.load(finfo.Abspath)
+                    imgobj._dataobj = np.mean(imgobj._dataobj[:, :, :, :mean_range], axis=3)
+                    spre = TempFile(imgobj, 'spre_{}'.format(subj))
+                    print(" +Filename: {}".format(finfo.Filename))
+                    self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, finfo.Filename), 'log(a/b)/log(b/c)',
+                                     finfo.Abspath, str(spre), szero.Abspath)
+                    spre.close()
+            else:
+                for sess in self.sessions:
+                    print(" :Session: {}".format(sess))
+                    InternalMethods.mkdir(os.path.join(step01, subj, sess))
+                    funcs = self._prjobj(dataclass, func, subj, sess)
+                    szero = self._prjobj(mb_dataclass, meanBOLD, subj, sess).df.loc[0]
+                    for i, finfo in funcs:
+                        imgobj = InternalMethods.load(finfo.Abspath)
+                        imgobj._dataobj = np.mean(imgobj._dataobj[:, :, :, :mean_range], axis=3)
+                        spre = TempFile(imgobj, 'spre_{}_{}'.format(subj, sess))
+                        print(" +Filename: {}".format(finfo.Filename))
+                        self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, finfo.Filename), 'log(a/b)/log(b/c)',
+                                         finfo.Abspath, str(spre), szero.Abspath)
+                        spre.close()
+        return {'cbv': step01}
 
     def signal_processing(self, func, dt=1, norm=False, despike=False, detrend=False,
                           blur=False, band=False, dtype='func'):
@@ -788,7 +835,7 @@ class Preprocess(object):
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 funcs = self._prjobj(dataclass, func, subj)
-                for i, finfo in funcs.iterrows():
+                for i, finfo in funcs:
                     print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dBandpass', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
                                      norm=norm, despike=despike, detrend=detrend, blur=blur, band=band, dt=dt)
@@ -797,7 +844,7 @@ class Preprocess(object):
                     print(" :Session: {}".format(sess))
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
                     funcs = self._prjobj(dataclass, func, subj, sess)
-                    for i, finfo in funcs.iterrows():
+                    for i, finfo in funcs:
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dBandpass', os.path.join(step01, subj, sess, finfo.Filename), finfo.Abspath,
                                          norm=norm, despike=despike, detrend=detrend, blur=blur, band=band, dt=dt)
@@ -840,13 +887,14 @@ class Preprocess(object):
                 tempobj.save_as(temp_path, quiet=True)
                 funcs = self._prjobj(dataclass, func, subj)
                 print(" +Filename of fixed image: {}".format(warped.Filename))
-                for i, finfo in funcs.iterrows():
+                for i, finfo in funcs:
                     print(" +Filename of moving image: {}".format(finfo.Filename))
                     output_path = os.path.join(step01, subj, finfo.Filename)
                     self._prjobj.run('ants_WarpTimeSeriesImageMultiTransform', output_path,
                                      finfo.Abspath, warped.Abspath, warps, mats)
                 # subjatlas = InternalMethods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
                 subjatlas = InternalMethods.load_temp(output_path, '{}_atlas.nii'.format(temp_path))
+                subjatlas.show()
                 fig = subjatlas.show(**kwargs)
                 if type(fig) is tuple:
                     fig = fig[0]
@@ -867,7 +915,7 @@ class Preprocess(object):
                     tempobj.save_as(temp_path, quiet=True)
                     funcs = self._prjobj(dataclass, func, subj, sess)
                     print(" +Filename of fixed image: {}".format(warped.Filename))
-                    for i, finfo in funcs.iterrows():
+                    for i, finfo in funcs:
                         print(" +Filename of moving image: {}".format(finfo.Filename))
                         output_path = os.path.join(step01, subj, sess, finfo.Filename)
                         self._prjobj.run('ants_WarpTimeSeriesImageMultiTransform', output_path,
@@ -926,7 +974,7 @@ class Preprocess(object):
                 InternalMethods.mkdir(os.path.join(step02, 'AllSubjects'))
                 anats = self._prjobj(dataclass, anat, subj)
                 InternalMethods.mkdir(os.path.join(step01, subj))
-                for i, finfo in anats.iterrows():
+                for i, finfo in anats:
                     print(" +Filename: {}".format(finfo.Filename))
                     output_path = os.path.join(step01, subj, "{}".format(subj))
                     self._prjobj.run('ants_RegistrationSyn', output_path,
@@ -947,7 +995,7 @@ class Preprocess(object):
                     print(" :Session: {}".format(sess))
                     anats = self._prjobj(dataclass, anat, subj, sess)
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
-                    for i, finfo in anats.iterrows():
+                    for i, finfo in anats:
                         print("  +Filename: {}".format(finfo.Filename))
                         output_path = os.path.join(step01, subj, sess, "{}".format(subj))
                         self._prjobj.run('ants_RegistrationSyn', output_path,
@@ -1008,7 +1056,7 @@ class Preprocess(object):
                                  '{}_atlas.nii'.format(temp_path), warped.Abspath,
                                  True, '-i', mats, warps)
                 tempobj.atlasobj.save_as(os.path.join(step01, subj, "{}_atlas".format(subj)), label_only=True)
-                for i, finfo in anats.iterrows():
+                for i, finfo in anats:
                     subjatlas = InternalMethods.load_temp(finfo.Abspath, output_path)
                     fig = subjatlas.show(**kwargs)
                     if type(fig) is tuple:
@@ -1030,7 +1078,7 @@ class Preprocess(object):
                     self._prjobj.run('ants_WarpImageMultiTransform', output_path,
                                      '{}_atlas.nii'.format(temp_path), warped.Abspath, True, '-i', mats, warps)
                     tempobj.atlasobj.save_as(os.path.join(step01, subj, sess, "{}_atlas".format(sess)), label_only=True)
-                    for i, finfo in anats.iterrows():
+                    for i, finfo in anats:
                         subjatlas = InternalMethods.load_temp(finfo.Abspath, output_path)
                         fig = subjatlas.show(**kwargs)
                         if type(fig) is tuple:
@@ -1040,6 +1088,59 @@ class Preprocess(object):
                                                  '{}.png'.format('-'.join([sess, 'checkatlas']))),
                                     facecolor=fig.get_facecolor())
         return {'atlas': step01, 'checkreg': step02}
+
+    def get_timetrace(self, func, atlas, dtype='func', **kwargs):
+        """ Method for extracting timecourse from mask
+
+        Parameters
+        ----------
+        func       : str
+            Datatype or absolute path of the input mean functional image
+        atlas      : str
+            template object which has atlas, or folder name which includes all mask
+        dtype      : str
+            Surfix for the step path
+        kwargs     :
+
+        Returns
+        -------
+        step_paths : dict
+
+        """
+        dataclass, func = InternalMethods.check_input_dataclass(func)
+        atlas, tempobj = InternalMethods.check_atals_datatype(atlas)
+        print('ExtractTimeCourseData-{}'.format(func))
+        step01 = self.init_step('ExtractTimeCourse-{}'.format(dtype))
+        for subj in self.subjects:
+            print("-Subject: {}".format(subj))
+            InternalMethods.mkdir(os.path.join(step01, subj))
+            if self._prjobj.single_session:
+                if not tempobj:
+                    atlas = self._prjobj(1, self._pipeline, atlas, subj).df.Abspath.loc[0]
+                    warped = self._prjobj(1, self._pipeline, atlas, subj, file_tag='_InverseWarped').df.Abspath.loc[0]
+                    tempobj = InternalMethods.load_temp(warped, atlas)
+                funcs = self._prjobj(dataclass, func, subj)
+                for i, finfo in funcs:
+                    print(" +Filename: {}".format(finfo.Filename))
+                    df = Analysis.get_timetrace(InternalMethods.load(finfo.Abspath), tempobj, afni=True, **kwargs)
+                    df.to_excel(os.path.join(step01, subj, "{}.xlsx".format(os.path.splitext(finfo.Filename)[0])))
+            else:
+                InternalMethods.mkdir(os.path.join(step01, subj))
+                for sess in self.sessions:
+                    print(" :Session: {}".format(sess))
+                    if not tempobj:
+                        atlas = self._prjobj(1, self._pipeline, atlas, subj, sess).df.Abspath.loc[0]
+                        warped = self._prjobj(1, self._pipeline, atlas, subj, sess,
+                                              file_tag='_InverseWarped').df.Abspath.loc[0]
+                        tempobj = InternalMethods.load_temp(warped, atlas)
+                    funcs = self._prjobj(dataclass, func, subj, sess)
+                    InternalMethods.mkdir(os.path.join(step01, subj, sess))
+                    for i, finfo in funcs:
+                        print("  +Filename: {}".format(finfo.Filename))
+                        df = Analysis.get_timetrace(InternalMethods.load(finfo.Abspath), tempobj, afni=True, **kwargs)
+                        df.to_excel(os.path.join(step01, subj, sess, "{}.xlsx".format(
+                            os.path.splitext(finfo.Filename)[0])))
+        return {'timecourse': step01}
 
     def get_correlation_matrix(self, func, atlas, dtype='func', **kwargs):
         """ Method for extracting timecourse, correlation matrix and calculating z-score matrix
@@ -1070,11 +1171,11 @@ class Preprocess(object):
             InternalMethods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj), os.path.join(step03, subj))
             if self._prjobj.single_session:
                 if not tempobj:
-                    atlas = self._prjobj(1, self._pipeline, atlas, subj).Abspath.loc[0]
-                    warped = self._prjobj(1, self._pipeline, atlas, subj, file_tag='_InverseWarped').Abspath.loc[0]
+                    atlas = self._prjobj(1, self._pipeline, atlas, subj).df.Abspath.loc[0]
+                    warped = self._prjobj(1, self._pipeline, atlas, subj, file_tag='_InverseWarped').df.Abspath.loc[0]
                     tempobj = InternalMethods.load_temp(warped, atlas)
                 funcs = self._prjobj(dataclass, func, subj)
-                for i, finfo in funcs.iterrows():
+                for i, finfo in funcs:
                     print(" +Filename: {}".format(finfo.Filename))
                     df = Analysis.get_timetrace(InternalMethods.load(finfo.Abspath), tempobj, afni=True, **kwargs)
                     df.to_excel(os.path.join(step01, subj, "{}.xlsx".format(os.path.splitext(finfo.Filename)[0])))
@@ -1088,13 +1189,14 @@ class Preprocess(object):
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     if not tempobj:
-                        atlas = self._prjobj(1, self._pipeline, atlas, subj, sess).Abspath.loc[0]
-                        warped = self._prjobj(1, self._pipeline, atlas, subj, sess, file_tag='_InverseWarped').Abspath.loc[0]
+                        atlas = self._prjobj(1, self._pipeline, atlas, subj, sess).df.Abspath.loc[0]
+                        warped = self._prjobj(1, self._pipeline, atlas, subj, sess,
+                                              file_tag='_InverseWarped').df.Abspath.loc[0]
                         tempobj = InternalMethods.load_temp(warped, atlas)
                     funcs = self._prjobj(dataclass, func, subj, sess)
                     InternalMethods.mkdir(os.path.join(step01, subj, sess), os.path.join(step02, subj, sess),
                                           os.path.join(step03, subj, sess))
-                    for i, finfo in funcs.iterrows():
+                    for i, finfo in funcs:
                         print("  +Filename: {}".format(finfo.Filename))
                         df = Analysis.get_timetrace(InternalMethods.load(finfo.Abspath), tempobj, afni=True, **kwargs)
                         df.to_excel(os.path.join(step01, subj, sess, "{}.xlsx".format(
@@ -1605,9 +1707,9 @@ class Project(object):
         # else:
         copy = self.copy()
         copy.dataclass = dc_id
+        copy.reload()
         copy.set_filters(*args, **kwargs)
-        # copy.reload()
-        return copy.df
+        return copy
 
 
     def __repr__(self):

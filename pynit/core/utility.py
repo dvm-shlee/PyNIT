@@ -361,7 +361,7 @@ class InternalMethods(object):
     def check_sliceaxis_cmap(imageobj, kwargs):
         """ Check sliceaxis (minimal number os slice) and cmap
         """
-        slice_axis = int(np.argmin(imageobj.shape))
+        slice_axis = int(np.argmin(imageobj.shape[:3]))
         cmap = 'gray'
         for arg in kwargs.keys():
             if arg == 'slice_axis':
@@ -615,18 +615,18 @@ class InternalMethods(object):
             inverse = None
         if inverse:
             mats = preproc._prjobj(1, preproc._pipeline, os.path.basename(args[0]),
-                                   *args[1:], ext='.mat').Abspath.loc[0]
+                                   *args[1:], ext='.mat').df.Abspath.loc[0]
             warps = preproc._prjobj(1, preproc._pipeline, os.path.basename(args[0]),
-                                    *args[1:], file_tag='_1InverseWarp').Abspath.loc[0]
+                                    *args[1:], file_tag='_1InverseWarp').df.Abspath.loc[0]
             warped = preproc._prjobj(1, preproc._pipeline, os.path.basename(args[0]),
-                                     *args[1:], file_tag='_InverseWarped').loc[0]
+                                     *args[1:], file_tag='_InverseWarped').df.loc[0]
         else:
             mats = preproc._prjobj(1, preproc._pipeline, os.path.basename(args[0]),
-                                   *args[1:], ext='.mat').Abspath.loc[0]
+                                   *args[1:], ext='.mat').df.Abspath.loc[0]
             warps = preproc._prjobj(1, preproc._pipeline, os.path.basename(args[0]),
-                                    *args[1:], file_tag='_1Warp').Abspath.loc[0]
+                                    *args[1:], file_tag='_1Warp').df.Abspath.loc[0]
             warped = preproc._prjobj(1, preproc._pipeline, os.path.basename(args[0]),
-                                     *args[1:], file_tag='_Warped').loc[0]
+                                     *args[1:], file_tag='_Warped').df.loc[0]
         return mats, warps, warped
 
     # Method collection for dynamic analysis
