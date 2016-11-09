@@ -310,7 +310,7 @@ class Atlas(object):
             except:
                 raise error.InputPathError
         atlas = self._image.dataobj
-        num_of_rois = np.max(atlas)
+        num_of_rois = int(np.max(atlas))
         for i in range(num_of_rois):
             if not i:
                 pass

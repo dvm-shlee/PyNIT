@@ -807,7 +807,7 @@ class Preprocess(object):
         return {'cbv': step01}
 
     def signal_processing(self, func, dt=1, norm=False, despike=False, detrend=False,
-                          blur=False, band=False, dtype='func'):
+                          blur=False, band=False, dtype='func', file_tag=None, ignore=None):
         """ Method for signal processing and spatial smoothing of individual functional image
 
         Parameters
@@ -834,7 +834,16 @@ class Preprocess(object):
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
-                funcs = self._prjobj(dataclass, func, subj)
+                if not file_tag:
+                    if not ignore:
+                        funcs = self._prjobj(dataclass, func, subj)
+                    else:
+                        funcs = self._prjobj(dataclass, func, subj, ignore=ignore)
+                else:
+                    if not ignore:
+                        funcs = self._prjobj(dataclass, func, subj, file_tag=file_tag)
+                    else:
+                        funcs = self._prjobj(dataclass, func, subj, file_tag=file_tag, ignore=ignore)
                 for i, finfo in funcs:
                     print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dBandpass', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
@@ -843,7 +852,16 @@ class Preprocess(object):
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
-                    funcs = self._prjobj(dataclass, func, subj, sess)
+                    if not file_tag:
+                        if not ignore:
+                            funcs = self._prjobj(dataclass, func, subj, sess)
+                        else:
+                            funcs = self._prjobj(dataclass, func, subj, sess, ignore=ignore)
+                    else:
+                        if not ignore:
+                            funcs = self._prjobj(dataclass, func, subj, sess, file_tag=file_tag)
+                        else:
+                            funcs = self._prjobj(dataclass, func, subj, sess, file_tag=file_tag, ignore=ignore)
                     for i, finfo in funcs:
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dBandpass', os.path.join(step01, subj, sess, finfo.Filename), finfo.Abspath,
@@ -1160,7 +1178,7 @@ class Preprocess(object):
                             os.path.splitext(finfo.Filename)[0])))
         return {'timecourse': step01}
 
-    def get_correlation_matrix(self, func, atlas, dtype='func', **kwargs):
+    def get_correlation_matrix(self, func, atlas, dtype='func', file_tag=None, ignore=None, **kwargs):
         """ Method for extracting timecourse, correlation matrix and calculating z-score matrix
 
         Parameters
@@ -1192,7 +1210,16 @@ class Preprocess(object):
                     # atlas = self._prjobj(1, self._pipeline, atlas, subj).df.Abspath.loc[0]
                     warped = self._prjobj(1, self._pipeline, subj, file_tag='_InverseWarped').df.Abspath.loc[0]
                     tempobj = InternalMethods.load_temp(warped, atlas)
-                funcs = self._prjobj(dataclass, func, subj)
+                if not file_tag:
+                    if not ignore:
+                        funcs = self._prjobj(dataclass, func, subj)
+                    else:
+                        funcs = self._prjobj(dataclass, func, subj, ignore=ignore)
+                else:
+                    if not ignore:
+                        funcs = self._prjobj(dataclass, func, subj, file_tag=file_tag)
+                    else:
+                        funcs = self._prjobj(dataclass, func, subj, file_tag=file_tag, ignore=ignore)
                 for i, finfo in funcs:
                     print(" +Filename: {}".format(finfo.Filename))
                     df = Analysis.get_timetrace(InternalMethods.load(finfo.Abspath), tempobj, afni=True, **kwargs)
@@ -1211,7 +1238,16 @@ class Preprocess(object):
                         warped = self._prjobj(1, self._pipeline, subj, sess,
                                               file_tag='_InverseWarped').df.Abspath.loc[0]
                         tempobj = InternalMethods.load_temp(warped, atlas)
-                    funcs = self._prjobj(dataclass, func, subj, sess)
+                    if not file_tag:
+                        if not ignore:
+                            funcs = self._prjobj(dataclass, func, subj, sess)
+                        else:
+                            funcs = self._prjobj(dataclass, func, subj, sess, ignore=ignore)
+                    else:
+                        if not ignore:
+                            funcs = self._prjobj(dataclass, func, subj, sess, file_tag=file_tag)
+                        else:
+                            funcs = self._prjobj(dataclass, func, subj, sess, file_tag=file_tag, ignore=ignore)
                     InternalMethods.mkdir(os.path.join(step01, subj, sess), os.path.join(step02, subj, sess),
                                           os.path.join(step03, subj, sess))
                     for i, finfo in funcs:
