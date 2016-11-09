@@ -1178,7 +1178,7 @@ class Preprocess(object):
                             os.path.splitext(finfo.Filename)[0])))
         return {'timecourse': step01}
 
-    def get_correlation_matrix(self, func, atlas, dtype='func', file_tag=None, ignore=None, **kwargs):
+    def get_correlation_matrix(self, func, atlas, dtype='func', file_tag=None, ignore=None, subjects=None, **kwargs):
         """ Method for extracting timecourse, correlation matrix and calculating z-score matrix
 
         Parameters
@@ -1195,9 +1195,7 @@ class Preprocess(object):
         step_paths : dict
 
         """
-        if 'subjects' in kwargs.keys(): #TODO: Subject selection testcode, need to apply for all steps
-            subjects = kwargs['subjects']
-        else:
+        if not subjects: #TODO: Subject selection testcode, need to apply for all steps
             subjects = self.subjects[:]
         dataclass, func = InternalMethods.check_input_dataclass(func)
         atlas, tempobj = InternalMethods.check_atals_datatype(atlas)
