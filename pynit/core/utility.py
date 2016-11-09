@@ -592,6 +592,7 @@ class InternalMethods(object):
             dataclass = 1
             datatype = InternalMethods.path_splitter(datatype)[-1]
         else:
+            #if os.path.exists(datatype): TODO: Raise error when the path not exist even in Data path
             dataclass = 0
         return dataclass, datatype
 

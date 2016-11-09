@@ -1195,6 +1195,10 @@ class Preprocess(object):
         step_paths : dict
 
         """
+        if 'subjects' in kwargs.keys(): #TODO: Subject selection testcode, need to apply for all steps
+            subjects = kwargs['subjects']
+        else:
+            subjects = self.subjects[:]
         dataclass, func = InternalMethods.check_input_dataclass(func)
         atlas, tempobj = InternalMethods.check_atals_datatype(atlas)
         print('ExtractTimeCourseData-{}'.format(func))
@@ -1202,7 +1206,7 @@ class Preprocess(object):
         step02 = self.init_step('CC_Matrix-{}'.format(dtype))
         num_step = os.path.basename(step02).split('_')[0]
         step03 = self.final_step('{}_Zscore_Matrix-{}'.format(num_step, dtype))
-        for subj in self.subjects:
+        for subj in subjects:
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj), os.path.join(step03, subj))
             if self._prjobj.single_session:
