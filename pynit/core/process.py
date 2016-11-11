@@ -532,6 +532,8 @@ class Interface(object):
         cmd = ['WarpTimeSeriesImageMultiTransform', '4', str(input_path), str(output_path), '-R', str(base_path)]
         if atlas:
             cmd.append('--use-NN')
+        else:
+            cmd.append('--use-BSpline')
         for arg in args:
             cmd.append(arg)
         cmd = list2cmdline(cmd)

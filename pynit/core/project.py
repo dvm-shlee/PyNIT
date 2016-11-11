@@ -868,7 +868,7 @@ class Preprocess(object):
                                          norm=norm, despike=despike, detrend=detrend, blur=blur, band=band, dt=dt)
         return {'func': step01}
 
-    def warp_func(self, func, warped_anat, tempobj, dtype='func', **kwargs):
+    def warp_func(self, func, warped_anat, tempobj, atlas=False, dtype='func', **kwargs):
         """ Method for warping the individual functional image to template space
 
         Parameters
@@ -909,7 +909,7 @@ class Preprocess(object):
                     print(" +Filename of moving image: {}".format(finfo.Filename))
                     output_path = os.path.join(step01, subj, finfo.Filename)
                     self._prjobj.run('ants_WarpTimeSeriesImageMultiTransform', output_path,
-                                     finfo.Abspath, warped.Abspath, warps, mats)
+                                     finfo.Abspath, atlas=atlas, warped.Abspath, warps, mats)
                 # subjatlas = InternalMethods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
                 subjatlas = InternalMethods.load_temp(output_path, '{}_atlas.nii'.format(temp_path))
                 subjatlas.show()
@@ -937,7 +937,7 @@ class Preprocess(object):
                         print(" +Filename of moving image: {}".format(finfo.Filename))
                         output_path = os.path.join(step01, subj, sess, finfo.Filename)
                         self._prjobj.run('ants_WarpTimeSeriesImageMultiTransform', output_path,
-                                         finfo.Abspath, warped.Abspath, warps, mats)
+                                         finfo.Abspath, atlas=atlas, warped.Abspath, warps, mats)
                     # subjatlas = InternalMethods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
                     subjatlas = InternalMethods.load_temp(output_path, '{}_atlas.nii'.format(temp_path))
                     fig = subjatlas.show(**kwargs)
@@ -1107,7 +1107,7 @@ class Preprocess(object):
                                     facecolor=fig.get_facecolor())
         return {'atlas': step01, 'checkreg': step02}
 
-    def get_timetrace(self, func, atlas, dtype='func', file_tag=None, ignore=None, **kwargs):
+    def get_timetrace(self, func, atlas, dtype='func', file_tag=None, ignore=None, subjects=None, **kwargs):
         """ Method for extracting timecourse from mask
 
         Parameters
@@ -1125,11 +1125,13 @@ class Preprocess(object):
         step_paths : dict
 
         """
+        if not subjects: #TODO: Subject selection testcode, need to apply for all steps
+            subjects = self.subjects[:]
         dataclass, func = InternalMethods.check_input_dataclass(func)
         atlas, tempobj = InternalMethods.check_atals_datatype(atlas)
         print('ExtractTimeCourseData-{}'.format(func))
         step01 = self.init_step('ExtractTimeCourse-{}'.format(dtype))
-        for subj in self.subjects:
+        for subj in subjects:
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
