@@ -515,11 +515,14 @@ class Interface(object):
             call(shl.split(cmd))
 
     @staticmethod
-    def ants_WarpImageMultiTransform(output_path, input_path, base_path, atlas=False, *args):
+    def ants_WarpImageMultiTransform(output_path, input_path, base_path, *args, **kwargs):
         # ANTs applying transform
         cmd = ['WarpImageMultiTransform', '3', str(input_path), str(output_path), '-R', str(base_path)]
-        if atlas:
-            cmd.append('--use-NN')
+        if 'atlas' in kwargs.keys():
+            if kwargs['atlas']:
+                cmd.append('--use-NN')
+            else:
+                cmd.append('--use-BSpline')
         for arg in args:
             cmd.append(arg)
         cmd = list2cmdline(cmd)
@@ -527,13 +530,14 @@ class Interface(object):
         # print(cmd)
 
     @staticmethod
-    def ants_WarpTimeSeriesImageMultiTransform(output_path, input_path, base_path, atlas=False, *args):
+    def ants_WarpTimeSeriesImageMultiTransform(output_path, input_path, base_path, *args, **kwargs):
         # ANTs applying transform
         cmd = ['WarpTimeSeriesImageMultiTransform', '4', str(input_path), str(output_path), '-R', str(base_path)]
-        if atlas:
-            cmd.append('--use-NN')
-        else:
-            cmd.append('--use-BSpline')
+        if 'atlas' in kwargs.keys():
+            if kwargs['atlas']:
+                cmd.append('--use-NN')
+            else:
+                cmd.append('--use-BSpline')
         for arg in args:
             cmd.append(arg)
         cmd = list2cmdline(cmd)
