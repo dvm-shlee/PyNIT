@@ -888,6 +888,7 @@ class Preprocess(object):
         step_paths  : dict
         """
         # Check the source of input data
+        in_kwargs = {'atlas': atlas}
         dataclass, func = InternalMethods.check_input_dataclass(func)
         print("Warp-{} to Atlas and Check it's registration".format(func))
         step01 = self.init_step('Warp-{}2atlas'.format(dtype))
@@ -909,7 +910,7 @@ class Preprocess(object):
                     print(" +Filename of moving image: {}".format(finfo.Filename))
                     output_path = os.path.join(step01, subj, finfo.Filename)
                     self._prjobj.run('ants_WarpTimeSeriesImageMultiTransform', output_path,
-                                     finfo.Abspath, warped.Abspath, warps, mats, atlas=atlas)
+                                     finfo.Abspath, warped.Abspath, warps, mats, **in_kwargs)
                 # subjatlas = InternalMethods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
                 subjatlas = InternalMethods.load_temp(output_path, '{}_atlas.nii'.format(temp_path))
                 subjatlas.show()
@@ -937,7 +938,7 @@ class Preprocess(object):
                         print(" +Filename of moving image: {}".format(finfo.Filename))
                         output_path = os.path.join(step01, subj, sess, finfo.Filename)
                         self._prjobj.run('ants_WarpTimeSeriesImageMultiTransform', output_path,
-                                         finfo.Abspath, warped.Abspath, warps, mats, atlas=atlas)
+                                         finfo.Abspath, warped.Abspath, warps, mats, **in_kwargs)
                     # subjatlas = InternalMethods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
                     subjatlas = InternalMethods.load_temp(output_path, '{}_atlas.nii'.format(temp_path))
                     fig = subjatlas.show(**kwargs)
