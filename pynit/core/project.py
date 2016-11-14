@@ -472,6 +472,40 @@ class Preprocess(object):
                         os.remove(fpath)
         return {'meanfunc': step01, 'anat': step02}
 
+    def timecrop(self, func, range, dtype='func'):
+        dataclass, func = InternalMethods.check_input_dataclass(func)
+        print('TimeCropped-{}'.format(func))
+        step01 = self.init_step('CropTimeAxis-{}'.format(dtype))
+        for subj in self.subjects:
+            print("-Subject: {}".format(subj))
+            InternalMethods.mkdir(os.path.join(step01, subj))
+            if self._prjobj.single_session:
+                # Load image paths
+                epi = self._prjobj(1, self._pipeline, func, subj)
+                # Execute process
+                for i, finfo in epi:
+                    print(" +Filename: {}".format(finfo.Filename))
+                    output_path = os.path.join(step01, subj, finfo.Filename)
+                    if '.gz' not in output_path:
+                        output_path += '.gz'
+                    self._prjobj.run('afni_3dcalc', output_path, 'a',
+                                     "{}'[{}..{}]'".format(finfo.Abspath, range[0], range[1]))
+            else:
+                for sess in self.sessions:
+                    print(" :Session: {}".format(sess))
+                    InternalMethods.mkdir(os.path.join(step01, subj, sess))
+                    # Load image paths
+                    epi = self._prjobj(1, self._pipeline, func, subj)
+                    # Execute process
+                    for i, finfo in epi:
+                        print(" +Filename: {}".format(finfo.Filename))
+                        output_path = os.path.join(step01, subj, sess, finfo.Filename)
+                        if '.gz' not in output_path:
+                            output_path += '.gz'
+                        self._prjobj.run('afni_3dcalc', output_path, 'a',
+                                         "{}'[{}..{}]'".format(finfo.Abspath, range[0], range[1]))
+        return {'func': step01}
+
     def coregistration(self, meanfunc, anat, dtype='func', **kwargs):
         """ Method for mean functional image realignment to anatomical image of same subject
 
