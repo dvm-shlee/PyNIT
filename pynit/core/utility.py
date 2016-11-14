@@ -421,7 +421,7 @@ class InternalMethods(object):
         columns = InternalMethods.update_columns(idx, single_session)
         if not len(df):
             empty_prj = True
-        return df.rename(columns=columns), single_session, empty_prj
+        return df.rename(columns=columns).sort_values('Abspath', axis=1), single_session, empty_prj
 
     @staticmethod
     def update_columns(idx, single_session):
