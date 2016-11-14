@@ -185,8 +185,8 @@ class Interface(object):
         input_path : str
         base_slice : str
         """
-        motion_parameter = os.path.splitext(output_path)[0] + '.1D'
-        template_file = os.path.splitext(output_path)[0]
+        motion_parameter = InternalMethods.splitnifti(output_path) + '.1D'
+        template_file = InternalMethods.splitnifti(output_path)
         cmd = ['3dvolreg', '-prefix', output_path, '-1Dfile', motion_parameter, '-1Dmatrix_save', template_file,
                '-Fourier', '-verbose', '-base']
         if type(base_slice) is int:

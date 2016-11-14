@@ -669,6 +669,12 @@ class InternalMethods(object):
         return seed_coords
 
     @staticmethod
+    def splitnifti(path):
+        while '.nii' in path:
+            path = os.path.splitext(path)[0]
+        return str(path)
+
+    @staticmethod
     def gen_travel_seed(tractobj, start_point, end_point, filename=None):
         seed_coords = InternalMethods.seed_coords(tractobj, start_point, end_point)
         shape = list(tractobj.shape[:])

@@ -287,8 +287,10 @@ class Preprocess(object):
                         baseimg = 0
                     for i, finfo in epi:
                         print(" +Filename: {}".format(finfo.Filename))
-                        self._prjobj.run('afni_3dvolreg', os.path.join(step03, subj, finfo.Filename), finfo.Abspath,
-                                         base_slice=baseimg)
+                        output_path = os.path.join(step03, subj, finfo.Filename)
+                        self._prjobj.run('afni_3dAllineate', output_path, finfo.Abspath,
+                                         base=baseimg, warp='sho',
+                                         matrix_save=InternalMethods.splitnifti(output_path) + '.aff12.1D')
                 else:
                     for sess in self.sessions:
                         print(" :Session: {}".format(sess))
@@ -301,8 +303,10 @@ class Preprocess(object):
                             baseimg = 0
                         for i, finfo in epi:
                             print("  +Filename: {}".format(finfo.Filename))
-                            self._prjobj.run('afni_3dvolreg', os.path.join(step03, subj, sess, finfo.Filename),
-                                             finfo.Abspath, base_slice=baseimg)
+                            output_path = os.path.join(step03, subj, sess, finfo.Filename)
+                            self._prjobj.run('afni_3dAllineate', output_path,
+                                             finfo.Abspath, base=baseimg, warp='sho',
+                                             matrix_save=InternalMethods.splitnifti(output_path) + '.aff12.1D')
             # Realigning each run of CBV images
             s3_dataclass, s3_func = InternalMethods.check_input_dataclass(step03)
             print('InterSubj-ApplyTranform-{}'.format(func))
@@ -319,8 +323,9 @@ class Preprocess(object):
                             if finfo.Filename != param.Filename[i]:
                                 raise error.ObjectMismatch()
                             else:
-                                self._prjobj.run('afni_3dAllineate', os.path.join(step04, subj, finfo.Filename), finfo.Abspath,
-                                                matrix_apply=str(os.path.splitext(param.Abspath[i])[0]+'.aff12.1D'))
+                                self._prjobj.run('afni_3dAllineate', os.path.join(step04, subj, finfo.Filename),
+                                                 finfo.Abspath, warp='sho',
+                                                 matrix_apply=InternalMethods.splitnifti(param.Abspath[i])+'.aff12.1D')
                         except:
                             print('  ::Skipped')
                             pass
@@ -338,8 +343,8 @@ class Preprocess(object):
                                     raise error.ObjectMismatch()
                                 else:
                                     self._prjobj.run('afni_3dAllineate', os.path.join(step04, subj, sess, finfo.Filename),
-                                                    finfo.Abspath,
-                                                   matrix_apply=os.path.splitext(param.Abspath[i])[0] + '.aff12.1D')
+                                                    finfo.Abspath, warp='sho',
+                                                    matrix_apply=InternalMethods.splitnifti(param.Abspath[i]) + '.aff12.1D')
                             except:
                                 print('  ::Skipped')
                                 pass
