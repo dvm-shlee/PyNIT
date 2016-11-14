@@ -104,11 +104,6 @@ class Preprocess(object):
         step_paths : dict
         """
         dataclass, func = InternalMethods.check_input_dataclass(func)
-        # if os.path.exists(func):
-        #     dataclass = 1
-        #     func = InternalMethods.path_splitter(func)[-1]
-        # else:
-        #     dataclass = 0
         step01 = self.init_step('InitialPreparation-{}'.format(dtype))
         print("MotionCorrection")
         for subj in self.subjects:
@@ -353,6 +348,19 @@ class Preprocess(object):
             return {'func': step01}
 
     def maskdrawing_preparation(self, meanfunc, anat, padding=False, zaxis=2):
+        """
+
+        Parameters
+        ----------
+        meanfunc
+        anat
+        padding
+        zaxis
+
+        Returns
+        -------
+
+        """
         f_dataclass, meanfunc = InternalMethods.check_input_dataclass(meanfunc)
         a_dataclass, anat = InternalMethods.check_input_dataclass(anat)
         print('MaskDrawing-{} & {}'.format(meanfunc, anat))
@@ -473,6 +481,18 @@ class Preprocess(object):
         return {'meanfunc': step01, 'anat': step02}
 
     def timecrop(self, func, range, dtype='func'):
+        """
+
+        Parameters
+        ----------
+        func
+        range
+        dtype
+
+        Returns
+        -------
+
+        """
         dataclass, func = InternalMethods.check_input_dataclass(func)
         print('TimeCropped-{}'.format(func))
         step01 = self.init_step('CropTimeAxis-{}'.format(dtype))
@@ -840,7 +860,7 @@ class Preprocess(object):
                         imgobj._dataobj = np.mean(imgobj._dataobj[:, :, :, :mean_range], axis=3)
                         spre = TempFile(imgobj, 'spre_{}_{}'.format(subj, sess))
                         print(" +Filename: {}".format(finfo.Filename))
-                        self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, finfo.Filename), 'log(a/b)/log(b/c)',
+                        self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, sess, finfo.Filename), 'log(a/b)/log(b/c)',
                                          finfo.Abspath, str(spre), szero.Abspath)
                         spre.close()
         return {'cbv': step01}
