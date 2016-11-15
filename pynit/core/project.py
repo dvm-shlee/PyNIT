@@ -1012,6 +1012,85 @@ class Preprocess(object):
                     os.remove('{}_template.nii'.format(temp_path))
         return {'func': step01, 'checkreg': step02}
 
+    def linear_spatial_normalization(self, anat, tempobj, dtype='anat', **kwargs):
+        """
+
+        Parameters
+        ----------
+        anat
+        tempobj
+        dtype
+        kwargs
+
+        Returns
+        -------
+
+        """
+        # Check the source of input data
+        dataclass, anat = InternalMethods.check_input_dataclass(anat)
+        # Print step ans initiate the step
+        print('SpatialNormalization-{} to Tempalte'.format(anat))
+        step01 = self.init_step('SpatialNormalization-{}2temp'.format(dtype))
+        num_step = os.path.basename(step01).split('_')[0]
+        step02 = self.final_step('{}_CheckRegistraton-{}'.format(num_step, dtype))
+        # Loop the subjects
+        for subj in self.subjects:
+            print("-Subject: {}".format(subj))
+            InternalMethods.mkdir(os.path.join(step01, subj))
+            if self._prjobj.single_session:
+                InternalMethods.mkdir(os.path.join(step02, 'AllSubjects'))
+                anats = self._prjobj(dataclass, anat, subj)
+                InternalMethods.mkdir(os.path.join(step01, subj))
+                for i, finfo in anats:
+                    print(" +Filename: {}".format(finfo.Filename))
+                    fixed_img = tempobj.template_path
+                    moved_img = os.path.join(step01, subj, finfo.Filename)
+                    trans_mat = InternalMethods.splitnifti(moved_img)+'aff12.1D'
+                    self._prjobj.run('afni_3dAllineate', moved_img,
+                                     finfo.Abspath, base=fixed_img, twopass=True, cmass='xy',
+                                     zclip=True, conv='0.01', cost='crM', ckeck='nmi', warp='shr',
+                                     matrix_save=trans_mat)
+                    fig1 = Viewer.check_reg(InternalMethods.load(fixed_img),
+                                            InternalMethods.load(moved_img), sigma=2, **kwargs)
+                    fig1.suptitle('T2 to Temp for {}'.format(subj), fontsize=12, color='yellow')
+                    fig1.savefig(os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'func2anat']))),
+                                 facecolor=fig1.get_facecolor())
+                    fig2 = Viewer.check_reg(InternalMethods.load(moved_img),
+                                            InternalMethods.load(fixed_img), sigma=2, **kwargs)
+                    fig2.suptitle('Temp to T2 for {}'.format(subj), fontsize=12, color='yellow')
+                    fig2.savefig(os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'anat2func']))),
+                                 facecolor=fig2.get_facecolor())
+            else:
+                InternalMethods.mkdir(os.path.join(step02, subj), os.path.join(step02, subj, 'AllSessions'))
+                for sess in self.sessions:
+                    print(" :Session: {}".format(sess))
+                    anats = self._prjobj(dataclass, anat, subj, sess)
+                    InternalMethods.mkdir(os.path.join(step01, subj, sess))
+                    for i, finfo in anats:
+                        print("  +Filename: {}".format(finfo.Filename))
+                        fixed_img = tempobj.template_path
+                        moved_img = os.path.join(step01, subj, sess, finfo.Filename)
+                        trans_mat = InternalMethods.splitnifti(moved_img) + 'aff12.1D'
+                        self._prjobj.run('afni_3dAllineate', moved_img,
+                                         finfo.Abspath, base=fixed_img, twopass=True, cmass='xy',
+                                         zclip=True, conv='0.01', cost='crM', ckeck='nmi', warp='shr',
+                                         matrix_save=trans_mat)
+                        fig1 = Viewer.check_reg(InternalMethods.load(fixed_img),
+                                                InternalMethods.load(moved_img), sigma=2, **kwargs)
+                        fig1.suptitle('T2 to Temp for {}-{}'.format(subj, sess), fontsize=12, color='yellow')
+                        fig1.savefig(
+                            os.path.join(step02, subj, 'AllSessions',
+                                         '{}.png'.format('-'.join([subj, sess, 'func2anat']))),
+                            facecolor=fig1.get_facecolor())
+                        fig2 = Viewer.check_reg(InternalMethods.load(moved_img),
+                                                InternalMethods.load(fixed_img), sigma=2, **kwargs)
+                        fig2.suptitle('Temp to T2 for {}-{}'.format(subj, sess), fontsize=12, color='yellow')
+                        fig2.savefig(
+                            os.path.join(step02, subj, 'AllSubjects',
+                                         '{}.png'.format('-'.join([subj, sess, 'anat2func']))),
+                            facecolor=fig2.get_facecolor())
+        return {'norm_anat': step01, 'checkreg': step02}
+
     def warp_anat_to_template(self, anat, tempobj, dtype='anat', ttype='s', **kwargs): # TODO: This code not work if the template image resolution is different with T2 image
         """ Method for warping the individual anatomical image to template
 
