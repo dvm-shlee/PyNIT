@@ -1045,7 +1045,7 @@ class Preprocess(object):
                     print(" +Filename: {}".format(finfo.Filename))
                     fixed_img = tempobj.template_path
                     moved_img = os.path.join(step01, subj, finfo.Filename)
-                    trans_mat = InternalMethods.splitnifti(moved_img)+'aff12.1D'
+                    trans_mat = InternalMethods.splitnifti(moved_img)+'.aff12.1D'
                     self._prjobj.run('afni_3dAllineate', moved_img,
                                      finfo.Abspath, base=fixed_img, twopass=True, cmass='xy',
                                      zclip=True, conv='0.01', cost='crM', ckeck='nmi', warp='shr',
@@ -1066,11 +1066,12 @@ class Preprocess(object):
                     print(" :Session: {}".format(sess))
                     anats = self._prjobj(dataclass, anat, subj, sess)
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
+                    InternalMethods.mkdir(os.path.join(step02, subj, 'AllSubjects'))
                     for i, finfo in anats:
                         print("  +Filename: {}".format(finfo.Filename))
                         fixed_img = tempobj.template_path
                         moved_img = os.path.join(step01, subj, sess, finfo.Filename)
-                        trans_mat = InternalMethods.splitnifti(moved_img) + 'aff12.1D'
+                        trans_mat = InternalMethods.splitnifti(moved_img) + '.aff12.1D'
                         self._prjobj.run('afni_3dAllineate', moved_img,
                                          finfo.Abspath, base=fixed_img, twopass=True, cmass='xy',
                                          zclip=True, conv='0.01', cost='crM', ckeck='nmi', warp='shr',

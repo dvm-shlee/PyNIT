@@ -254,9 +254,6 @@ class Interface(object):
                 if arg == 'conv':
                     cmd.append('-{}'.format(arg))
                     cmd.append(kwargs[arg])
-                if arg == 'zclip':
-                    if kwargs[arg]:
-                        cmd.append('-{}'.format(arg))
                 if arg == 'verb':
                     if kwargs[arg]:
                         cmd.append('-{}'.format(arg))
