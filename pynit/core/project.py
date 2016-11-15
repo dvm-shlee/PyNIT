@@ -972,7 +972,7 @@ class Preprocess(object):
                                      finfo.Abspath, warped.Abspath, warps, mats, **in_kwargs)
                 # subjatlas = InternalMethods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
                 subjatlas = InternalMethods.load_temp(output_path, '{}_atlas.nii'.format(temp_path))
-                subjatlas.show()
+                # subjatlas.show()
                 fig = subjatlas.show(**kwargs)
                 if type(fig) is tuple:
                     fig = fig[0]
@@ -1091,6 +1091,82 @@ class Preprocess(object):
                                          '{}.png'.format('-'.join([subj, sess, 'anat2func']))),
                             facecolor=fig2.get_facecolor())
         return {'norm_anat': step01, 'checkreg': step02}
+
+    def apply_spatial_normalization(self, func, norm_anat, tempobj, dtype='func', **kwargs):
+        """
+
+        Parameters
+        ----------
+        func
+        norm_anat
+        dtype
+
+        Returns
+        -------
+
+        """
+        dataclass, func = InternalMethods.check_input_dataclass(func)
+        print('ApplyingSpatialNormalization-{}'.format(func))
+        step01 = self.init_step('ApplyingSpatialNormalization-{}'.format(dtype))
+        num_step = os.path.basename(step01).split('_')[0]
+        step02 = self.final_step('{}_CheckAtlasRegistration-{}'.format(num_step, dtype))
+        for subj in self.subjects:
+            print("-Subject: {}".format(subj))
+            InternalMethods.mkdir(os.path.join(step01, subj))
+            if self._prjobj.single_session:
+                ref = self._prjobj(1, self._pipeline, os.path.basename(norm_anat), subj)
+                param = self._prjobj(1, self._pipeline, os.path.basename(norm_anat), subj, ext='.1D')
+                temp_path = os.path.join(step01, subj, "base")
+                tempobj.save_as(temp_path, quiet=True)
+                funcs = self._prjobj(dataclass, os.path.basename(func), subj)
+                InternalMethods.mkdir(os.path.join(step02, 'AllSubjects'))
+                for i, finfo in funcs:
+                    print(" +Filename: {}".format(finfo.Filename))
+                    moved_img = os.path.join(step01, subj, finfo.Filename)
+                    self._prjobj.run('afni_3dAllineate', moved_img, finfo.Abspath, master=ref.df.Abspath.loc[0],
+                                     matrix_apply=param.df.Abspath.loc[0], warp='shr')
+                subjatlas = InternalMethods.load_temp(os.path.join(step01, subj), '{}_atlas.nii'.format(temp_path))
+                fig = subjatlas.show(**kwargs)
+                if type(fig) is tuple:
+                    fig = fig[0]
+                fig.suptitle('Check atlas registration of {}'.format(subj), fontsize=12, color='yellow')
+                fig.savefig(
+                    os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'checkatlas']))),
+                    facecolor=fig.get_facecolor())
+                os.remove('{}_atlas.nii'.format(temp_path))
+                os.remove('{}_atlas.label'.format(temp_path))
+                os.remove('{}_template.nii'.format(temp_path))
+            else:
+                for sess in self.sessions:
+                    print(" :Session: {}".format(sess))
+                    InternalMethods.mkdir(os.path.join(step01, subj, sess),
+                                          os.path.join(step02, subj),
+                                          os.path.join(step02, subj, 'AllSessions'))
+                    ref = self._prjobj(1, self._pipeline, os.path.basename(norm_anat), subj, sess)
+                    param = self._prjobj(1, self._pipeline, os.path.basename(norm_anat), subj, sess, ext='.1D')
+                    temp_path = os.path.join(step01, subj, sess, "base")
+                    tempobj.save_as(temp_path, quiet=True)
+                    funcs = self._prjobj(dataclass, os.path.basename(func), subj, sess)
+                    for i, finfo in funcs:
+                        print(" +Filename: {}".format(finfo.Filename))
+                        moved_img = os.path.join(step01, subj, sess, finfo.Filename)
+                        self._prjobj.run('afni_3dAllineate', moved_img, finfo.Abspath, master=ref.df.Abspath.loc[0],
+                                         matrix_apply=param.df.Abspath.loc[0], warp='shr')
+                    subjatlas = InternalMethods.load_temp(os.path.join(step01, subj, sess),
+                                                          '{}_atlas.nii'.format(temp_path))
+                    fig = subjatlas.show(**kwargs)
+                    if type(fig) is tuple:
+                        fig = fig[0]
+                    fig.suptitle('Check atlas registration of {}-{}'.format(subj, sess), fontsize=12, color='yellow')
+                    fig.savefig(
+                        os.path.join(step02, subj, sess, 'AllSessions',
+                                     '{}.png'.format('-'.join([subj, sess, 'checkatlas']))),
+                        facecolor=fig.get_facecolor())
+                    os.remove('{}_atlas.nii'.format(temp_path))
+                    os.remove('{}_atlas.label'.format(temp_path))
+                    os.remove('{}_template.nii'.format(temp_path))
+
+        return {'func': step01}
 
     def warp_anat_to_template(self, anat, tempobj, dtype='anat', ttype='s', **kwargs): # TODO: This code not work if the template image resolution is different with T2 image
         """ Method for warping the individual anatomical image to template
