@@ -1125,7 +1125,7 @@ class Preprocess(object):
                     moved_img = os.path.join(step01, subj, finfo.Filename)
                     self._prjobj.run('afni_3dAllineate', moved_img, finfo.Abspath, master=ref.df.Abspath.loc[0],
                                      matrix_apply=param.df.Abspath.loc[0], warp='shr')
-                subjatlas = InternalMethods.load_temp(os.path.join(step01, subj), '{}_atlas.nii'.format(temp_path))
+                subjatlas = InternalMethods.load_temp(moved_img, '{}_atlas.nii'.format(temp_path))
                 fig = subjatlas.show(**kwargs)
                 if type(fig) is tuple:
                     fig = fig[0]
@@ -1152,8 +1152,7 @@ class Preprocess(object):
                         moved_img = os.path.join(step01, subj, sess, finfo.Filename)
                         self._prjobj.run('afni_3dAllineate', moved_img, finfo.Abspath, master=ref.df.Abspath.loc[0],
                                          matrix_apply=param.df.Abspath.loc[0], warp='shr')
-                    subjatlas = InternalMethods.load_temp(os.path.join(step01, subj, sess),
-                                                          '{}_atlas.nii'.format(temp_path))
+                    subjatlas = InternalMethods.load_temp(moved_img, '{}_atlas.nii'.format(temp_path))
                     fig = subjatlas.show(**kwargs)
                     if type(fig) is tuple:
                         fig = fig[0]
