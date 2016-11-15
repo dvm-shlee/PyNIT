@@ -1158,7 +1158,7 @@ class Preprocess(object):
                         fig = fig[0]
                     fig.suptitle('Check atlas registration of {}-{}'.format(subj, sess), fontsize=12, color='yellow')
                     fig.savefig(
-                        os.path.join(step02, subj, sess, 'AllSessions',
+                        os.path.join(step02, subj, 'AllSessions',
                                      '{}.png'.format('-'.join([subj, sess, 'checkatlas']))),
                         facecolor=fig.get_facecolor())
                     os.remove('{}_atlas.nii'.format(temp_path))
