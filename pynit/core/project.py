@@ -791,8 +791,8 @@ class Preprocess(object):
         step_paths          : dict
         """
         dataclass, func = InternalMethods.check_input_dataclass(func)
-        print('GlobalRegression-{}'.format(func))
-        step01 = self.init_step('GlobalRegression-{}'.format(dtype))
+        print('MotionRegression-{}'.format(func))
+        step01 = self.init_step('MotionRegression-{}'.format(dtype))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
             InternalMethods.mkdir(os.path.join(step01, subj))
@@ -801,7 +801,7 @@ class Preprocess(object):
                 for i, finfo in funcs:
                     print(" +Filename: {}".format(finfo.Filename))
                     regressor = self._prjobj(dataclass, motioncorrected_func, subj, ext='.1D', ignore='.aff12',
-                                             file_tag=os.path.splitext(finfo.Filename)[0]).Abspath[0]
+                                             file_tag=os.path.splitext(finfo.Filename)[0]).df.Abspath[i]
                     self._prjobj.run('afni_3dDetrend', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
                                      vector=regressor, polort=str(detrend))
             else:
@@ -812,7 +812,7 @@ class Preprocess(object):
                     for i, finfo in funcs:
                         print("  +Filename: {}".format(finfo.Filename))
                         regressor = self._prjobj(dataclass, motioncorrected_func, subj, ext='.1D', ignore='.aff12',
-                                                 file_tag=os.path.splitext(finfo.Filename)[0]).Abspath[0]
+                                                 file_tag=os.path.splitext(finfo.Filename)[0]).df.Abspath[i]
                         self._prjobj.run('afni_3dDetrend', os.path.join(step01, subj, sess, finfo.Filename),
                                          finfo.Abspath, vector=regressor, polort=str(detrend))
         return {'func': step01}
@@ -1032,7 +1032,7 @@ class Preprocess(object):
         print('SpatialNormalization-{} to Tempalte'.format(anat))
         step01 = self.init_step('SpatialNormalization-{}2temp'.format(dtype))
         num_step = os.path.basename(step01).split('_')[0]
-        step02 = self.final_step('{}_CheckRegistraton-{}'.format(num_step, dtype))
+        step02 = self.final_step('{}_CheckRegistraton-{}2Temp'.format(num_step, dtype))
         # Loop the subjects
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
@@ -1053,12 +1053,12 @@ class Preprocess(object):
                     fig1 = Viewer.check_reg(InternalMethods.load(fixed_img),
                                             InternalMethods.load(moved_img), sigma=2, **kwargs)
                     fig1.suptitle('T2 to Temp for {}'.format(subj), fontsize=12, color='yellow')
-                    fig1.savefig(os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'func2anat']))),
+                    fig1.savefig(os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'anat2temp']))),
                                  facecolor=fig1.get_facecolor())
                     fig2 = Viewer.check_reg(InternalMethods.load(moved_img),
                                             InternalMethods.load(fixed_img), sigma=2, **kwargs)
                     fig2.suptitle('Temp to T2 for {}'.format(subj), fontsize=12, color='yellow')
-                    fig2.savefig(os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'anat2func']))),
+                    fig2.savefig(os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'temp2anat']))),
                                  facecolor=fig2.get_facecolor())
             else:
                 InternalMethods.mkdir(os.path.join(step02, subj), os.path.join(step02, subj, 'AllSessions'))
@@ -1066,7 +1066,7 @@ class Preprocess(object):
                     print(" :Session: {}".format(sess))
                     anats = self._prjobj(dataclass, anat, subj, sess)
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
-                    InternalMethods.mkdir(os.path.join(step02, subj, 'AllSubjects'))
+                    InternalMethods.mkdir(os.path.join(step02, subj, 'AllSessions'))
                     for i, finfo in anats:
                         print("  +Filename: {}".format(finfo.Filename))
                         fixed_img = tempobj.template_path
@@ -1081,14 +1081,14 @@ class Preprocess(object):
                         fig1.suptitle('T2 to Temp for {}-{}'.format(subj, sess), fontsize=12, color='yellow')
                         fig1.savefig(
                             os.path.join(step02, subj, 'AllSessions',
-                                         '{}.png'.format('-'.join([subj, sess, 'func2anat']))),
+                                         '{}.png'.format('-'.join([subj, sess, 'anat2temp']))),
                             facecolor=fig1.get_facecolor())
                         fig2 = Viewer.check_reg(InternalMethods.load(moved_img),
                                                 InternalMethods.load(fixed_img), sigma=2, **kwargs)
                         fig2.suptitle('Temp to T2 for {}-{}'.format(subj, sess), fontsize=12, color='yellow')
                         fig2.savefig(
-                            os.path.join(step02, subj, 'AllSubjects',
-                                         '{}.png'.format('-'.join([subj, sess, 'anat2func']))),
+                            os.path.join(step02, subj, 'AllSessions',
+                                         '{}.png'.format('-'.join([subj, sess, 'temp2anat']))),
                             facecolor=fig2.get_facecolor())
         return {'norm_anat': step01, 'checkreg': step02}
 
@@ -1112,14 +1112,14 @@ class Preprocess(object):
         step02 = self.final_step('{}_CheckAtlasRegistration-{}'.format(num_step, dtype))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            InternalMethods.mkdir(os.path.join(step01, subj))
+            InternalMethods.mkdir(os.path.join(step01, subj),
+                                  os.path.join(step02, 'AllSubjects'))
             if self._prjobj.single_session:
                 ref = self._prjobj(1, self._pipeline, os.path.basename(norm_anat), subj)
                 param = self._prjobj(1, self._pipeline, os.path.basename(norm_anat), subj, ext='.1D')
                 temp_path = os.path.join(step01, subj, "base")
                 tempobj.save_as(temp_path, quiet=True)
                 funcs = self._prjobj(dataclass, os.path.basename(func), subj)
-                InternalMethods.mkdir(os.path.join(step02, 'AllSubjects'))
                 for i, finfo in funcs:
                     print(" +Filename: {}".format(finfo.Filename))
                     moved_img = os.path.join(step01, subj, finfo.Filename)
