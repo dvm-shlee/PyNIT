@@ -374,6 +374,7 @@ class Interface(object):
             if 'quiet' in kwargs.keys():
                 cmd.append("-quiet")
         cmd.append("'{}'".format(input_path))
+        print(cmd)
         cmd = list2cmdline(cmd)
         call(shl.split(cmd))
 
