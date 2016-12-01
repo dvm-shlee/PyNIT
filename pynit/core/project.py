@@ -865,7 +865,7 @@ class Preprocess(object):
                         spre.close()
         return {'cbv': step01}
 
-    def spatial_smoothing(self, func, mask=False, FWHM=False, quiet=False):
+    def spatial_smoothing(self, func, mask=False, FWHM=False, quiet=False, dtype='func'):
         """
 
         Parameters
