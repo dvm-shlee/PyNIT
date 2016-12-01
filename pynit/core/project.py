@@ -865,6 +865,49 @@ class Preprocess(object):
                         spre.close()
         return {'cbv': step01}
 
+    def spatial_smoothing(self, func, mask=False, FWHM=False, quiet=False):
+        """
+
+        Parameters
+        ----------
+        func
+        mask
+        FWHM
+        quiet
+
+        Returns
+        -------
+
+        """
+        dataclass, func = InternalMethods.check_input_dataclass(func)
+        print('SpatialSmoothing-{}'.format(func))
+        step01 = self.init_step('SpatialSmoothing-{}'.format(dtype))
+        for subj in self.subjects:
+            print("-Subject: {}".format(subj))
+            InternalMethods.mkdir(os.path.join(step01, subj))
+            if self._prjobj.single_session:
+                epi = self._prjobj(dataclass, func, subj)
+                epimask = self._prjobj(1, self._pipeline, os.path.basename(mask), subj, file_tag='_mask').df
+                for i, finfo in epi:
+                    if mask:
+                        mask = epimask[i].Abspath
+                    print(" +Filename: {}".format(finfo.Filename))
+                    self._prjobj.run('afni_3dBlurInMask', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
+                                     mask=mask, FWHM=FWHM, quiet=quiet)
+            else:
+                for sess in self.sessions:
+                    print(" :Session: {}".format(sess))
+                    InternalMethods.mkdir(os.path.join(step01, subj, sess))
+                    epi = self._prjobj(dataclass, func, subj, sess)
+                    epimask = self._prjobj(1, self._pipeline, os.path.basename(mask), subj, sess, file_tag='_mask').df
+                    for i, finfo in epi:
+                        if mask:
+                            mask = epimask[i].Abspath
+                        print(" +Filename: {}".format(finfo.Filename))
+                        self._prjobj.run('afni_3dBlurInMask', os.path.join(step01, subj, sess, finfo.Filename), finfo.Abspath,
+                                         mask=mask, FWHM=FWHM, quiet=quiet)
+        return {'func': step01}
+
     def signal_processing(self, func, dt=1, norm=False, despike=False, detrend=False,
                           blur=False, band=False, dtype='func', file_tag=None, ignore=None):
         """ Method for signal processing and spatial smoothing of individual functional image

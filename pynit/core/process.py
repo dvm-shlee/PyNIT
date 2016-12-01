@@ -359,6 +359,25 @@ class Interface(object):
         call(shl.split(cmd))
 
     @staticmethod
+    def afni_3dBlurInMask(output_path, input_path, **kwargs):
+        cmd = ['3dBlurInMas', '-prefix']
+        cmd.append("'{}'".format(output_path))
+        if kwargs:
+            if 'FWHM' in kwargs.keys():
+                cmd.append("-FWHM")
+                cmd.append(kwargs['FWHM'])
+            if 'mask' in kwargs.keys():
+                cmd.append("-mask")
+                cmd.append(kwargs['mask'])
+            else:
+                cmd.append("-automask")
+            if 'quiet' in kwargs.keys():
+                cmd.append("-quiet")
+        cmd.append("'{}'".format(input_path))
+        cmd = list2cmdline(cmd)
+        call(shl.split(cmd))
+
+    @staticmethod
     def afni_3dBandpass(output_path, input_path, norm=False, detrend=False, despike=False, mask=None, blur=False,
                         band=False, dt='1'):
         # AFNI signal processing for resting state (3dBandpass)
