@@ -887,7 +887,10 @@ class Preprocess(object):
             InternalMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 epi = self._prjobj(dataclass, func, subj)
-                epimask = self._prjobj(1, self._pipeline, os.path.basename(mask), subj, file_tag='_mask').df
+                if mask:
+                    epimask = self._prjobj(1, self._pipeline, os.path.basename(mask), subj, file_tag='_mask').df
+                else:
+                    epimask = None
                 for i, finfo in epi:
                     if mask:
                         mask = epimask[i].Abspath
@@ -899,7 +902,10 @@ class Preprocess(object):
                     print(" :Session: {}".format(sess))
                     InternalMethods.mkdir(os.path.join(step01, subj, sess))
                     epi = self._prjobj(dataclass, func, subj, sess)
-                    epimask = self._prjobj(1, self._pipeline, os.path.basename(mask), subj, sess, file_tag='_mask').df
+                    if mask:
+                        epimask = self._prjobj(1, self._pipeline, os.path.basename(mask), subj, sess, file_tag='_mask').df
+                    else:
+                        epimask = False
                     for i, finfo in epi:
                         if mask:
                             mask = epimask[i].Abspath
