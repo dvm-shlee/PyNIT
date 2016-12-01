@@ -1933,6 +1933,7 @@ class Project(object):
                     getattr(Interface, command)(*args, **kwargs)
             except:
                 exec('help(Interface.{})'.format(command))
+                print(Interface, command, args, kwargs)
                 raise error.CommandExecutionFailure
         else:
             raise error.NotExistingCommand
