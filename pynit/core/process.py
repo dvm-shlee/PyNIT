@@ -367,8 +367,11 @@ class Interface(object):
                 cmd.append("-FWHM")
                 cmd.append(kwargs['FWHM'])
             if 'mask' in kwargs.keys():
-                cmd.append("-mask")
-                cmd.append(kwargs['mask'])
+                if kwargs['mask']:
+                    cmd.append("-mask")
+                    cmd.append(kwargs['mask'])
+                else:
+                    pass
             else:
                 cmd.append("-automask")
             if 'quiet' in kwargs.keys():
