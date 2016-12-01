@@ -910,8 +910,8 @@ class Preprocess(object):
                         if mask:
                             mask = epimask[i].Abspath
                         print(" +Filename: {}".format(finfo.Filename))
-                        self._prjobj.run('afni_3dBlurInMask', os.path.join(step01, subj, sess, finfo.Filename), finfo.Abspath,
-                                         mask=mask, FWHM=FWHM, quiet=quiet)
+                        self._prjobj.run('afni_3dBlurInMask', os.path.join(step01, subj, sess, finfo.Filename),
+                                         finfo.Abspath, mask=mask, FWHM=FWHM, quiet=quiet)
         return {'func': step01}
 
     def signal_processing(self, func, dt=1, norm=False, despike=False, detrend=False,

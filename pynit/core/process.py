@@ -360,7 +360,7 @@ class Interface(object):
 
     @staticmethod
     def afni_3dBlurInMask(output_path, input_path, **kwargs):
-        cmd = ['3dBlurInMas', '-prefix']
+        cmd = ['3dBlurInMask', '-prefix']
         cmd.append("'{}'".format(output_path))
         if kwargs:
             if 'FWHM' in kwargs.keys():
