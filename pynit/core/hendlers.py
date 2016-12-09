@@ -295,6 +295,8 @@ class Project(object):
                         self.__filters[2] = None
                     if self.steps:
                         step_filter, residuals = ProjectMethods.check_arguments(args, residuals, self.steps)
+                        print(self.steps)
+                        print(step_filter)
                         # step_filter = [arg for arg in args if arg in self.steps]
                         # for step in step_filter:
                         #     residuals.remove(step)
