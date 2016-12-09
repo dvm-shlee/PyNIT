@@ -283,11 +283,6 @@ class Project(object):
                         self.__filters[2] = None
                     if self.steps:
                         step_filter, residuals = ProjectMethods.check_arguments(args, residuals, self.steps)
-                        print(self.steps)
-                        # print(step_filter)
-                        # step_filter = [arg for arg in args if arg in self.steps]
-                        # for step in step_filter:
-                        #     residuals.remove(step)
                         if self.__filters[3]:
                             self.__filters[3].extend(step_filter)
                         else:
@@ -297,9 +292,6 @@ class Project(object):
                 else:
                     if self.pipelines:
                         pipe_filter, residuals = ProjectMethods.check_arguments(args, residuals, self.pipelines)
-                        # pipe_filter = [arg for arg in args if arg in self.pipelines]
-                        # for pipe in pipe_filter:
-                        #     residuals.remove(pipe)
                         if self.__filters[2]:
                             self.__filters[2].extend(pipe_filter)
                         else:
@@ -308,9 +300,6 @@ class Project(object):
                         self.__filters[2] = None
                     if self.results:
                         rslt_filter, residuals = ProjectMethods.check_arguments(args, residuals, self.results)
-                        # rslt_filter = [arg for arg in args if arg in self.results]
-                        # for rslt in rslt_filter:
-                        #     residuals.remove(rslt)
                         if self.__filters[3]:
                             self.__filters[3].extend(rslt_filter)
                         else:
@@ -534,7 +523,7 @@ class Process(object):
     def initiate_pipeline(self, pipeline):
         SystemMethods.mkdir(os.path.join(self._prjobj.path, self._prjobj.ds_type[1], pipeline))
         self._pipeline = pipeline
-        self._prjobj.scan_prj()
+        # self._prjobj.scan_prj()
 
     def init_step(self, stepname):
         if self._pipeline:
@@ -542,10 +531,10 @@ class Process(object):
             steppath = os.path.join(self._prjobj.path, self._prjobj.ds_type[1], self._pipeline, steppath)
             SystemMethods.mkdir(steppath)
             # print(self._prjobj.steps)
-            self._prjobj.dataclass = 1
-            print(self._prjobj.steps)
-            self._prjobj.steps.append(steppath)
-            print(self._prjobj.steps)
+            # self._prjobj.dataclass = 1
+            # print(self._prjobj.steps)
+            # self._prjobj.steps.append(steppath)
+            # print(self._prjobj.steps)
             return steppath
         else:
             raise messages.PipelineNotSet
