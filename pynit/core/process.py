@@ -1,10 +1,40 @@
-# Standard library
 import shlex as shl
 from string import ascii_lowercase as lc
-from subprocess import list2cmdline, check_output, call
-import error
 from shutil import rmtree
+from subprocess import list2cmdline, check_output, call
+import multiprocessing
+# import subprocess
+import messages
 from .methods import InternalMethods, np, pd, os
+
+
+class Wrapper(object):
+    """ Wrapper class for command line packages
+    """
+    _command = ""
+    _args = list()
+    _kwargs = dict()
+
+    def __init__(self, command=None, *args, **kwargs):
+        self._command = command
+
+    @property
+    def command(self):
+        return self._command
+
+    @property
+    def args(self):
+        return self._args
+
+    @property
+    def kwargs(self):
+        return self._kwargs
+
+    def run(self):
+        pass
+
+    def __doc__(self):
+        return "Help!!!!"
 
 
 class Analysis(object):
@@ -216,13 +246,13 @@ class Interface(object):
                     cmd.append(kwargs[arg])
                 if arg == 'master':
                     if arg == 'base':
-                        raise error.ArgumentsOverlapped
+                        raise messages.ArgumentsOverlapped
                     else:
                         cmd.append('-{}'.format(arg))
                         cmd.append(kwargs[arg])
                 if arg == 'base':
                     if arg == 'master':
-                        raise error.ArgumentsOverlapped
+                        raise messages.ArgumentsOverlapped
                     else:
                         cmd.append('-{}'.format(arg))
                         cmd.append(kwargs[arg])
@@ -488,7 +518,7 @@ class Interface(object):
                 cmd.append('-x1D')
                 cmd.append(str(output_path))
             else:
-                raise error.CommandExecutionFailure
+                raise messages.CommandExecutionFailure
         else:
             cmd.append('-x1D')
             cmd.append('stdout:')

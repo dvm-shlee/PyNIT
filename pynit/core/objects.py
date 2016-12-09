@@ -1,7 +1,7 @@
 from .visual import Viewer
-from .methods import InternalMethods, np, nib, os
+from .methods import SystemMethods, InternalMethods, np, nib, os
 from .process import TempFile
-import error
+import messages
 
 
 class Reference(object):
@@ -162,14 +162,14 @@ class Template(object):
             try:
                 self.load(path)
             except:
-                raise error.InputPathError
+                raise messages.InputPathError
             if atlas:
                 try:
                     self.set_atlas(atlas)
                 except:
-                    raise error.InputPathError
+                    raise messages.InputPathError
         else:
-            raise error.InputFileError
+            raise messages.InputFileError
         if self._object:
             self._path = TempFile(self._image, 'temp_template')
         else:
@@ -184,7 +184,7 @@ class Template(object):
         if type(imageobj) is ImageObj:
             self._image = imageobj
         else:
-            raise error.InputObjectError
+            raise messages.InputObjectError
 
     @property
     def atlas(self):
@@ -278,7 +278,7 @@ class Atlas(object):
             # except:
             # raise error.InputPathError
         else:
-            raise error.InputFileError
+            raise messages.InputFileError
 
     @property
     def image(self):
@@ -293,7 +293,7 @@ class Atlas(object):
         if type(imageobj) is ImageObj:
             self._image = imageobj
         else:
-            raise error.InputObjectError
+            raise messages.InputObjectError
 
     def load(self, path):
         self._image, self._label = InternalMethods.parsing_atlas(path)
@@ -306,9 +306,9 @@ class Atlas(object):
     def extract(self, path):
         if not os.path.exists(path):
             try:
-                InternalMethods.mkdir(path)
+                SystemMethods.mkdir(path)
             except:
-                raise error.InputPathError
+                raise messages.InputPathError
         atlas = self._image.dataobj
         num_of_rois = int(np.max(atlas))
         for i in range(num_of_rois):

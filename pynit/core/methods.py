@@ -3,6 +3,7 @@ from __future__ import print_function
 import os
 import re
 import shutil
+import sys
 
 try:
     import SimpleITK as sitk
@@ -11,26 +12,78 @@ except ImportError:
 
 import pandas as pd
 import nibabel as nib
-import nibabel.affines as affns
 import numpy as np
+from functools import wraps
 from skimage import exposure
+from nibabel import affines as affns
 
 import objects
-import error
+import messages
+
+
+class SystemMethods(object):
+    @staticmethod
+    def mkdir(*paths):
+        """ Make directory
+
+        Parameters
+        ----------
+        paths           : str or list
+            list of path
+
+        Returns
+        -------
+        None
+        """
+        for path in paths:
+            try:
+                os.mkdir(path)
+            except:
+                pass
+
+    @staticmethod
+    def raiseerror(exception, message):
+        """ Raise User friendly error message
+
+        Parameters
+        ----------
+        exception       : Exception
+            Excaption want to be raised
+        message         : str
+            Message
+        Returns
+        -------
+        None
+        """
+        try:
+            raise exception(message)
+        except Exception as e:
+            sys.stderr.write("ERROR({0}): {1}".format(e.__doc__, e.message))
+            messages.warnings.simplefilter("ignore")
+            sys.exit()
+
+    @staticmethod
+    def path_splitter(path):
+        """ Split path structure into list
+
+        Parameters
+        ----------
+        path        : str
+
+        Returns
+        -------
+        path        : list
+        """
+        return path.strip(os.sep).split(os.sep)
+
 
 class ProjectMethods(object):
     """ Set of methods for handling project object
     """
 
     @staticmethod
-    def path_splitter(path):
-        """Split path structure into list
-        """
-        return path.strip(os.sep).split(os.sep)
-
-    @staticmethod
     def parsing(path, ds_type, idx):
-        """ Parsing the information of structured dataset from the pointed data class
+        """ Parsing the information of dataset from the pointed data class
 
         Parameters
         ----------
@@ -44,7 +97,12 @@ class ProjectMethods(object):
         Returns
         -------
         pandas.DataFrame
-        boolean
+            Dataset
+        single_session  : boolean
+            True if single session dataset
+        empty_project   : boolean
+            True if empty project folder
+
         """
         single_session = False
         empty_prj = False
@@ -52,7 +110,7 @@ class ProjectMethods(object):
         for f in os.walk(os.path.join(path, ds_type[idx])):
             if f[2]:
                 for filename in f[2]:
-                    row = pd.Series(ProjectMethods.path_splitter(os.path.relpath(f[0], path)))
+                    row = pd.Series(SystemMethods.path_splitter(os.path.relpath(f[0], path)))
                     row['Filename'] = filename
                     row['Abspath'] = os.path.join(f[0], filename)
                     df = df.append(pd.DataFrame([row]), ignore_index=True)
@@ -63,20 +121,64 @@ class ProjectMethods(object):
             if len(df.columns) is 6:
                 single_session = True
         columns = ProjectMethods.update_columns(idx, single_session)
-        if not len(df):
+        df = df.rename(columns=columns)
+        if 'Subject' not in df.columns:
             empty_prj = True
-        return df.rename(columns=columns).sort_values('Abspath'), single_session, empty_prj
+        elif not len(df):
+            empty_prj = True
+        if empty_prj:
+            # print('{ds_type} folder is empty'.format(ds_type=ds_type[idx]))
+            return pd.DataFrame(), single_session, empty_prj
+        else:
+            return df.sort_values('Abspath'), single_session, empty_prj
+
+    @staticmethod
+    def initial_filter(df, data_class, ext):
+        """ Filtering out only selected file type in the project folder
+
+        Parameters
+        ----------
+        df          : pandas.DataFrame
+            Dataframe of project boject
+        data_class  : list
+            Dataclass want to be filtered
+            e.g.) One of value in ['Data', 'Processing', 'Results'] for NIRAL method
+        ext         : list
+            Extension want to be filtered
+
+        Returns
+        -------
+        df          : pandas.DataFrame
+            Filtered dataframe
+
+        """
+        if data_class:
+            if not type(data_class) is list:
+                data_class = [data_class]
+            try:
+                df = df[df['DataClass'].isin(data_class)]
+            except TypeError as e:
+                print("Type error({0}): {1}".format(e.errno, e.strerror))
+        if ext:
+            df = df[df['Filename'].str.contains('|'.join(ext))]
+        columns = df.columns
+        return df.reset_index()[columns]
 
     @staticmethod
     def update_columns(idx, single_session):
-        """Update columns information based on data class
+        """ Update name of columns according to the set Dataclass
 
-        :param single_session: boolean
-            True, if the project has only single session for each subject
-        :param idx: int
-            Index of the data class
-        :return: dict
-            Updated columns
+        Parameters
+        ----------
+        idx             : int
+            Dataclass index
+        single_session  : boolean
+            True if the project is single session
+
+        Returns
+        -------
+        column          : dict
+            New list of columns
         """
         if idx == 0:
             if single_session:
@@ -94,11 +196,19 @@ class ProjectMethods(object):
 
     @staticmethod
     def reorder_columns(idx, single_session):
-        """ reorder the project columns
+        """ Reorder the name of columns
 
-        :param idx:
-        :param single_session:
-        :return:
+        Parameters
+        ----------
+        idx             : int
+            Dataclass index
+        single_session  : boolean
+            True if the project is single session
+
+        Returns
+        -------
+        column          : list or None
+            Reordered column
         """
         if idx == 0:
             if single_session:
@@ -119,38 +229,48 @@ class ProjectMethods(object):
             return None
 
     @staticmethod
-    def initial_filter(df, data_class, ext):
-        """Filtering out only selected file type in the project folder
-
-        :param df: pandas.DataFrame
-            Project dataframe
-        :param data_class: list
-            Interested data class of the project
-            e.g.) ['Data', 'Processing', 'Results'] for NIRAL method
-        :param ext: list
-            Interested extension for particular file type
-        :return: pandas.DataFrame
-            Filtered dataframe
-        """
-        if data_class:
-            if not type(data_class) is list:
-                data_class = [data_class]
-            try:
-                df = df[df['DataClass'].isin(data_class)]
-            except:
-                print('Error')
-        if ext:
-            df = df[df['Filename'].str.contains('|'.join(ext))]
-        columns = df.columns
-        return df.reset_index()[columns]
-
-    @staticmethod
     def mk_main_folder(prj):
-        """Make processing and results folders
+        """ Make processing and results folders
+
+        Parameters
+        ----------
+        prj         : pynit.Project
+
+        Returns
+        -------
+        None
         """
-        ProjectMethods.mkdir(os.path.join(prj.path, prj.ds_type[0]),
+        SystemMethods.mkdir(os.path.join(prj.path, prj.ds_type[0]),
                               os.path.join(prj.path, prj.ds_type[1]),
                               os.path.join(prj.path, prj.ds_type[2]))
+
+    @staticmethod
+    def check_arguments(args, residuals, lists):
+        """ Parse the values in the list to be used as filter
+
+        Parameters
+        ----------
+        args        : tuple
+            Input arguments for filtering
+        residuals   : list
+            Residual values
+        lists       : list
+            Attributes of project object
+
+        Returns
+        -------
+        filter      : list
+            Values need to be filtered
+        residuals   : list
+            Residual values
+        """
+        filter = [arg for arg in args if arg in lists]
+        residuals = list(residuals)
+        if len(filter):
+            for comp in filter:
+                if comp in residuals:
+                    residuals.remove(comp)
+        return filter, residuals
 
     @staticmethod
     def get_step_name(prjobj, step):
@@ -173,18 +293,27 @@ class ProjectMethods(object):
             return "_".join([str(1).zfill(3), step])
 
     @staticmethod
-    def mkdir(*paths):
-        for path in paths:
-            try:
-                os.mkdir(path)
-            except:
-                pass
-
-    @staticmethod
     def copyfile(output_path, input_path, *args):
         """ Copy File
         """
         shutil.copyfile(input_path, output_path)
+
+
+class ProcessMethods(object):
+    @staticmethod
+    def subjectsloop(process):
+        subjects = process.subjects[:]
+        def decorator(f):
+            @wraps(f)
+            def wrapped(*args, **kwargs):
+                for subj in subjects:
+                    files = process._prjobj(args[0], subj, *args[1:], **kwargs)
+                    for i, finfo in files:
+                        print(finfo.Filename)
+                    r = f(*args, **kwargs)
+                return r
+            return wrapped
+        return decorator
 
 
 class InternalMethods(object):
@@ -236,14 +365,14 @@ class InternalMethods(object):
             try:
                 mha = sitk.ReadImage(filename)
             except:
-                raise error.ImportItkFailure
+                raise messages.ImportItkFailure
             data = sitk.GetArrayFromImage(mha)
             resol = mha.GetSpacing()
             origin = mha.GetOrigin()
             affine = affns.from_matvec(np.diag(resol), origin)
             img = objects.ImageObj(data, affine)
         else:
-            raise error.InputPathError
+            raise messages.InputPathError
         return img
 
     @staticmethod
@@ -397,9 +526,9 @@ class InternalMethods(object):
                         else:
                             filepath = filepath
                 if filepath == os.path.basename(InternalMethods.remove_nifti_ext(path)):
-                    raise error.NoLabelFile
+                    raise messages.NoLabelFile
             else:
-                raise error.NoLabelFile
+                raise messages.NoLabelFile
             pattern = r'^\s+(?P<idx>\d+)\s+(?P<R>\d+)\s+(?P<G>\d+)\s+(?P<B>\d+)\s+' \
                       r'(\d+|\d+\.\d+)\s+\d+\s+\d+\s+"(?P<roi>.*)$'
             with open(filepath, 'r') as labelfile:
@@ -413,7 +542,7 @@ class InternalMethods(object):
                         rgb = np.array(map(float, rgb))/255
                         label[idx] = roi, rgb
         else:
-            raise error.InputPathError
+            raise messages.InputPathError
         return atlas, label
 
     @staticmethod
@@ -495,7 +624,7 @@ class InternalMethods(object):
         elif dim == 3:
             data = np.asarray(imageobj.dataobj)
         else:
-            raise error.ImageDimentionMismatched
+            raise messages.ImageDimentionMismatched
         return data
 
     @staticmethod
@@ -549,15 +678,12 @@ class InternalMethods(object):
             slice_num = dataobj.shape[axis]/2
         return slice_num
 
-    # Method collection for project handler
-
-
     # Method collection for preprocessing
     @staticmethod
     def check_input_dataclass(datatype):
         if os.path.exists(datatype):
             dataclass = 1
-            datatype = InternalMethods.path_splitter(datatype)[-1]
+            datatype = SystemMethods.path_splitter(datatype)[-1]
         else:
             #if os.path.exists(datatype): TODO: Raise error when the path not exist even in Data path
             dataclass = 0
@@ -573,7 +699,7 @@ class InternalMethods(object):
                 tempobj = atlas
                 atlas = tempobj.atlas_path
             except:
-                raise error.InputObjectError
+                raise messages.InputObjectError
         return atlas, tempobj
 
     @staticmethod
@@ -657,11 +783,3 @@ class InternalMethods(object):
         if filename:
             travelseed_obj.to_filename(filename)
         return travelseed_obj
-
-
-# class Usage(object):
-#     @staticmethod
-#     def project_run():
-#         output = """ Usage: <prj_instance>.run(command)
-#         """
-#         return output

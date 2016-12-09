@@ -1,9 +1,10 @@
-import os
+import os, copy
 from .objects import Reference, ImageObj
 from .process import Analysis, Interface, TempFile
-from .methods import ProjectMethods, InternalMethods, pd, np
+from .methods import np, pd, SystemMethods, ProjectMethods, InternalMethods
 from .visual import Viewer
-import error
+import messages
+
 
 class Project(object):
     """Project Handler for Neuroimage data
@@ -21,7 +22,7 @@ class Project(object):
         img_format:     str
             Reference img format
         """
-        # Pandas dataframe display options
+        # Display options for pandasDataframe
         max_rows = 100
         max_colwidth = 100
         if kwargs:
@@ -35,13 +36,13 @@ class Project(object):
         # Define default attributes
         self.single_session = False             # True if project has single session
         self.__empty_project = False            # True if project folder is empty
-        self.__filters = [None] * 6             # Empty filters
+        self.__filters = [None] * 6
         # Each values are represented subject, session, dtype(or pipeline), step(or results) file_tags, ignores
+
         self.__path = project_path
 
         # Set internal objects
         self.__df = pd.DataFrame()
-        self.interface = Interface()
 
         # Parsing the information from the reference
         self.__ref = [ds_ref, img_format]       #
@@ -51,17 +52,16 @@ class Project(object):
 
         # Define default filter values
         self.__dc_idx = 0                       # Dataclass index
-        self.__pipeline = None                  # Pipeline
         self.__ext_filter = self.img_ext        # File extension
 
         # Generate folders for dataclasses
         ProjectMethods.mk_main_folder(self)
 
-        #
+        # Scan project folder
         try:
-            self.reload()
+            self.scan_prj()
         except:
-            raise error.ReloadFailure
+            SystemMethods.raiseerror(messages.Errors.ProjectScanFailure, 'Error is occurred during a scanning.')
 
     @property
     def df(self):
@@ -98,10 +98,10 @@ class Project(object):
     def dataclass(self, idx):
         if idx in range(3):
             self.__dc_idx = idx
-            self.reset()
+            self.reset_filters()
             self.__update()
         else:
-            raise error.NotExistingDataclass
+            SystemMethods.raiseerror(messages.Errors.InputDataclassError, 'Wrong dataclass index.')
 
     @property
     def subjects(self):
@@ -118,10 +118,6 @@ class Project(object):
     @property
     def pipelines(self):
         return self.__pipelines
-
-    @property
-    def pipeline(self):
-        return self.__pipeline
 
     @property
     def steps(self):
@@ -152,22 +148,10 @@ class Project(object):
         elif not value:
             self.__ext_filter = None
         else:
-            raise error.FilterInputTypeError
+            SystemMethods.raiseerror(messages.Errors.InputTypeError,
+                                     'Please use correct input type.')
 
-    def initiate_pipeline(self, pipeline):
-        ProjectMethods.mkdir(os.path.join(self.path, self.ds_type[1], pipeline))
-        self.__pipeline = pipeline
-
-    def initiate_step(self, stepname):
-        if self.__pipeline:
-            steppath = ProjectMethods.get_step_name(self, stepname)
-            steppath = os.path.join(self.path, self.ds_type[1], self.__pipeline, steppath)
-            ProjectMethods.mkdir(steppath)
-            return steppath
-        else:
-            raise error.PipelineNotSet
-
-    def reset(self, ext=None):
+    def reset_filters(self, ext=None):
         """ Reset filter - Clear all filter information and extension
 
         Parameters
@@ -180,15 +164,14 @@ class Project(object):
         None
         """
         self.__filters = [None] * 6
-        self.__pipeline = None
         if not ext:
-            self.ext = self.img_ext
+            self._ext = self.img_ext
         else:
-            self.ext = ext
-        self.reload()
+            self._ext = ext
+        self.scan_prj()
         self.__update()
 
-    def reload(self):
+    def scan_prj(self):
         """ Reload the Dataframe based on current set data class and extension
 
         Returns
@@ -205,16 +188,6 @@ class Project(object):
             self.__empty_project = False
         else:
             self.__empty_project = True
-
-    def copy(self):
-        """ Make copy of current project
-
-        Returns
-        -------
-        prj_obj : pynit.Project
-
-        """
-        return Project(self.__path, *self.__ref)
 
     def set_filters(self, *args, **kwargs):
         """ Set filters
@@ -239,28 +212,57 @@ class Project(object):
 
         """
         if kwargs:
-            if 'ext' in kwargs.keys():
-                self.ext = kwargs['ext']
-        if 'keep' in kwargs.keys():
-            # This option allows to keep previous filter
-            if kwargs['keep']:
-                self.__update()
-            else:
-                self.reset(self.ext)
+            for key in kwargs.keys:
+                if key == 'ext':
+                    self._ext = kwargs['ext']
+                elif key == 'keep':
+                    # This option allows to keep previous filter
+                    if kwargs['keep']:
+                        self.__update()
+                    else:
+                        self.reset_filters(self.ext)
+                elif key == 'file_tag':
+                    if type(kwargs['file_tag']) == str:
+                        self.__filters[4] = [kwargs['file_tag']]
+                    elif type(kwargs['file_tag']) == list:
+                        self.__filters[4] = kwargs['file_tag']
+                    else:
+                        SystemMethods.raiseerror(messages.Errors.InputTypeError,
+                                                 'Please use correct input type for FileTag')
+                elif key == 'ignore':
+                    if type(kwargs['ignore']) == str:
+                        self.__filters[5] = [kwargs['ignore']]
+                    elif type(kwargs['ignore']) == list:
+                        self.__filters[5] = kwargs['ignore']
+                    else:
+                        SystemMethods.raiseerror(messages.Errors.InputTypeError,
+                                                 'Please use correct input type for FileTag to ignore')
+                else:
+                    SystemMethods.raiseerror(messages.Errors.KeywordError,
+                                             "'{key}' is not correct kwarg")
         else:
-            self.reset(self.ext)
+            self.reset_filters(self.ext)
         if args or kwargs:
             if args:
+                residuals = list(args)
                 if self.subjects:
+                    subj_filter, residuals = ProjectMethods.check_arguments(args, residuals, self.subjects)
+                    # subj_filter = [arg for arg in args if arg in self.subjects]
+                    # for subj in subj_filter:
+                    #     residuals.remove(subj)
                     if self.__filters[0]:
-                        self.__filters[0].extend([arg for arg in args if arg in self.subjects])
+                        self.__filters[0].extend(subj_filter)
                     else:
-                        self.__filters[0] = [arg for arg in args if arg in self.subjects]
+                        self.__filters[0] = subj_filter[:]
                     if not self.single_session:
+                        sess_filter, residuals = ProjectMethods.check_arguments(args, residuals, self.sessions)
+                        # sess_filter = [arg for arg in args if arg in self.sessions]
                         if self.__filters[1]:
-                            self.__filters[1].extend([arg for arg in args if arg in self.sessions])
+                            # for sess in sess_filter:
+                            #     residuals.remove(sess)
+                            self.__filters[1].extend(sess_filter)
                         else:
-                            self.__filters[1] = [arg for arg in args if arg in self.sessions]
+                            self.__filters[1] = sess_filter[:]
                     else:
                         self.__filters[1] = None
                 else:
@@ -268,60 +270,67 @@ class Project(object):
                     self.__filters[1] = None
                 if self.__dc_idx == 0:
                     if self.dtypes:
+                        dtyp_filter, residuals = ProjectMethods.check_arguments(args, residuals, self.dtypes)
+                        # dtyp_filter = [arg for arg in args if arg in self.dtypes]
+                        # for dtyp in dtyp_filter:
+                        #     residuals.remove(dtyp)
                         if self.__filters[2]:
-                            self.__filters[2].extend([arg for arg in args if arg in self.dtypes])
+                            self.__filters[2].extend(dtyp_filter)
                         else:
-                            self.__filters[2] = [arg for arg in args if arg in self.dtypes]
+                            self.__filters[2] = dtyp_filter[:]
                     else:
                         self.__filters[2] = None
                     self.__filters[3] = None
                 elif self.__dc_idx == 1:
                     if self.pipelines:
+                        pipe_filter, residuals = ProjectMethods.check_arguments(args, residuals, self.pipelines)
+                        # pipe_filter = [arg for arg in args if arg in self.pipelines]
+                        # for pipe in pipe_filter:
+                        #     residuals.remove(pipe)
                         if self.__filters[2]:
-                            self.__filters[2].extend([arg for arg in args if arg in self.pipelines])
+                            self.__filters[2].extend(pipe_filter)
                         else:
-                            self.__filters[2] = [arg for arg in args if arg in self.pipelines]
+                            self.__filters[2] = pipe_filter[:]
                     else:
                         self.__filters[2] = None
                     if self.steps:
+                        step_filter, residuals = ProjectMethods.check_arguments(args, residuals, self.steps)
+                        # step_filter = [arg for arg in args if arg in self.steps]
+                        # for step in step_filter:
+                        #     residuals.remove(step)
                         if self.__filters[3]:
-                            self.__filters[3].extend([arg for arg in args if arg in self.steps])
+                            self.__filters[3].extend(step_filter)
                         else:
-                            self.__filters[3] = [arg for arg in args if arg in self.steps]
+                            self.__filters[3] = step_filter
                     else:
                         self.__filters[3] = None
                 else:
                     if self.pipelines:
+                        pipe_filter, residuals = ProjectMethods.check_arguments(args, residuals, self.pipelines)
+                        # pipe_filter = [arg for arg in args if arg in self.pipelines]
+                        # for pipe in pipe_filter:
+                        #     residuals.remove(pipe)
                         if self.__filters[2]:
-                            self.__filters[2].extend([arg for arg in args if arg in self.pipelines])
+                            self.__filters[2].extend(pipe_filter)
                         else:
-                            self.__filters[2] = [arg for arg in args if arg in self.pipelines]
+                            self.__filters[2] = pipe_filter[:]
                     else:
                         self.__filters[2] = None
                     if self.results:
+                        rslt_filter, residuals = ProjectMethods.check_arguments(args, residuals, self.results)
+                        # rslt_filter = [arg for arg in args if arg in self.results]
+                        # for rslt in rslt_filter:
+                        #     residuals.remove(rslt)
                         if self.__filters[3]:
-                            self.__filters[3].extend([arg for arg in args if arg in self.results])
+                            self.__filters[3].extend(rslt_filter)
                         else:
-                            self.__filters[3] = [arg for arg in args if arg in self.results]
+                            self.__filters[3] = rslt_filter[:]
                     else:
                         self.__filters[3] = None
-            if kwargs:
-                if 'file_tag' in kwargs.keys():
-                    if type(kwargs['file_tag']) == str:
-                        self.__filters[4] = [kwargs['file_tag']]
-                    elif type(kwargs['file_tag']) == list:
-                        self.__filters[4] = kwargs['file_tag']
-                    else:
-                        raise error.FilterInputTypeError
-                if 'ignore' in kwargs.keys():
-                    if type(kwargs['ignore']) == str:
-                        self.__filters[5] = [kwargs['ignore']]
-                    elif type(kwargs['ignore']) == list:
-                        self.__filters[5] = kwargs['ignore']
-                    else:
-                        raise error.FilterInputTypeError
+                if len(residuals):
+                    SystemMethods.raiseerror(messages.Errors.InputValueError,
+                                             'Wrong filter input:{args}'.format(args=args))
         self.__df = self.applying_filters(self.__df)
-        # self.reload()
         self.__update()
 
     def applying_filters(self, df):
@@ -334,7 +343,6 @@ class Project(object):
         Returns
         -------
         df      : pandas.DataFrame
-
         """
         if len(df):
             if self.__filters[0]:
@@ -353,27 +361,15 @@ class Project(object):
                     df = df[df.Result.isin(self.__filters[3])]
                 else:
                     pass
-            if self.__filters[4]:
-                df = df[df.Filename.str.contains('|'.join(self.__filters[4]))]
-            if self.__filters[5]:
-                df = df[~df.Filename.str.contains('|'.join(self.__filters[5]))]
+            if self.__filters[4] is not None:
+                file_tag = list(self.__filters[4])
+                df = df[df.Filename.str.contains('&'.join(file_tag))]
+            if self.__filters[5] is not None:
+                ignore = list(self.__filters[5])
+                df = df[~df.Filename.str.contains('&'.join(ignore))]
             return df
         else:
             return df
-
-    def help(self, command=None):
-        """Print doc string for command or pipeline
-
-        :param command:
-        :return:
-        """
-        if command:
-            if command in dir(Interface):
-                exec 'help(Interface.{})'.format(command)
-            elif command in dir(Analysis):
-                exec 'help(Analysis.{})'.format(command)
-            else:
-                raise error.UnableInterfaceCommand
 
     def run(self, command, *args, **kwargs):
         """Execute processing tools
@@ -387,14 +383,14 @@ class Project(object):
             except:
                 exec('help(Interface.{})'.format(command))
                 print(Interface, command, args, kwargs)
-                raise error.CommandExecutionFailure
+                raise messages.CommandExecutionFailure
         else:
-            raise error.NotExistingCommand
+            raise messages.NotExistingCommand
 
     def __summary(self):
         """Print summary of current project
         """
-        summary = 'Project summary'
+        summary = '** Project summary'
         summary = '{}\nProject: {}'.format(summary, os.path.dirname(self.path).split(os.sep)[-1])
         if self.__empty_project:
             summary = '{}\n[Empty project]'.format(summary)
@@ -436,12 +432,10 @@ class Project(object):
                 summary = '{}\nSet file tag(s): {}'.format(summary, self.__filters[4])
             if self.__filters[5]:
                 summary = '{}\nSet ignore(s): {}'.format(summary, self.__filters[5])
-            if self.__pipeline:
-                summary = '{}\nInitiated pipeline: {}'.format(summary, self.__pipeline)
         print(summary)
 
     def __update(self):
-        """Update sub variables based on current set filter information
+        """Update attributes of Project object based on current set filter information
         """
         if len(self.df):
             try:
@@ -466,7 +460,8 @@ class Project(object):
                     self.__results = sorted(list(set(self.df.Result.tolist())))
                     self.__steps = None
             except:
-                raise error.UpdateFailed
+                SystemMethods.raiseerror(messages.Errors.UpdateAttributesFailed,
+                                         "Error occured during update project's attributes")
         else:
             self.__subjects = None
             self.__sessions = None
@@ -478,14 +473,11 @@ class Project(object):
     def __call__(self, dc_id, *args, **kwargs):
         """Return DataFrame followed applying filters
         """
-        # if self.__empty_project:
-        #     return None
-        # else:
-        copy = self.copy()
-        copy.dataclass = dc_id
-        copy.reload()
-        copy.set_filters(*args, **kwargs)
-        return copy
+        prj = copy.copy(self)
+        if self.__dc_idx != dc_id:
+            prj.dataclass = dc_id
+        prj.set_filters(*args, **kwargs)
+        return prj
 
 
     def __repr__(self):
@@ -508,7 +500,7 @@ class Project(object):
         """Iterator for dataframe
         """
         if self.__empty_project:
-            raise error.EmptyProject
+            raise messages.EmptyProject
         else:
             for row in self.df.iterrows():
                 yield row
@@ -521,11 +513,12 @@ class Project(object):
         else:
             return len(self.df)
 
-class Preprocess(object):
+
+class Process(object):
     """ Preprocessing pipeline
     """
     def __init__(self, prjobj, pipeline):
-        prjobj.reset()
+        prjobj.reset_filters()
         self._subjects = None
         self._sessions = None
         if prjobj.subjects:
@@ -533,8 +526,7 @@ class Preprocess(object):
             if not prjobj.single_session:
                 self._sessions = sorted(prjobj.sessions[:])
         self._prjobj = prjobj
-        self._prjobj.initiate_pipeline(pipeline)
-        self._pipeline = pipeline
+        self.initiate_pipeline(pipeline)
 
     @property
     def subjects(self):
@@ -544,6 +536,21 @@ class Preprocess(object):
     def sessions(self):
         return self._sessions
 
+    def initiate_pipeline(self, pipeline):
+        SystemMethods.mkdir(os.path.join(self._prjobj.path, self._prjobj.ds_type[1], pipeline))
+        self._pipeline = pipeline
+        self._prjobj.scan_prj()
+
+    def init_step(self, stepname):
+        if self._pipeline:
+            steppath = ProjectMethods.get_step_name(self, stepname)
+            steppath = os.path.join(self._prjobj.path, self._prjobj.ds_type[1], self._pipeline, steppath)
+            SystemMethods.mkdir(steppath)
+            self._prjobj.scan_prj()
+            return steppath
+        else:
+            raise messages.PipelineNotSet
+
     def cbv_meancalculation(self, func, **kwargs):
         """ CBV image preparation
         """
@@ -552,7 +559,7 @@ class Preprocess(object):
         step01 = self.init_step('MotionCorrection-CBVinduction')
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            ProjectMethods.mkdir(os.path.join(step01, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 cbv_img = self._prjobj(dataclass, func, subj, **kwargs)
                 for i, finfo in cbv_img:
@@ -561,7 +568,7 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    ProjectMethods.mkdir(os.path.join(step01, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess))
                     cbv_img = self._prjobj(dataclass, func, subj, sess, **kwargs)
                     for i, finfo in cbv_img:
                         print("  +Filename: {}".format(finfo.Filename))
@@ -572,7 +579,7 @@ class Preprocess(object):
         print("MeanImageCalculation-BOLD&CBV")
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            ProjectMethods.mkdir(os.path.join(step02, subj), os.path.join(step03, subj))
+            SystemMethods.mkdir(os.path.join(step02, subj), os.path.join(step03, subj))
             if self._prjobj.single_session:
                 cbv_img = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, **kwargs)
                 for i, finfo in cbv_img:
@@ -589,7 +596,7 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    ProjectMethods.mkdir(os.path.join(step02, subj, sess), os.path.join(step03, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step02, subj, sess), os.path.join(step03, subj, sess))
                     cbv_img = self._prjobj(1, os.path.basename(step01), subj, sess, **kwargs)
                     for i, finfo in cbv_img:
                         print("  +Filename: {}".format(finfo.Filename))
@@ -623,7 +630,7 @@ class Preprocess(object):
         print("MotionCorrection")
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            ProjectMethods.mkdir(os.path.join(step01, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 finfo = self._prjobj(dataclass, func, subj, **kwargs).df.loc[0]
                 print(" +Filename: {}".format(finfo.Filename))
@@ -631,7 +638,7 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    ProjectMethods.mkdir(os.path.join(step01, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess))
                     finfo = self._prjobj(dataclass, func, subj, sess, **kwargs).df.loc[0]
                     print("  +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, sess, finfo.Filename), finfo.Abspath)
@@ -639,7 +646,7 @@ class Preprocess(object):
         print("MeanImageCalculation-{}".format(func))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            ProjectMethods.mkdir(os.path.join(step02, subj))
+            SystemMethods.mkdir(os.path.join(step02, subj))
             if self._prjobj.single_session:
                 funcs = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, **kwargs)
                 funcs = funcs.df.loc[0]
@@ -649,7 +656,7 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    ProjectMethods.mkdir(os.path.join(step02, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step02, subj, sess))
                     funcs = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, sess, **kwargs)
                     funcs = funcs.df.loc[0]
                     print(" +Filename: {}".format(funcs.Filename))
@@ -683,7 +690,7 @@ class Preprocess(object):
         step01 = self.init_step('SliceTimingCorrection-{}'.format(dtype))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            ProjectMethods.mkdir(os.path.join(step01, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 epi = self._prjobj(dataclass, func, subj, **kwargs)
                 for i, finfo in epi:
@@ -693,7 +700,7 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    ProjectMethods.mkdir(os.path.join(step01, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess))
                     epi = self._prjobj(dataclass, func, subj, sess, **kwargs)
                     for i, finfo in epi:
                         print("  +Filename: {}".format(finfo.Filename))
@@ -725,7 +732,7 @@ class Preprocess(object):
         step01 = self.init_step('MotionCorrection-{}'.format(dtype))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            ProjectMethods.mkdir(os.path.join(step01, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 epi = self._prjobj(s0_dataclass, s0_func, subj, **kwargs)
                 if base:
@@ -744,7 +751,7 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    ProjectMethods.mkdir(os.path.join(step01, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess))
                     epi = self._prjobj(s0_dataclass, s0_func, subj, sess, **kwargs)
                     if base:
                         if type(base) == str:
@@ -765,7 +772,7 @@ class Preprocess(object):
             step02 = self.init_step('MeanFunctionalImages-{}'.format(dtype))
             for subj in self.subjects:
                 print("-Subject: {}".format(subj))
-                ProjectMethods.mkdir(os.path.join(step02, subj))
+                SystemMethods.mkdir(os.path.join(step02, subj))
                 if self._prjobj.single_session:
                     epi = self._prjobj(s1_dataclass, s1_func, subj, **kwargs)
                     for i, finfo in epi:
@@ -775,7 +782,7 @@ class Preprocess(object):
                 else:
                     for sess in self.sessions:
                         print(" :Session: {}".format(sess))
-                        ProjectMethods.mkdir(os.path.join(step02, subj, sess))
+                        SystemMethods.mkdir(os.path.join(step02, subj, sess))
                         epi = self._prjobj(s1_dataclass, s1_func, subj, sess, **kwargs)
 
                         for i, finfo in epi:
@@ -788,7 +795,7 @@ class Preprocess(object):
             step03 = self.init_step('InterSubjectRealign-{}'.format(dtype))
             for subj in self.subjects:
                 print("-Subject: {}".format(subj))
-                ProjectMethods.mkdir(os.path.join(step03, subj))
+                SystemMethods.mkdir(os.path.join(step03, subj))
                 if self._prjobj.single_session:
                     epi = self._prjobj(s2_dataclass, s2_func, subj, **kwargs)
                     try:
@@ -804,7 +811,7 @@ class Preprocess(object):
                 else:
                     for sess in self.sessions:
                         print(" :Session: {}".format(sess))
-                        ProjectMethods.mkdir(os.path.join(step03, subj, sess))
+                        SystemMethods.mkdir(os.path.join(step03, subj, sess))
                         epi = self._prjobj(s2_dataclass, s2_func, subj, sess, **kwargs)
                         try:
                             baseimg = self._prjobj(1, os.path.basename(meancbv), subj, sess)
@@ -823,7 +830,7 @@ class Preprocess(object):
             step04 = self.init_step('InterSubj-ApplyTransform-{}'.format(dtype))
             for subj in self.subjects:
                 print("-Subject: {}".format(subj))
-                InternalMethods.mkdir(os.path.join(step04, subj))
+                SystemMethods.mkdir(os.path.join(step04, subj))
                 if self._prjobj.single_session:
                     param = self._prjobj(s3_dataclass, s3_func, subj).df
                     epi = self._prjobj(s1_dataclass, s1_func, subj, **kwargs)
@@ -831,7 +838,7 @@ class Preprocess(object):
                         print(" +Filename: {}".format(finfo.Filename))
                         try:
                             if finfo.Filename != param.Filename[i]:
-                                raise error.ObjectMismatch()
+                                raise messages.ObjectMismatch()
                             else:
                                 self._prjobj.run('afni_3dAllineate', os.path.join(step04, subj, finfo.Filename),
                                                  finfo.Abspath, warp='sho',
@@ -842,7 +849,7 @@ class Preprocess(object):
                 else:
                     for sess in self.sessions:
                         print(" :Session: {}".format(sess))
-                        InternalMethods.mkdir(os.path.join(step04, subj, sess))
+                        SystemMethods.mkdir(os.path.join(step04, subj, sess))
                         param = self._prjobj(s3_dataclass, s3_func, subj, sess).df
                         epi = self._prjobj(s1_dataclass, s1_func, subj, sess, **kwargs)
                         for i, finfo in epi:
@@ -850,7 +857,7 @@ class Preprocess(object):
                             try:
                                 if finfo.Filename != param.Filename[i]:
                                     print finfo.Filename, param.Filename[i]
-                                    raise error.ObjectMismatch()
+                                    raise messages.ObjectMismatch()
                                 else:
                                     self._prjobj.run('afni_3dAllineate', os.path.join(step04, subj, sess, finfo.Filename),
                                                     finfo.Abspath, warp='sho',
@@ -884,7 +891,7 @@ class Preprocess(object):
         step02 = self.init_step('MaskDrawing-anat')
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            InternalMethods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj))
             if self._prjobj.single_session:
                 epi = self._prjobj(f_dataclass, meanfunc, subj)
                 t2 = self._prjobj(a_dataclass, anat, subj)
@@ -903,7 +910,7 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    InternalMethods.mkdir(os.path.join(step01, subj, sess), os.path.join(step02, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess), os.path.join(step02, subj, sess))
                     epi = self._prjobj(f_dataclass, meanfunc, subj, sess)
                     t2 = self._prjobj(a_dataclass, anat, subj, sess)
                     for i, finfo in epi:
@@ -929,7 +936,7 @@ class Preprocess(object):
         step02 = self.init_step('SkullStripped-anat')
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            InternalMethods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj))
             if self._prjobj.single_session:
                 # Load image paths
                 epi = self._prjobj(1, self._pipeline, meanfunc, subj, ignore='_mask')
@@ -963,7 +970,7 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    InternalMethods.mkdir(os.path.join(step01, subj, sess), os.path.join(step02, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess), os.path.join(step02, subj, sess))
                     # Load image paths
                     epi = self._prjobj(1, self._pipeline, meanfunc, subj, sess, ignore='_mask')
                     t2 = self._prjobj(1, self._pipeline, anat, subj, sess, ignore='_mask')
@@ -1013,7 +1020,7 @@ class Preprocess(object):
         step01 = self.init_step('CropTimeAxis-{}'.format(dtype))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            InternalMethods.mkdir(os.path.join(step01, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 # Load image paths
                 epi = self._prjobj(1, self._pipeline, func, subj)
@@ -1028,7 +1035,7 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    InternalMethods.mkdir(os.path.join(step01, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess))
                     # Load image paths
                     epi = self._prjobj(1, self._pipeline, func, subj)
                     # Execute process
@@ -1065,7 +1072,7 @@ class Preprocess(object):
         step02 = self.init_step('BiasFieldCorrection-{}'.format(anat.split('-')[-1]))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            InternalMethods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj))
             if self._prjobj.single_session:
                 epi = self._prjobj(f_dataclass, meanfunc, subj)
                 t2 = self._prjobj(a_dataclass, anat, subj)
@@ -1080,7 +1087,7 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    InternalMethods.mkdir(os.path.join(step01, subj, sess), os.path.join(step02, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess), os.path.join(step02, subj, sess))
                     epi = self._prjobj(f_dataclass, meanfunc, subj, sess)
                     t2 = self._prjobj(f_dataclass, anat, subj, sess)
                     for i, finfo in epi:
@@ -1096,9 +1103,9 @@ class Preprocess(object):
         num_step = os.path.basename(step03).split('_')[0]
         step04 = self.final_step('{}_CheckRegistraton-{}'.format(num_step, dtype))
         for subj in self.subjects:
-            InternalMethods.mkdir(os.path.join(step04, 'AllSubjects'))
+            SystemMethods.mkdir(os.path.join(step04, 'AllSubjects'))
             print("-Subject: {}".format(subj))
-            InternalMethods.mkdir(os.path.join(step03, subj))
+            SystemMethods.mkdir(os.path.join(step03, subj))
             if self._prjobj.single_session:
                 epi = self._prjobj(1, self._pipeline, os.path.basename(step01), subj)
                 t2 = self._prjobj(1, self._pipeline, os.path.basename(step02), subj)
@@ -1119,10 +1126,10 @@ class Preprocess(object):
                     fig2.savefig(os.path.join(step04, 'AllSubjects', '{}.png'.format('-'.join([subj, 'anat2func']))),
                                  facecolor=fig2.get_facecolor())
             else:
-                InternalMethods.mkdir(os.path.join(step04, subj), os.path.join(step04, subj, 'AllSessions'))
+                SystemMethods.mkdir(os.path.join(step04, subj), os.path.join(step04, subj, 'AllSessions'))
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    InternalMethods.mkdir(os.path.join(step03, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step03, subj, sess))
                     epi = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, sess)
                     t2 = self._prjobj(1, self._pipeline, os.path.basename(step02), subj, sess)
                     for i, finfo in epi:
@@ -1170,7 +1177,7 @@ class Preprocess(object):
         step01 = self.init_step('ApplyingBrainMask-{}'.format(dtype))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            ProjectMethods.mkdir(os.path.join(step01, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 epi = self._prjobj(dataclass, func, subj)
                 epimask = self._prjobj(1, self._pipeline, os.path.basename(mask), subj, file_tag='_mask').df
@@ -1186,7 +1193,7 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    ProjectMethods.mkdir(os.path.join(step01, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess))
                     epi = self._prjobj(dataclass, func, subj, sess)
                     epimask = self._prjobj(1, self._pipeline, os.path.basename(mask), subj, sess, file_tag='_mask').df
                     maskobj = InternalMethods.load(epimask.Abspath[0])
@@ -1221,7 +1228,7 @@ class Preprocess(object):
         step01 = self.init_step('ApplyingTransformation-{}'.format(dtype))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            ProjectMethods.mkdir(os.path.join(step01, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 ref = self._prjobj(1, self._pipeline, os.path.basename(realigned_func), subj)
                 param = self._prjobj(1, self._pipeline, os.path.basename(realigned_func), subj, ext='.1D')
@@ -1234,7 +1241,7 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    ProjectMethods.mkdir(os.path.join(step01, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess))
                     ref = self._prjobj(1, self._pipeline, os.path.basename(realigned_func), subj, sess)
                     param = self._prjobj(1, self._pipeline, os.path.basename(realigned_func), subj, sess, ext='.1D')
                     funcs = self._prjobj(dataclass, os.path.basename(func), subj, sess)
@@ -1265,7 +1272,7 @@ class Preprocess(object):
         step01 = self.init_step('GlobalRegression-{}'.format(dtype))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            ProjectMethods.mkdir(os.path.join(step01, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 funcs = self._prjobj(dataclass, func, subj)
                 for i, finfo in funcs:
@@ -1277,7 +1284,7 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    ProjectMethods.mkdir(os.path.join(step01, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess))
                     funcs = self._prjobj(dataclass, func, subj)
                     for i, finfo in funcs:
                         print("  +Filename: {}".format(finfo.Filename))
@@ -1310,7 +1317,7 @@ class Preprocess(object):
         step01 = self.init_step('MotionRegression-{}'.format(dtype))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            ProjectMethods.mkdir(os.path.join(step01, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 funcs = self._prjobj(dataclass, func, subj)
                 for i, finfo in funcs:
@@ -1322,7 +1329,7 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    ProjectMethods.mkdir(os.path.join(step01, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess))
                     funcs = self._prjobj(dataclass, func, subj, sess)
                     for i, finfo in funcs:
                         print("  +Filename: {}".format(finfo.Filename))
@@ -1352,7 +1359,7 @@ class Preprocess(object):
         step01 = self.init_step('CBV_Calculation-{}'.format(dtype))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            ProjectMethods.mkdir(os.path.join(step01, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 funcs = self._prjobj(dataclass, func, subj)
                 szero = self._prjobj(mb_dataclass, meanBOLD, subj).df.loc[0]
@@ -1367,7 +1374,7 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    ProjectMethods.mkdir(os.path.join(step01, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess))
                     funcs = self._prjobj(dataclass, func, subj, sess)
                     szero = self._prjobj(mb_dataclass, meanBOLD, subj, sess).df.loc[0]
                     for i, finfo in funcs:
@@ -1399,7 +1406,7 @@ class Preprocess(object):
         step01 = self.init_step('SpatialSmoothing-{}'.format(dtype))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            ProjectMethods.mkdir(os.path.join(step01, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 epi = self._prjobj(dataclass, func, subj)
                 if mask:
@@ -1415,7 +1422,7 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    ProjectMethods.mkdir(os.path.join(step01, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess))
                     epi = self._prjobj(dataclass, func, subj, sess)
                     if mask:
                         epimask = self._prjobj(1, self._pipeline, os.path.basename(mask), subj, sess, file_tag='_mask').df
@@ -1455,7 +1462,7 @@ class Preprocess(object):
         step01 = self.init_step('SignalProcessing-{}'.format(dtype))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            ProjectMethods.mkdir(os.path.join(step01, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 if not file_tag:
                     if not ignore:
@@ -1474,7 +1481,7 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    ProjectMethods.mkdir(os.path.join(step01, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess))
                     if not file_tag:
                         if not ignore:
                             funcs = self._prjobj(dataclass, func, subj, sess)
@@ -1520,9 +1527,9 @@ class Preprocess(object):
         # Loop the subjects
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            ProjectMethods.mkdir(os.path.join(step01, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
-                ProjectMethods.mkdir(os.path.join(step02, 'AllSubjects'))
+                SystemMethods.mkdir(os.path.join(step02, 'AllSubjects'))
                 # Grab the warping map and transform matrix
                 mats, warps, warped = InternalMethods.get_warp_matrix(self, warped_anat, subj, inverse=False)
                 temp_path = os.path.join(step01, subj, "base")
@@ -1547,9 +1554,9 @@ class Preprocess(object):
                 os.remove('{}_atlas.label'.format(temp_path))
                 os.remove('{}_template.nii'.format(temp_path))
             else:
-                ProjectMethods.mkdir(os.path.join(step02, subj))
+                SystemMethods.mkdir(os.path.join(step02, subj))
                 for sess in self.sessions:
-                    ProjectMethods.mkdir(os.path.join(step02, subj, 'AllSessions'), os.path.join(step01, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step02, subj, 'AllSessions'), os.path.join(step01, subj, sess))
                     print(" :Session: {}".format(sess))
                     # Grab the warping map and transform matrix
                     mats, warps, warped = InternalMethods.get_warp_matrix(self, warped_anat, subj, sess, inverse=False)
@@ -1600,11 +1607,11 @@ class Preprocess(object):
         # Loop the subjects
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            ProjectMethods.mkdir(os.path.join(step01, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
-                ProjectMethods.mkdir(os.path.join(step02, 'AllSubjects'))
+                SystemMethods.mkdir(os.path.join(step02, 'AllSubjects'))
                 anats = self._prjobj(dataclass, anat, subj)
-                ProjectMethods.mkdir(os.path.join(step01, subj))
+                SystemMethods.mkdir(os.path.join(step01, subj))
                 for i, finfo in anats:
                     print(" +Filename: {}".format(finfo.Filename))
                     fixed_img = tempobj.template_path
@@ -1625,12 +1632,12 @@ class Preprocess(object):
                     fig2.savefig(os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'temp2anat']))),
                                  facecolor=fig2.get_facecolor())
             else:
-                ProjectMethods.mkdir(os.path.join(step02, subj), os.path.join(step02, subj, 'AllSessions'))
+                SystemMethods.mkdir(os.path.join(step02, subj), os.path.join(step02, subj, 'AllSessions'))
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     anats = self._prjobj(dataclass, anat, subj, sess)
-                    ProjectMethods.mkdir(os.path.join(step01, subj, sess))
-                    ProjectMethods.mkdir(os.path.join(step02, subj, 'AllSessions'))
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step02, subj, 'AllSessions'))
                     for i, finfo in anats:
                         print("  +Filename: {}".format(finfo.Filename))
                         fixed_img = tempobj.template_path
@@ -1676,7 +1683,7 @@ class Preprocess(object):
         step02 = self.final_step('{}_CheckAtlasRegistration-{}'.format(num_step, dtype))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            ProjectMethods.mkdir(os.path.join(step01, subj),
+            SystemMethods.mkdir(os.path.join(step01, subj),
                                   os.path.join(step02, 'AllSubjects'))
             if self._prjobj.single_session:
                 ref = self._prjobj(1, self._pipeline, os.path.basename(norm_anat), subj)
@@ -1703,7 +1710,7 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    ProjectMethods.mkdir(os.path.join(step01, subj, sess),
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess),
                                           os.path.join(step02, subj),
                                           os.path.join(step02, subj, 'AllSessions'))
                     ref = self._prjobj(1, self._pipeline, os.path.basename(norm_anat), subj, sess)
@@ -1755,7 +1762,7 @@ class Preprocess(object):
         # Check the source of input data
         if os.path.exists(anat):
             dataclass = 1
-            anat = ProjectMethods.path_splitter(anat)[-1]
+            anat = SystemMethods.path_splitter(anat)[-1]
         else:
             dataclass = 0
         # Print step ans initiate the step
@@ -1766,11 +1773,11 @@ class Preprocess(object):
         # Loop the subjects
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            ProjectMethods.mkdir(os.path.join(step01, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
-                ProjectMethods.mkdir(os.path.join(step02, 'AllSubjects'))
+                SystemMethods.mkdir(os.path.join(step02, 'AllSubjects'))
                 anats = self._prjobj(dataclass, anat, subj)
-                ProjectMethods.mkdir(os.path.join(step01, subj))
+                SystemMethods.mkdir(os.path.join(step01, subj))
                 for i, finfo in anats:
                     print(" +Filename: {}".format(finfo.Filename))
                     output_path = os.path.join(step01, subj, "{}".format(subj))
@@ -1787,11 +1794,11 @@ class Preprocess(object):
                     fig2.savefig(os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'temp2anat']))),
                                  facecolor=fig2.get_facecolor())
             else:
-                ProjectMethods.mkdir(os.path.join(step02, subj), os.path.join(step02, subj, 'AllSessions'))
+                SystemMethods.mkdir(os.path.join(step02, subj), os.path.join(step02, subj, 'AllSessions'))
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     anats = self._prjobj(dataclass, anat, subj, sess)
-                    ProjectMethods.mkdir(os.path.join(step01, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess))
                     for i, finfo in anats:
                         print("  +Filename: {}".format(finfo.Filename))
                         output_path = os.path.join(step01, subj, sess, "{}".format(subj))
@@ -1839,7 +1846,7 @@ class Preprocess(object):
         # Loop the subjects
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            ProjectMethods.mkdir(os.path.join(step01, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 # Grab the warping map and transform matrix
                 mats, warps, warped = InternalMethods.get_warp_matrix(self, warped_anat, subj, inverse=True)
@@ -1847,7 +1854,7 @@ class Preprocess(object):
                 tempobj.save_as(temp_path, quiet=True)
                 anats = self._prjobj(dataclass, anat, subj)
                 output_path = os.path.join(step01, subj, "{}_atlas.nii".format(subj))
-                ProjectMethods.mkdir(os.path.join(step01, subj), os.path.join(step02, 'AllSubjects'))
+                SystemMethods.mkdir(os.path.join(step01, subj), os.path.join(step02, 'AllSubjects'))
                 print(" +Filename: {}".format(warped.Filename))
                 self._prjobj.run('ants_WarpImageMultiTransform', output_path,
                                  '{}_atlas.nii'.format(temp_path), warped.Abspath,
@@ -1870,7 +1877,7 @@ class Preprocess(object):
                     tempobj.save_as(temp_path, quiet=True)
                     anats = self._prjobj(dataclass, anat, subj, sess)
                     output_path = os.path.join(step01, subj, sess, "{}_atlas.nii".format(sess))
-                    ProjectMethods.mkdir(os.path.join(step01, subj, sess), os.path.join(step02, subj, 'AllSessoions'))
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess), os.path.join(step02, subj, 'AllSessoions'))
                     print(" +Filename: {}".format(warped.Filename))
                     self._prjobj.run('ants_WarpImageMultiTransform', output_path,
                                      '{}_atlas.nii'.format(temp_path), warped.Abspath, True, '-i', mats, warps)
@@ -1912,7 +1919,7 @@ class Preprocess(object):
         step01 = self.init_step('ExtractTimeCourse-{}'.format(dtype))
         for subj in subjects:
             print("-Subject: {}".format(subj))
-            ProjectMethods.mkdir(os.path.join(step01, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 if not tempobj:
                     # atlas = self._prjobj(1, self._pipeline, atlas, subj).df.Abspath.loc[0]
@@ -1933,7 +1940,7 @@ class Preprocess(object):
                     df = Analysis.get_timetrace(InternalMethods.load(finfo.Abspath), tempobj, afni=True, **kwargs)
                     df.to_excel(os.path.join(step01, subj, "{}.xlsx".format(os.path.splitext(finfo.Filename)[0])))
             else:
-                ProjectMethods.mkdir(os.path.join(step01, subj))
+                SystemMethods.mkdir(os.path.join(step01, subj))
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     if not tempobj:
@@ -1951,7 +1958,7 @@ class Preprocess(object):
                             funcs = self._prjobj(dataclass, func, subj, sess, file_tag=file_tag)
                         else:
                             funcs = self._prjobj(dataclass, func, subj, sess, file_tag=file_tag, ignore=ignore)
-                    ProjectMethods.mkdir(os.path.join(step01, subj, sess))
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess))
                     for i, finfo in funcs:
                         print("  +Filename: {}".format(finfo.Filename))
                         df = Analysis.get_timetrace(InternalMethods.load(finfo.Abspath), tempobj, afni=True, **kwargs)
@@ -1987,7 +1994,7 @@ class Preprocess(object):
         step03 = self.final_step('{}_Zscore_Matrix-{}'.format(num_step, dtype))
         for subj in subjects:
             print("-Subject: {}".format(subj))
-            ProjectMethods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj), os.path.join(step03, subj))
+            SystemMethods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj), os.path.join(step03, subj))
             if self._prjobj.single_session:
                 if not tempobj:
                     # atlas = self._prjobj(1, self._pipeline, atlas, subj).df.Abspath.loc[0]
@@ -2012,7 +2019,7 @@ class Preprocess(object):
                     np.arctanh(df.corr()).to_excel(
                         os.path.join(step03, subj, "{}.xlsx").format(os.path.splitext(finfo.Filename)[0]))
             else:
-                ProjectMethods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj),
+                SystemMethods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj),
                                       os.path.join(step03, subj))
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
@@ -2031,7 +2038,7 @@ class Preprocess(object):
                             funcs = self._prjobj(dataclass, func, subj, sess, file_tag=file_tag)
                         else:
                             funcs = self._prjobj(dataclass, func, subj, sess, file_tag=file_tag, ignore=ignore)
-                    ProjectMethods.mkdir(os.path.join(step01, subj, sess), os.path.join(step02, subj, sess),
+                    SystemMethods.mkdir(os.path.join(step01, subj, sess), os.path.join(step02, subj, sess),
                                           os.path.join(step03, subj, sess))
                     for i, finfo in funcs:
                         print("  +Filename: {}".format(finfo.Filename))
@@ -2054,29 +2061,29 @@ class Preprocess(object):
             for kwarg in kwargs.keys():
                 if kwarg is 'onset':
                     if type(kwargs[kwarg]) is not list:
-                        raise error.CommandExecutionFailure
+                        raise messages.CommandExecutionFailure
                     else:
                         onset = kwargs[kwarg]
                 if kwarg is 'duration':
                     if type(kwargs[kwarg]) is not int:
-                        raise error.CommandExecutionFailure
+                        raise messages.CommandExecutionFailure
                     else:
                         duration = str(kwargs[kwarg])
                 if kwarg is 'peak':
                     if type(kwargs[kwarg]) is not int:
-                        raise error.CommandExecutionFailure
+                        raise messages.CommandExecutionFailure
                     else:
                         peak = str(kwargs[kwarg])
                 if kwarg is 'hrf_function':
                     if type(kwargs[kwarg]) is not str:
-                        raise error.CommandExecutionFailure
+                        raise messages.CommandExecutionFailure
                     else:
                         if kwargs[kwarg] is 'MION':
                             stim_type = "MIONN({})".format(duration)
                         elif kwargs[kwarg] is 'BLOCK':
                             stim_type = "BLOCK({},{})".format(duration, peak)
                         else:
-                            raise error.CommandExecutionFailure
+                            raise messages.CommandExecutionFailure
         output_path = os.path.join('.tmp', '{}.xmat.1D'.format(filename))
         Interface.afni_3dDeconvolve(output_path, None, nodata=[str(num_of_time), str(tr)],
                                     num_stimts=num_stimts, polort=-1,
@@ -2096,7 +2103,7 @@ class Preprocess(object):
     #     # step02 = self.final_step('{}_ActivityMap-{}'.format(num_step, dtype))
     #     for subj in self.subjects:
     #         print("-Subject: {}".format(subj))
-    #         InternalMethods.mkdir(os.path.join(step01, subj))
+    #         SystemMethods.mkdir(os.path.join(step01, subj))
     #         if self._prjobj.single_session:
     #             funcs = self._prjobj(dataclass, func, subj)
     #             for i, finfo in funcs.iterrows():
@@ -2108,15 +2115,16 @@ class Preprocess(object):
     #                                  gltsym='SYM: +STIM')
     #     return {'func': step01}
 
-    def init_step(self, title):
-        path = self._prjobj.initiate_step(title)
-        self._prjobj.reload()
-        return path
-
     def final_step(self, title):
         path = os.path.join(self._prjobj.path, self._prjobj.ds_type[2],
                             self._prjobj.pipeline, title)
-        ProjectMethods.mkdir(os.path.join(self._prjobj.path, self._prjobj.ds_type[2],
+        SystemMethods.mkdir(os.path.join(self._prjobj.path, self._prjobj.ds_type[2],
                                            self._prjobj.pipeline), path)
-        self._prjobj.reload()
+        self._prjobj.scan_prj()
         return path
+
+
+class Preprocess(Process):
+    def __init__(self, prjobj, pipeline):
+        messages.Warning.deprecated()
+        super(Preprocess, self).__init__(prjobj, pipeline)

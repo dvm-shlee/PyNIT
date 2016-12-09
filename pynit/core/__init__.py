@@ -1,8 +1,8 @@
-from .project import Project, Preprocess
+from .hendlers import Project, Process, Preprocess
 from .visual import Viewer, Plot
 from .process import Interface
-from .methods import InternalMethods
 from .process import Analysis, Interface, TempFile
 from .objects import Template, ImageObj
+from .methods import InternalMethods
 
-__all__ = ['Project', 'Viewer', 'Plot', 'Template', 'InternalMethods', 'Analysis', 'Interface', 'TempFile', 'Preprocess']
+__all__ = ['Project', 'Process', 'Viewer', 'Plot', 'Template', 'InternalMethods', 'Analysis', 'Interface', 'TempFile', 'Preprocess']

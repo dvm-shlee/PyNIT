@@ -4,7 +4,7 @@ from skimage import feature
 # Import internal packages
 from .methods import InternalMethods, np
 from .process import Analysis
-import error
+import messages
 # Import matplotlib for visualization
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -81,7 +81,7 @@ class Viewer(object):
             elif len(data.shape) == 4:
                 axes.imshow(data[:, :, int(slice_num), frame].T, origin='lower', interpolation='nearest', cmap='gray')
             else:
-                raise error.ImageDimentionMismatched
+                raise messages.ImageDimentionMismatched
             axes = InternalMethods.set_viewaxes(axes)
             if resol[1] != resol[0]:
                 axes.set_aspect(abs(resol[1] / resol[0]))
@@ -99,7 +99,7 @@ class Viewer(object):
                 else:
                     interact(imshow, slice_num=(0, imageobj.shape[axis]-1), frame=(0, imageobj.shape[axis+1]-1))
             else:
-                raise error.ImageDimentionMismatched
+                raise messages.ImageDimentionMismatched
         except:
             fig, axes = plt.subplots()
             data = InternalMethods.convert_to_3d(imageobj)
@@ -203,7 +203,7 @@ class Viewer(object):
         try:
             fig, axes = Viewer.mosaic(imageobj, scale=scale, **kwargs)
         except:
-            raise error.InputObjectError
+            raise messages.InputObjectError
         # Make transparent
         data = data.astype(float)
         data[data == 0] = np.nan
@@ -233,7 +233,7 @@ class Viewer(object):
             atlas = atlasobj.image
             label = atlasobj.label
         except:
-            raise error.InputObjectError
+            raise messages.InputObjectError
         dim = list(atlas.shape)
         resol = list(atlas.header['pixdim'][1:4])
         # Set slice axis for mosaic grid
@@ -246,7 +246,7 @@ class Viewer(object):
         try:
             fig, axes = Viewer.mosaic(tempobj, scale=scale, **kwargs)
         except:
-            raise error.InputObjectError
+            raise messages.InputObjectError
         # Check side to present, default is usually right side
         if contra:
             data = data[::-1, :, :]
@@ -343,7 +343,7 @@ class Plot(object):
     #     # Parsing arguments
     #     if not filename:
     #         filename = u'.cache/_corrplot.png'
-    #         InternalMethods.mkdir('.cache')
+    #         SystemMethods.mkdir('.cache')
     #     size = np.array([512, 512])*scale
     #     # generate figure
     #     grdevices.png(file=filename, width=size[0], height=size[1])
