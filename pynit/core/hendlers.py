@@ -521,12 +521,17 @@ class Process(object):
         prjobj.reset_filters()
         self._subjects = None
         self._sessions = None
+        self._pipeline = None
         if prjobj.subjects:
             self._subjects = sorted(prjobj.subjects[:])
             if not prjobj.single_session:
                 self._sessions = sorted(prjobj.sessions[:])
         self._prjobj = prjobj
         self.initiate_pipeline(pipeline)
+
+    @property
+    def pipeline(selfs):
+        return self._pipeline
 
     @property
     def subjects(self):
