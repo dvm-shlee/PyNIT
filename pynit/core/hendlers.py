@@ -247,19 +247,13 @@ class Project(object):
                 residuals = list(args)
                 if self.subjects:
                     subj_filter, residuals = ProjectMethods.check_arguments(args, residuals, self.subjects)
-                    # subj_filter = [arg for arg in args if arg in self.subjects]
-                    # for subj in subj_filter:
-                    #     residuals.remove(subj)
                     if self.__filters[0]:
                         self.__filters[0].extend(subj_filter)
                     else:
                         self.__filters[0] = subj_filter[:]
                     if not self.single_session:
                         sess_filter, residuals = ProjectMethods.check_arguments(args, residuals, self.sessions)
-                        # sess_filter = [arg for arg in args if arg in self.sessions]
                         if self.__filters[1]:
-                            # for sess in sess_filter:
-                            #     residuals.remove(sess)
                             self.__filters[1].extend(sess_filter)
                         else:
                             self.__filters[1] = sess_filter[:]
@@ -271,9 +265,6 @@ class Project(object):
                 if self.__dc_idx == 0:
                     if self.dtypes:
                         dtyp_filter, residuals = ProjectMethods.check_arguments(args, residuals, self.dtypes)
-                        # dtyp_filter = [arg for arg in args if arg in self.dtypes]
-                        # for dtyp in dtyp_filter:
-                        #     residuals.remove(dtyp)
                         if self.__filters[2]:
                             self.__filters[2].extend(dtyp_filter)
                         else:
@@ -284,9 +275,6 @@ class Project(object):
                 elif self.__dc_idx == 1:
                     if self.pipelines:
                         pipe_filter, residuals = ProjectMethods.check_arguments(args, residuals, self.pipelines)
-                        # pipe_filter = [arg for arg in args if arg in self.pipelines]
-                        # for pipe in pipe_filter:
-                        #     residuals.remove(pipe)
                         if self.__filters[2]:
                             self.__filters[2].extend(pipe_filter)
                         else:
@@ -295,8 +283,8 @@ class Project(object):
                         self.__filters[2] = None
                     if self.steps:
                         step_filter, residuals = ProjectMethods.check_arguments(args, residuals, self.steps)
-                        print(self.steps)
-                        print(step_filter)
+                        # print(self.steps)
+                        # print(step_filter)
                         # step_filter = [arg for arg in args if arg in self.steps]
                         # for step in step_filter:
                         #     residuals.remove(step)
@@ -331,8 +319,7 @@ class Project(object):
                         self.__filters[3] = None
                 if len(residuals):
                     SystemMethods.raiseerror(messages.Errors.InputValueError,
-                                             'Wrong filter input:{args}[{residuals}]'.format(args=args,
-                                                                                             residuals=residuals))
+                                             'Wrong filter input:{residuals}'.format(residuals=residuals))
         self.__df = self.applying_filters(self.__df)
         self.__update()
 
@@ -554,7 +541,8 @@ class Process(object):
             steppath = ProjectMethods.get_step_name(self, stepname)
             steppath = os.path.join(self._prjobj.path, self._prjobj.ds_type[1], self._pipeline, steppath)
             SystemMethods.mkdir(steppath)
-            self._prjobj.scan_prj()
+            self._prjobj.steps.append(steppath)
+            # self._prjobj.scan_prj()
             return steppath
         else:
             raise messages.PipelineNotSet
