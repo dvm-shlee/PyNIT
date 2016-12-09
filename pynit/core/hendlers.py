@@ -2122,9 +2122,9 @@ class Process(object):
 
     def final_step(self, title):
         path = os.path.join(self._prjobj.path, self._prjobj.ds_type[2],
-                            self._prjobj.pipeline, title)
+                            self.pipeline, title)
         SystemMethods.mkdir(os.path.join(self._prjobj.path, self._prjobj.ds_type[2],
-                                           self._prjobj.pipeline), path)
+                                           self.pipeline), path)
         self._prjobj.scan_prj()
         return path
 
