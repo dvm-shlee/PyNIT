@@ -541,9 +541,9 @@ class Process(object):
             steppath = ProjectMethods.get_step_name(self, stepname)
             steppath = os.path.join(self._prjobj.path, self._prjobj.ds_type[1], self._pipeline, steppath)
             SystemMethods.mkdir(steppath)
-            print(self._prjobj.steps)
-            # self._prjobj.scan_prj()
-            # self._prjobj.steps.append(steppath)
+            # print(self._prjobj.steps)
+            self._prjobj.dataclass = 1
+            self._prjobj.steps.append(steppath)
             return steppath
         else:
             raise messages.PipelineNotSet
