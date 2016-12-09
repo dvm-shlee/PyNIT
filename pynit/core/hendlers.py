@@ -212,7 +212,7 @@ class Project(object):
 
         """
         if kwargs:
-            for key in kwargs.keys:
+            for key in kwargs.keys():
                 if key == 'ext':
                     self._ext = kwargs['ext']
                 elif key == 'keep':
