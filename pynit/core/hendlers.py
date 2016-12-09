@@ -543,7 +543,7 @@ class Process(object):
 
     def init_step(self, stepname):
         if self._pipeline:
-            steppath = ProjectMethods.get_step_name(self._prjobj, stepname)
+            steppath = ProjectMethods.get_step_name(self, stepname)
             steppath = os.path.join(self._prjobj.path, self._prjobj.ds_type[1], self._pipeline, steppath)
             SystemMethods.mkdir(steppath)
             self._prjobj.scan_prj()

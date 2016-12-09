@@ -273,8 +273,8 @@ class ProjectMethods(object):
         return filter, residuals
 
     @staticmethod
-    def get_step_name(prjobj, step):
-        pipeline_path = os.path.join(prjobj.path, prjobj.ds_type[1], prjobj.pipeline)
+    def get_step_name(procobj, step):
+        pipeline_path = os.path.join(procobj._prjobj.path, procobj._prjobj.ds_type[1], procobj.pipeline)
         executed_steps = [f for f in os.listdir(pipeline_path) if os.path.isdir(os.path.join(pipeline_path, f))]
         if len(executed_steps):
             overlapped = [old_step for old_step in executed_steps if step in old_step]
@@ -289,7 +289,7 @@ class ProjectMethods(object):
             else:
                 return "_".join([str(len(executed_steps) + 1).zfill(3), step])
         else:
-            print('First step for the pipeline{pipeline} is initiated'.format(pipeline=prjobj.pipeline))
+            print('First step for the pipeline{pipeline} is initiated'.format(pipeline=procobj.pipeline))
             return "_".join([str(1).zfill(3), step])
 
     @staticmethod
