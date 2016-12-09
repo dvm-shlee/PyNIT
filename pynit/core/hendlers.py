@@ -7,7 +7,7 @@ import messages
 
 
 class Project(object):
-    """Project Handler for Neuroimage data
+    """Project Handler for functional Neuro MRI datasets
     """
 
     def __init__(self, project_path, ds_ref='NIRAL', img_format='NifTi-1', **kwargs):
@@ -329,7 +329,8 @@ class Project(object):
                         self.__filters[3] = None
                 if len(residuals):
                     SystemMethods.raiseerror(messages.Errors.InputValueError,
-                                             'Wrong filter input:{args}'.format(args=args))
+                                             'Wrong filter input:{args}[{residuals}]'.format(args=args,
+                                                                                             residuals=residuals))
         self.__df = self.applying_filters(self.__df)
         self.__update()
 
