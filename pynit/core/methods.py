@@ -18,6 +18,174 @@ from skimage import exposure
 import objects
 import error
 
+class ProjectMethods(object):
+    """ Set of methods for handling project object
+    """
+
+    @staticmethod
+    def path_splitter(path):
+        """Split path structure into list
+        """
+        return path.strip(os.sep).split(os.sep)
+
+    @staticmethod
+    def parsing(path, ds_type, idx):
+        """ Parsing the information of structured dataset from the pointed data class
+
+        Parameters
+        ----------
+        path    : str
+            Main path of the project
+        ds_type : list
+            Project.ds_type object
+        idx     : int
+            Dataclass index
+
+        Returns
+        -------
+        pandas.DataFrame
+        boolean
+        """
+        single_session = False
+        empty_prj = False
+        df = pd.DataFrame()
+        for f in os.walk(os.path.join(path, ds_type[idx])):
+            if f[2]:
+                for filename in f[2]:
+                    row = pd.Series(ProjectMethods.path_splitter(os.path.relpath(f[0], path)))
+                    row['Filename'] = filename
+                    row['Abspath'] = os.path.join(f[0], filename)
+                    df = df.append(pd.DataFrame([row]), ignore_index=True)
+        if idx == 0:
+            if len(df.columns) is 5:
+                single_session = True
+        else:
+            if len(df.columns) is 6:
+                single_session = True
+        columns = ProjectMethods.update_columns(idx, single_session)
+        if not len(df):
+            empty_prj = True
+        return df.rename(columns=columns).sort_values('Abspath'), single_session, empty_prj
+
+    @staticmethod
+    def update_columns(idx, single_session):
+        """Update columns information based on data class
+
+        :param single_session: boolean
+            True, if the project has only single session for each subject
+        :param idx: int
+            Index of the data class
+        :return: dict
+            Updated columns
+        """
+        if idx == 0:
+            if single_session:
+                subject, session, dtype = (1, 3, 2)
+            else:
+                subject, session, dtype = (1, 2, 3)
+            columns = {0: 'DataClass', subject: 'Subject', session: 'Session', dtype: 'DataType'}
+        elif idx == 1:
+            columns = {0: 'DataClass', 1: 'Pipeline', 2: 'Step', 3: 'Subject', 4: 'Session'}
+        elif idx == 2:
+            columns = {0: 'DataClass', 1: 'Pipeline', 2: 'Result', 3: 'Subject', 4: 'Session'}
+        else:
+            columns = {0: 'DataClass'}
+        return columns
+
+    @staticmethod
+    def reorder_columns(idx, single_session):
+        """ reorder the project columns
+
+        :param idx:
+        :param single_session:
+        :return:
+        """
+        if idx == 0:
+            if single_session:
+                return ['Subject', 'DataType', 'Filename', 'Abspath']
+            else:
+                return ['Subject', 'Session', 'DataType', 'Filename', 'Abspath']
+        elif idx == 1:
+            if single_session:
+                return ['Pipeline', 'Step', 'Subject', 'Filename', 'Abspath']
+            else:
+                return ['Pipeline', 'Step', 'Subject', 'Session', 'Filename', 'Abspath']
+        elif idx == 2:
+            if single_session:
+                return ['Pipeline', 'Result', 'Subject', 'Filename', 'Abspath']
+            else:
+                return ['Pipeline', 'Result', 'Subject', 'Session', 'Filename', 'Abspath']
+        else:
+            return None
+
+    @staticmethod
+    def initial_filter(df, data_class, ext):
+        """Filtering out only selected file type in the project folder
+
+        :param df: pandas.DataFrame
+            Project dataframe
+        :param data_class: list
+            Interested data class of the project
+            e.g.) ['Data', 'Processing', 'Results'] for NIRAL method
+        :param ext: list
+            Interested extension for particular file type
+        :return: pandas.DataFrame
+            Filtered dataframe
+        """
+        if data_class:
+            if not type(data_class) is list:
+                data_class = [data_class]
+            try:
+                df = df[df['DataClass'].isin(data_class)]
+            except:
+                print('Error')
+        if ext:
+            df = df[df['Filename'].str.contains('|'.join(ext))]
+        columns = df.columns
+        return df.reset_index()[columns]
+
+    @staticmethod
+    def mk_main_folder(prj):
+        """Make processing and results folders
+        """
+        ProjectMethods.mkdir(os.path.join(prj.path, prj.ds_type[0]),
+                              os.path.join(prj.path, prj.ds_type[1]),
+                              os.path.join(prj.path, prj.ds_type[2]))
+
+    @staticmethod
+    def get_step_name(prjobj, step):
+        pipeline_path = os.path.join(prjobj.path, prjobj.ds_type[1], prjobj.pipeline)
+        executed_steps = [f for f in os.listdir(pipeline_path) if os.path.isdir(os.path.join(pipeline_path, f))]
+        if len(executed_steps):
+            overlapped = [old_step for old_step in executed_steps if step in old_step]
+            if len(overlapped):
+                print('Notice: existing path')
+                checked_files = []
+                for f in os.walk(os.path.join(pipeline_path, overlapped[0])):
+                    checked_files.extend(f[2])
+                if len(checked_files):
+                    print('Notice: Last step path is not empty')
+                return overlapped[0]
+            else:
+                return "_".join([str(len(executed_steps) + 1).zfill(3), step])
+        else:
+            print('First step for the pipeline{pipeline} is initiated'.format(pipeline=prjobj.pipeline))
+            return "_".join([str(1).zfill(3), step])
+
+    @staticmethod
+    def mkdir(*paths):
+        for path in paths:
+            try:
+                os.mkdir(path)
+            except:
+                pass
+
+    @staticmethod
+    def copyfile(output_path, input_path, *args):
+        """ Copy File
+        """
+        shutil.copyfile(input_path, output_path)
+
 
 class InternalMethods(object):
     """ Internal utility for PyNIT package
@@ -382,208 +550,7 @@ class InternalMethods(object):
         return slice_num
 
     # Method collection for project handler
-    @staticmethod
-    def path_splitter(path):
-        """Split path structure into list
-        """
-        return path.strip(os.sep).split(os.sep)
 
-    @staticmethod
-    def parsing(path, ds_type, idx):
-        """Parsing the data information based on input data class
-
-        :param path: str
-            Project main path
-        :param ds_type: list
-            Project.ds_type instance
-        :param idx: int
-            Index for data class
-        :return: pandas.DataFrame, boolean
-            Return DataFrame instance of the project and
-            Whether the project is single session or not
-        """
-        single_session = False
-        empty_prj = False
-        df = pd.DataFrame()
-        for f in os.walk(os.path.join(path, ds_type[idx])):
-            if f[2]:
-                for filename in f[2]:
-                    row = pd.Series(InternalMethods.path_splitter(os.path.relpath(f[0], path)))
-                    row['Filename'] = filename
-                    row['Abspath'] = os.path.join(f[0], filename)
-                    df = df.append(pd.DataFrame([row]), ignore_index=True)
-        if idx == 0:
-            if len(df.columns) is 5:
-                single_session = True
-        else:
-            if len(df.columns) is 6:
-                single_session = True
-        columns = InternalMethods.update_columns(idx, single_session)
-        if not len(df):
-            empty_prj = True
-        return df.rename(columns=columns).sort_values('Abspath'), single_session, empty_prj
-
-    @staticmethod
-    def update_columns(idx, single_session):
-        """Update columns information based on data class
-
-        :param single_session: boolean
-            True, if the project has only single session for each subject
-        :param idx: int
-            Index of the data class
-        :return: dict
-            Updated columns
-        """
-        if idx == 0:
-            if single_session:
-                subject, session, dtype = (1, 3, 2)
-            else:
-                subject, session, dtype = (1, 2, 3)
-            columns = {0: 'DataClass', subject: 'Subject', session: 'Session', dtype: 'DataType'}
-        elif idx == 1:
-            columns = {0: 'DataClass', 1: 'Pipeline', 2: 'Step', 3: 'Subject', 4: 'Session'}
-        elif idx == 2:
-            columns = {0: 'DataClass', 1: 'Pipeline', 2: 'Result', 3: 'Subject', 4: 'Session'}
-        else:
-            columns = {0: 'DataClass'}
-        return columns
-
-    @staticmethod
-    def reorder_columns(idx, single_session):
-        """ reorder the project columns
-
-        :param idx:
-        :param single_session:
-        :return:
-        """
-        if idx == 0:
-            if single_session:
-                return ['Subject', 'DataType', 'Filename', 'Abspath']
-            else:
-                return ['Subject', 'Session', 'DataType', 'Filename', 'Abspath']
-        elif idx == 1:
-            if single_session:
-                return ['Pipeline', 'Step', 'Subject', 'Filename', 'Abspath']
-            else:
-                return ['Pipeline', 'Step', 'Subject', 'Session', 'Filename', 'Abspath']
-        elif idx == 2:
-            if single_session:
-                return ['Pipeline', 'Result', 'Subject', 'Filename', 'Abspath']
-            else:
-                return ['Pipeline', 'Result', 'Subject', 'Session', 'Filename', 'Abspath']
-        else:
-            return None
-
-    @staticmethod
-    def initial_filter(df, data_class, ext):
-        """Filtering out only selected file type in the project folder
-
-        :param df: pandas.DataFrame
-            Project dataframe
-        :param data_class: list
-            Interested data class of the project
-            e.g.) ['Data', 'Processing', 'Results'] for NIRAL method
-        :param ext: list
-            Interested extension for particular file type
-        :return: pandas.DataFrame
-            Filtered dataframe
-        """
-        if data_class:
-            if not type(data_class) is list:
-                data_class = [data_class]
-            try:
-                df = df[df['DataClass'].isin(data_class)]
-            except:
-                print('Error')
-        if ext:
-            df = df[df['Filename'].str.contains('|'.join(ext))]
-        columns = df.columns
-        return df.reset_index()[columns]
-
-    # @staticmethod
-    # def isnull(df):
-    #     """Check missing value
-    #
-    #     :param df: pandas.DataFrame
-    #     :return:
-    #     """
-    #     return pd.isnull(df)
-
-    @staticmethod
-    def mk_main_folder(prj):
-        """Make processing and results folders
-        """
-        InternalMethods.mkdir(os.path.join(prj.path, prj.ds_type[0]),
-                              os.path.join(prj.path, prj.ds_type[1]),
-                              os.path.join(prj.path, prj.ds_type[2]))
-
-    # @staticmethod
-    # def check_args(command):
-    #     """Check arguments of input command
-    #
-    #     :param command:
-    #     :return:
-    #         args
-    #         defaults
-    #         varargs
-    #         keywords
-    #     """
-    #     if command in dir(Interface):
-    #         argspec = dict(inspect.getargspec(getattr(Interface, command)).__dict__)
-    #     else:
-    #         raise error.CommandExecutionFailure
-    #     if argspec['defaults'] is None:
-    #         def_len = 0
-    #         defaults = None
-    #     else:
-    #         def_len = len(argspec['defaults'])
-    #         defaults = dict(zip(argspec['args'][len(argspec['args']) - def_len:], argspec['defaults']))
-    #     args = argspec['args'][1:(len(argspec['args']) - def_len)]
-    #     varargs = argspec['varargs']
-    #     kwargs = argspec['keywords']
-    #     return args, defaults, varargs, kwargs
-
-    # @staticmethod
-    # def filter_file_index(option, prj, file_index):
-    #     if file_index:
-    #         option.extend(prj.df.Abspath.tolist()[min(file_index):max(file_index) + 1])
-    #     else:
-    #         option.extend(prj.df.Abspath.tolist())
-    #     return option
-
-    @staticmethod
-    def get_step_name(prjobj, step):
-        pipeline_path = os.path.join(prjobj.path, prjobj.ds_type[1], prjobj.pipeline)
-        executed_steps = [f for f in os.listdir(pipeline_path) if os.path.isdir(os.path.join(pipeline_path, f))]
-        if len(executed_steps):
-            overlapped = [old_step for old_step in executed_steps if step in old_step]
-            if len(overlapped):
-                print('Notice: existing path')
-                checked_files = []
-                for f in os.walk(os.path.join(pipeline_path, overlapped[0])):
-                    checked_files.extend(f[2])
-                if len(checked_files):
-                    print('Notice: Last step path is not empty')
-                return overlapped[0]
-            else:
-                return "_".join([str(len(executed_steps)+1).zfill(3), step])
-        else:
-            print('First step for the pipeline{pipeline} is initiated'.format(pipeline=prjobj.pipeline))
-            return "_".join([str(1).zfill(3), step])
-
-    @staticmethod
-    def mkdir(*paths):
-        for path in paths:
-            try:
-                os.mkdir(path)
-            except:
-                pass
-
-    @staticmethod
-    def copyfile(output_path, input_path, *args):
-        """ Copy File
-        """
-        shutil.copyfile(input_path, output_path)
 
     # Method collection for preprocessing
     @staticmethod

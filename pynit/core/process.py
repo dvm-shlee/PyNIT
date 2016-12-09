@@ -4,7 +4,7 @@ from string import ascii_lowercase as lc
 from subprocess import list2cmdline, check_output, call
 import error
 from shutil import rmtree
-from .utility import InternalMethods, np, pd, os
+from .methods import InternalMethods, np, pd, os
 
 
 class Analysis(object):

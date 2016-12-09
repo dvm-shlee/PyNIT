@@ -1,5 +1,5 @@
 from .visual import Viewer
-from .utility import InternalMethods, np, nib, os
+from .methods import InternalMethods, np, nib, os
 from .process import TempFile
 import error
 

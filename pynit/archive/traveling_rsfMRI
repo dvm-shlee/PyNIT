@@ -34,7 +34,7 @@ endif
 
 # Extracting the average time course data of ROI from Subjects
 #goto nexts
-goto video
+#goto video
 foreach file (${1}*)
     foreach seed (Imgs/seed_*)
         set ofile = ${seed:t:r:s/seed_//}_${file:r:r}
@@ -55,9 +55,9 @@ while ($i < 59)
         set NSeed=${i}
     endif
     echo ${NSeed}
-    #3dttest++ -prefix ${OUTPUT}/T/${NSeed}.nii -setA ${OUTPUT}/z/z_${NSeed}*
-    #3dMean -prefix ${OUTPUT}/avr/${NSeed}.nii ${OUTPUT}/z/z_${NSeed}*
-    #3dFDR -input ${OUTPUT}/avr/${NSeed}.nii -mask Imgs/mask.nii -quiet -prefix ${OUTPUT}/fdr/fdr_${NSeed}.nii
+    3dttest++ -prefix ${OUTPUT}/T/${NSeed}.nii -setA ${OUTPUT}/z/z_${NSeed}*
+    3dMean -prefix ${OUTPUT}/avr/${NSeed}.nii ${OUTPUT}/z/z_${NSeed}*
+    3dFDR -input ${OUTPUT}/avr/${NSeed}.nii -mask Imgs/mask.nii -quiet -prefix ${OUTPUT}/fdr/fdr_${NSeed}.nii
     3dclust -1Dformat -noabs -nosum -1dindex 0 -1tindex 1 -2thresh -4.892 4.892 -summarize -prefix ${OUTPUT}/thr/T_${NSeed}seed.nii -dxyz=1 1.01 20 ${OUTPUT}/fdr/fdr_${NSeed}.nii
     @ i += 1
 end

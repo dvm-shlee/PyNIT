@@ -1,7 +1,7 @@
 from .project import Project, Preprocess
 from .visual import Viewer, Plot
 from .process import Interface
-from .utility import InternalMethods
+from .methods import InternalMethods
 from .process import Analysis, Interface, TempFile
 from .objects import Template, ImageObj
 

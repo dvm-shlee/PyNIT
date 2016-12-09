@@ -2,7 +2,7 @@
 import scipy.ndimage as ndimage
 from skimage import feature
 # Import internal packages
-from .utility import InternalMethods, np
+from .methods import InternalMethods, np
 from .process import Analysis
 import error
 # Import matplotlib for visualization
