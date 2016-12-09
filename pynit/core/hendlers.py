@@ -530,7 +530,7 @@ class Process(object):
         self.initiate_pipeline(pipeline)
 
     @property
-    def pipeline(selfs):
+    def pipeline(self):
         return self._pipeline
 
     @property
