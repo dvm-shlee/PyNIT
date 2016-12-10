@@ -150,6 +150,7 @@ class Project(object):
         else:
             SystemMethods.raiseerror(messages.Errors.InputTypeError,
                                      'Please use correct input type.')
+        self.scan_prj()
 
     def reset_filters(self, ext=None):
         """ Reset filter - Clear all filter information and extension
@@ -165,9 +166,9 @@ class Project(object):
         """
         self.__filters = [None] * 6
         if not ext:
-            self._ext = self.img_ext
+            self.ext = self.img_ext
         else:
-            self._ext = ext
+            self.ext = ext
         self.scan_prj()
         self.__update()
 
@@ -324,7 +325,6 @@ class Project(object):
         df      : pandas.DataFrame
         """
         if len(df):
-            df = df[df['Filename'].str.contains('|'.join([r"{ext}$".format(ext=ext) for ext in self.ext]))]
             if self.__filters[0]:
                 df = df[df.Subject.isin(self.__filters[0])]
             if self.__filters[1]:
