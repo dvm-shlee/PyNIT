@@ -1527,7 +1527,7 @@ class Process(object):
                 for i, finfo in funcs:
                     print(" +Filename of moving image: {}".format(finfo.Filename))
                     output_path = os.path.join(step01, subj, finfo.Filename)
-                    self._prjobj.run('ants_WarpTimeSeriesImageMultiTransform', output_path,
+                    self._prjobj.run('ants_WarpTimeSeriresImageMultiTransform', output_path,
                                      finfo.Abspath, warped.Abspath, warps, mats, **in_kwargs)
                 # subjatlas = InternalMethods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
                 subjatlas = InternalMethods.load_temp(output_path, '{}_atlas.nii'.format(temp_path))

@@ -133,7 +133,7 @@ class ProjectMethods(object):
             return df.sort_values('Abspath'), single_session, empty_prj
 
     @staticmethod
-    def initial_filter(df, data_class, ext):
+    def initial_filter(df, data_class, exts):
         """ Filtering out only selected file type in the project folder
 
         Parameters
@@ -159,8 +159,8 @@ class ProjectMethods(object):
                 df = df[df['DataClass'].isin(data_class)]
             except TypeError as e:
                 print("Type error({0}): {1}".format(e.errno, e.strerror))
-        if ext:
-            df = df[df['Filename'].str.contains('|'.join(ext))]
+        if exts:
+            df = df[df['Filename'].str.contains('|'.join([r"{ext}$".format(ext=ext) for ext in exts]))]
         columns = df.columns
         return df.reset_index()[columns]
 
