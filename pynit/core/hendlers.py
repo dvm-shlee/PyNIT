@@ -342,10 +342,10 @@ class Project(object):
                     pass
             if self.__filters[4] is not None:
                 file_tag = list(self.__filters[4])
-                df = df[df.Filename.str.contains('&'.join(file_tag))]
+                df = df[df.Filename.str.contains('|'.join(file_tag))]
             if self.__filters[5] is not None:
                 ignore = list(self.__filters[5])
-                df = df[~df.Filename.str.contains('&'.join(ignore))]
+                df = df[~df.Filename.str.contains('|'.join(ignore))]
             return df
         else:
             return df
