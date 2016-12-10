@@ -214,7 +214,7 @@ class Project(object):
         if kwargs:
             for key in kwargs.keys():
                 if key == 'ext':
-                    self._ext = kwargs['ext']
+                    self.ext = kwargs['ext']
                 elif key == 'keep':
                     # This option allows to keep previous filter
                     if kwargs['keep']:
@@ -324,6 +324,7 @@ class Project(object):
         df      : pandas.DataFrame
         """
         if len(df):
+            df = df[df['Filename'].str.contains('|'.join([r"{ext}$".format(ext=ext) for ext in self.ext]))]
             if self.__filters[0]:
                 df = df[df.Subject.isin(self.__filters[0])]
             if self.__filters[1]:
