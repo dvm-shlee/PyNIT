@@ -17,6 +17,9 @@ class Warning(object):
 class Errors(object):
     """ Correction of CustomExceptions
     """
+    class PackageUpdateFailure(EnvironmentError):
+        """PackageUpdateFailure"""
+
     class InputTypeError(TypeError):
         """InputTypeError"""
         pass
@@ -39,6 +42,14 @@ class Errors(object):
 
     class ProjectScanFailure(LookupError):
         """ProjectScanFailure"""
+        pass
+
+    class DependenceError(NameError):
+        """DependenceError"""
+        pass
+
+    class InitiationFailure(ReferenceError):
+        """InitiationFailure"""
         pass
 
 class InputFileError(Exception):

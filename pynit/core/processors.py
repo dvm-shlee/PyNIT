@@ -1,40 +1,12 @@
-import shlex as shl
 from string import ascii_lowercase as lc
 from shutil import rmtree
-from subprocess import list2cmdline, check_output, call
+from subprocess import list2cmdline, check_output, call     # Old one
 import multiprocessing
-# import subprocess
+import shlex
+from methods import np
+
+import methods
 import messages
-from .methods import InternalMethods, np, pd, os
-
-
-class Wrapper(object):
-    """ Wrapper class for command line packages
-    """
-    _command = ""
-    _args = list()
-    _kwargs = dict()
-
-    def __init__(self, command=None, *args, **kwargs):
-        self._command = command
-
-    @property
-    def command(self):
-        return self._command
-
-    @property
-    def args(self):
-        return self._args
-
-    @property
-    def kwargs(self):
-        return self._kwargs
-
-    def run(self):
-        pass
-
-    def __doc__(self):
-        return "Help!!!!"
 
 
 class Analysis(object):
@@ -83,7 +55,7 @@ class Analysis(object):
             output = Interface.afni_3dmaskave(None, input_file, mask_file)
             input_file.close()
             mask_file.close()
-            return pd.Series(output)
+            return methods.Series(output)
         else:
             data = np.asarray(imageobj.dataobj)
             mask = np.asarray(maskobj.dataobj)
@@ -96,7 +68,7 @@ class Analysis(object):
             mask = np.expand_dims(mask, axis=1)
             mask = np.repeat(mask, data.shape[1], axis=1)
             output = np.ma.masked_where(mask == 0, data)
-            return pd.Series(np.ma.average(output, axis=0))
+            return methods.Series(np.ma.average(output, axis=0))
 
     @staticmethod
     def get_timetrace(imageobj, tempobj, **kwargs):
@@ -121,7 +93,7 @@ class Analysis(object):
                 if arg == 'quiet':
                     quiet = kwargs[arg]
         # Initiate dataframe
-        df = pd.DataFrame()
+        df = methods.DataFrame()
         # Check each labels
         for idx in tempobj.label.keys():
             if idx:
@@ -202,7 +174,7 @@ class Interface(object):
             cmd.extend(['-tpattern', tpattern])
         cmd.append(input_path)
         cmd = list2cmdline(cmd)
-        call(shl.split(cmd))
+        call(shlex.split(cmd))
 
     @staticmethod
     def afni_3dvolreg(output_path, input_path, base_slice=0, *args):
@@ -215,8 +187,8 @@ class Interface(object):
         input_path : str
         base_slice : str
         """
-        motion_parameter = InternalMethods.splitnifti(output_path) + '.1D'
-        template_file = InternalMethods.splitnifti(output_path)
+        motion_parameter = methods.splitnifti(output_path) + '.1D'
+        template_file = methods.splitnifti(output_path)
         cmd = ['3dvolreg', '-prefix', output_path, '-1Dfile', motion_parameter, '-1Dmatrix_save', template_file,
                '-Fourier', '-verbose', '-base']
         if type(base_slice) is int:
@@ -225,7 +197,7 @@ class Interface(object):
             cmd.append('{}'.format(base_slice))
         cmd.append(input_path)
         cmd = list2cmdline(cmd)
-        call(shl.split(cmd))
+        call(shlex.split(cmd))
 
     @staticmethod
     def afni_3dAllineate(output_path, input_path, **kwargs):
@@ -345,7 +317,7 @@ class Interface(object):
             raise KeyError("")
         cmd.append(input_path)
         cmd = list2cmdline(cmd)
-        call(shl.split(cmd))
+        call(shlex.split(cmd))
 
     @staticmethod
     def afni_3dcalc(output_path, expr, *inputs):
@@ -362,7 +334,7 @@ class Interface(object):
         cmd.append('-expr')
         cmd.append("'{}'".format(expr))
         cmd = list2cmdline(cmd)
-        call(shl.split(cmd))
+        call(shlex.split(cmd))
 
     @staticmethod
     def afni_3dMean(output_path, *inputs):
@@ -370,7 +342,7 @@ class Interface(object):
         cmd = ['3dMean', '-prefix', output_path]
         cmd.extend(inputs)
         cmd = list2cmdline(cmd)
-        call(shl.split(cmd))
+        call(shlex.split(cmd))
 
     @staticmethod
     def afni_3dTstat(output_path, input_path, **kwargs):
@@ -386,7 +358,7 @@ class Interface(object):
                     cmd.append('-nzmedian')
         cmd.append(input_path)
         cmd = list2cmdline(cmd)
-        call(shl.split(cmd))
+        call(shlex.split(cmd))
 
     @staticmethod
     def afni_3dBlurInMask(output_path, input_path, **kwargs):
@@ -409,7 +381,7 @@ class Interface(object):
         cmd.append("'{}'".format(input_path))
         print(cmd)
         cmd = list2cmdline(cmd)
-        call(shl.split(cmd))
+        call(shlex.split(cmd))
 
     @staticmethod
     def afni_3dBandpass(output_path, input_path, norm=False, detrend=False, despike=False, mask=None, blur=False,
@@ -437,7 +409,7 @@ class Interface(object):
             band = map(str, band)
             cmd.extend(band)
         cmd = list2cmdline(cmd)
-        call(shl.split(cmd))
+        call(shlex.split(cmd))
 
     @staticmethod
     def afni_3dmaskave(output_path, input_path, mask_path):
@@ -453,7 +425,7 @@ class Interface(object):
         cmd.append("'{}'".format(input_path))
         cmd = list2cmdline(cmd)
         try:
-            stdout = check_output(shl.split(cmd))
+            stdout = check_output(shlex.split(cmd))
         except:
             print("Error: Empty mask.")
         else:
@@ -488,7 +460,7 @@ class Interface(object):
                 cmd.append(str(kwargs['polort']))
         cmd.append("'{}'".format(input_path))
         cmd = list2cmdline(cmd)
-        call(shl.split(cmd))
+        call(shlex.split(cmd))
 
     @staticmethod
     def afni_3dDeconvolve(output_path, input_path, **kwargs): # TODO: Not working for GLM analysis, need to fix
@@ -523,11 +495,11 @@ class Interface(object):
             cmd.append('-x1D')
             cmd.append('stdout:')
             cmd = list2cmdline(cmd)
-            stdout = check_output(shl.split(cmd))
+            stdout = check_output(shlex.split(cmd))
             return stdout
         cmd = list2cmdline(cmd)
         # print(cmd)
-        call(shl.split(cmd))
+        call(shlex.split(cmd))
 
     # ANTs commands
     @staticmethod
@@ -546,7 +518,7 @@ class Interface(object):
         else:
             raise BaseException("One of 'n3' or 'n4' must be chosen for last argument")
         cmd = list2cmdline(cmd)
-        call(shl.split(cmd))
+        call(shlex.split(cmd))
 
     @staticmethod
     def ants_RegistrationSyn(output_path, input_path, base_path, quick=True, ttype='s', thread=1):
@@ -562,7 +534,7 @@ class Interface(object):
 
             cmd = [script, '-t', ttype, '-f', base_path, '-m', input_path, '-o', output_path, '-n', str(thread)]
             cmd = list2cmdline(cmd)
-            call(shl.split(cmd))
+            call(shlex.split(cmd))
 
     @staticmethod
     def ants_WarpImageMultiTransform(output_path, input_path, base_path, *args, **kwargs):
@@ -576,7 +548,7 @@ class Interface(object):
         for arg in args:
             cmd.append(arg)
         cmd = list2cmdline(cmd)
-        call(shl.split(cmd))
+        call(shlex.split(cmd))
         # print(cmd)
 
     @staticmethod
@@ -591,7 +563,7 @@ class Interface(object):
         for arg in args:
             cmd.append(arg)
         cmd = list2cmdline(cmd)
-        call(shl.split(cmd))
+        call(shlex.split(cmd))
         # print(cmd)
 
 
@@ -607,7 +579,7 @@ class TempFile(object):
         else:
             self._image = obj
             self._fname = filename
-            InternalMethods.mkdir('./.tmp')
+            methods.mkdir('./.tmp')
             self._image.save_as(os.path.join('./.tmp', filename), quiet=True)
             self._atlas = None
 

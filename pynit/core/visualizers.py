@@ -1,21 +1,22 @@
 # Import external packages
+import sys
 import scipy.ndimage as ndimage
 from skimage import feature
 # Import internal packages
-from .methods import InternalMethods, np
-from .process import Analysis
+from .methods import np
+from .processors import Analysis
 import messages
+import methods
 # Import matplotlib for visualization
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import colors
 import seaborn as sns
 # Import interactive plot in jupyter notebook
-try:
-    if __IPYTHON__:
-        from ipywidgets import interact, fixed
-        from IPython.display import Image, display
-except:
+if len([key for key in sys.modules.keys() if key == 'ipykernel']):
+    from ipywidgets import interact, fixed
+    from IPython.display import Image, display
+else:
     pass
 
 # The commented codes below are used for save figure later (mayby?)
@@ -63,15 +64,15 @@ class Viewer(object):
         # Swap the affine matrix
         resol[axis], resol[2] = resol[2], resol[axis]
         # Parsing arguments
-        slice_num = InternalMethods.check_slice(imageobj, slice_num, axis)
+        slice_num = methods.check_slice(imageobj, slice_num, axis)
         # Image normalization if norm is True
         if norm:
-            data = InternalMethods.apply_p2_98(data)
+            data = methods.apply_p2_98(data)
         else:
             pass
         # Check invert states using given kwargs and apply
-        invert = InternalMethods.check_invert(kwargs)
-        data = InternalMethods.apply_invert(data, *invert)
+        invert = methods.check_invert(kwargs)
+        data = methods.apply_invert(data, *invert)
 
         # Internal show slice function for interact python
         def imshow(slice_num, frame=0):
@@ -82,7 +83,7 @@ class Viewer(object):
                 axes.imshow(data[:, :, int(slice_num), frame].T, origin='lower', interpolation='nearest', cmap='gray')
             else:
                 raise messages.ImageDimentionMismatched
-            axes = InternalMethods.set_viewaxes(axes)
+            axes = methods.set_viewaxes(axes)
             if resol[1] != resol[0]:
                 axes.set_aspect(abs(resol[1] / resol[0]))
             else:
@@ -102,7 +103,7 @@ class Viewer(object):
                 raise messages.ImageDimentionMismatched
         except:
             fig, axes = plt.subplots()
-            data = InternalMethods.convert_to_3d(imageobj)
+            data = methods.convert_to_3d(imageobj)
             print('notinteract')
             axes.imshow(data[..., int(slice_num)].T, origin='lower', cmap='gray')
             axes.set_axis_off()
@@ -116,19 +117,19 @@ class Viewer(object):
         dim = list(moved_img.shape)
         resol = list(moved_img.header['pixdim'][1:4])
         # Convert 4D image to 3D or raise error
-        data = InternalMethods.convert_to_3d(moved_img)
+        data = methods.convert_to_3d(moved_img)
         # Check normalization
         if norm:
-            data = InternalMethods.apply_p2_98(data)
+            data = methods.apply_p2_98(data)
         # Set slice axis for mosaic grid
-        slice_axis, cmap = InternalMethods.check_sliceaxis_cmap(data, kwargs)
+        slice_axis, cmap = methods.check_sliceaxis_cmap(data, kwargs)
         cmap = 'YlOrRd'
         # Set grid shape
-        data, slice_grid, size = InternalMethods.set_mosaic_fig(data, dim, resol, slice_axis, scale)
+        data, slice_grid, size = methods.set_mosaic_fig(data, dim, resol, slice_axis, scale)
         fig, axes = Viewer.mosaic(fixed_img, scale=scale, norm=norm, cmap='bone', **kwargs)
         # Applying inversion
-        invert = InternalMethods.check_invert(kwargs)
-        data = InternalMethods.apply_invert(data, *invert)
+        invert = methods.check_invert(kwargs)
+        data = methods.apply_invert(data, *invert)
         # Plot image
         for i in range(slice_grid[1] * slice_grid[2]):
             ax = axes.flat[i]
@@ -160,18 +161,18 @@ class Viewer(object):
         dim = list(imageobj.shape)
         resol = list(imageobj.header['pixdim'][1:4])
         # Convert 4D image to 3D or raise error
-        data = InternalMethods.convert_to_3d(imageobj)
+        data = methods.convert_to_3d(imageobj)
         # Check normalization
         if norm:
-            data = InternalMethods.apply_p2_98(data)
+            data = methods.apply_p2_98(data)
         # Set slice axis for mosaic grid
-        slice_axis, cmap = InternalMethods.check_sliceaxis_cmap(imageobj, kwargs)
+        slice_axis, cmap = methods.check_sliceaxis_cmap(imageobj, kwargs)
         # Set grid shape
-        data, slice_grid, size = InternalMethods.set_mosaic_fig(data, dim, resol, slice_axis, scale)
+        data, slice_grid, size = methods.set_mosaic_fig(data, dim, resol, slice_axis, scale)
         fig, axes = plt.subplots(slice_grid[1], slice_grid[2], figsize=(size[0], size[1]))
         # Applying inversion
-        invert = InternalMethods.check_invert(kwargs)
-        data = InternalMethods.apply_invert(data, *invert)
+        invert = methods.check_invert(kwargs)
+        data = methods.apply_invert(data, *invert)
         # Plot image
         for i in range(slice_grid[1] * slice_grid[2]):
             ax = axes.flat[i]
@@ -194,12 +195,12 @@ class Viewer(object):
         resol = list(maskobj.header['pixdim'][1:4])
         num_roi = np.max(maskobj.dataobj)
         # Set slice axis for mosaic grid
-        slice_axis, cmap = InternalMethods.check_sliceaxis_cmap(maskobj, kwargs)
+        slice_axis, cmap = methods.check_sliceaxis_cmap(maskobj, kwargs)
         # Set grid shape
-        data, slice_grid, size = InternalMethods.set_mosaic_fig(maskobj.dataobj, dim, resol, slice_axis, scale)
+        data, slice_grid, size = methods.set_mosaic_fig(maskobj.dataobj, dim, resol, slice_axis, scale)
         # Applying inversion
-        invert = InternalMethods.check_invert(kwargs)
-        data = InternalMethods.apply_invert(data, *invert)
+        invert = methods.check_invert(kwargs)
+        data = methods.apply_invert(data, *invert)
         try:
             fig, axes = Viewer.mosaic(imageobj, scale=scale, **kwargs)
         except:
@@ -237,12 +238,12 @@ class Viewer(object):
         dim = list(atlas.shape)
         resol = list(atlas.header['pixdim'][1:4])
         # Set slice axis for mosaic grid
-        slice_axis, cmap = InternalMethods.check_sliceaxis_cmap(atlas, kwargs)
+        slice_axis, cmap = methods.check_sliceaxis_cmap(atlas, kwargs)
         # Set grid shape
-        data, slice_grid, size = InternalMethods.set_mosaic_fig(atlas.dataobj, dim, resol, slice_axis, scale)
+        data, slice_grid, size = methods.set_mosaic_fig(atlas.dataobj, dim, resol, slice_axis, scale)
         # Applying inversion
-        invert = InternalMethods.check_invert(kwargs)
-        data = InternalMethods.apply_invert(data, *invert)
+        invert = methods.check_invert(kwargs)
+        data = methods.apply_invert(data, *invert)
         try:
             fig, axes = Viewer.mosaic(tempobj, scale=scale, **kwargs)
         except:

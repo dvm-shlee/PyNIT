@@ -1,7 +1,11 @@
-from .visual import Viewer
-from .methods import SystemMethods, InternalMethods, np, nib, os
-from .process import TempFile
+import os
+import numpy as np
+from nibabel import Nifti1Image
+
+from .visualizers import Viewer
+from .processors import TempFile
 import messages
+import methods
 
 
 class Reference(object):
@@ -10,7 +14,8 @@ class Reference(object):
     img = {'NifTi-1':           ['.nii', '.nii.gz'],
            'ANALYZE7.5':        ['.img', '.hdr'],
            'AFNI':              ['.BRIK', '.HEAD'],
-           'Shihlab':           ['.sdt', '.spr']
+           'Shihlab':           ['.sdt', '.spr'],
+           'Nrrd':              ['.nrrd', '.nrrdh']
            }
     txt = {'Common':            ['.txt', '.cvs', '.tvs'],
            'AFNI':              ['.1D'],
@@ -71,7 +76,7 @@ class Reference(object):
             self._ds = ds_ref
 
 
-class ImageObj(nib.nifti1.Nifti1Image):
+class ImageObj(Nifti1Image):
     """ ImageObject for PyNIT
     """
     # def __init__(self):
@@ -90,14 +95,14 @@ class ImageObj(nib.nifti1.Nifti1Image):
     def swap_axis(self, axis1, axis2):
         """ Swap input axis with given axis of the object
         """
-        InternalMethods.swap_axis(self, axis1, axis2)
+        methods.swap_axis(self, axis1, axis2)
 
     def flip(self, **kwargs):
-        invert = InternalMethods.check_invert(kwargs)
-        self._dataobj = InternalMethods.apply_invert(self._dataobj, *invert)
+        invert = methods.check_invert(kwargs)
+        self._dataobj = methods.apply_invert(self._dataobj, *invert)
 
     def crop(self, **kwargs):
-        InternalMethods.crop(self, **kwargs)
+        methods.crop(self, **kwargs)
 
     def reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis=2):
         """ Reslice the image with given number of slice and slice thinkness
@@ -114,15 +119,14 @@ class ImageObj(nib.nifti1.Nifti1Image):
             Axis want to be re-sliced
         :return:
         """
-        InternalMethods.down_reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis)
+        methods.down_reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis)
 
     def save_as(self, filename, quiet=False):
         """ Save as a new file with current affine information
         """
-        nii = nib.Nifti1Image(self.dataobj, self.affine)
-        nii.header['sform_code'] = 0
-        nii.header['qform_code'] = 1
-        nii.to_filename(filename)
+        self.header['sform_code'] = 0
+        self.header['qform_code'] = 1
+        self.to_filename(filename)
         if not quiet:
             print("NifTi1 format image is saved to '{}'".format(filename))
 
@@ -296,17 +300,17 @@ class Atlas(object):
             raise messages.InputObjectError
 
     def load(self, path):
-        self._image, self._label = InternalMethods.parsing_atlas(path)
+        self._image, self._label = methods.parsing_atlas(path)
 
     def save_as(self, filename, label_only=False, quiet=False):
         if not label_only:
             self._image.save_as("{}.nii".format(filename), quiet=quiet)
-        InternalMethods.save_label(self._label, "{}.label".format(filename))
+        methods.save_label(self._label, "{}.label".format(filename))
 
     def extract(self, path):
         if not os.path.exists(path):
             try:
-                SystemMethods.mkdir(path)
+                methods.mkdir(path)
             except:
                 raise messages.InputPathError
         atlas = self._image.dataobj

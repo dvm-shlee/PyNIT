@@ -18,8 +18,8 @@ setup(name='PyNIT',
       url= __url__,
       license='GNLv3',
       packages=find_packages(),
-      install_requires=['numpy', 'nibabel', 'pandas',
-                        'matplotlib', 'seaborn',
+      install_requires=['numpy', 'nibabel', 'pandas', 'IPython', 'ipywidgets',
+                        'matplotlib', 'seaborn', 'tqdm',
                         'scikit-image', 'xlrd', 'openpyxl']
      )
 

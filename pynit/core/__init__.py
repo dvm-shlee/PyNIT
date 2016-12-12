@@ -1,8 +1,10 @@
-from .hendlers import Project, Process, Preprocess
-from .visual import Viewer, Plot
-from .process import Interface
-from .process import Analysis, Interface, TempFile
+from .handlers import Project, Preprocess
+from .visualizers import Viewer, Plot
+from .processors import Interface
+from .processors import Analysis, Interface, TempFile
 from .objects import Template, ImageObj
-from .methods import InternalMethods
+import methods
+import messages
 
-__all__ = ['Project', 'Process', 'Viewer', 'Plot', 'Template', 'InternalMethods', 'Analysis', 'Interface', 'TempFile', 'Preprocess']
+__all__ = ['Project', 'Preprocess', 'Viewer', 'Plot', 'Template',  'Analysis', 'Interface', 'TempFile',
+           'methods', 'messages']
