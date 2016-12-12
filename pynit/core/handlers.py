@@ -803,14 +803,14 @@ class Preprocess(object):
         prjobj.reset_filters()
         self._subjects = None
         self._sessions = None
-        self._pipeline = None
+        self._processing = None
         self._prjobj = prjobj
         self.reset()
         self.initiate_pipeline(pipeline)
 
     @property
-    def pipeline(self):
-        return self._pipeline
+    def processing(self):
+        return self._processing
 
     @property
     def subjects(self):
@@ -829,12 +829,12 @@ class Preprocess(object):
     def initiate_pipeline(self, pipeline):
         pipe_path = os.path.join(self._prjobj.path, self._prjobj.ds_type[1], pipeline)
         methods.mkdir(os.path.join(self._prjobj.path, self._prjobj.ds_type[1], pipeline))
-        self._pipeline = pipeline
+        self._processing = pipeline
 
     def init_step(self, stepname):
-        if self._pipeline:
+        if self._processing:
             steppath = methods.get_step_name(self, stepname)
-            steppath = os.path.join(self._prjobj.path, self._prjobj.ds_type[1], self._pipeline, steppath)
+            steppath = os.path.join(self._prjobj.path, self._prjobj.ds_type[1], self._processing, steppath)
             methods.mkdir(steppath)
             return steppath
         else:
@@ -870,7 +870,7 @@ class Preprocess(object):
             print("-Subject: {}".format(subj))
             methods.mkdir(os.path.join(step02, subj), os.path.join(step03, subj))
             if self._prjobj.single_session:
-                cbv_img = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, **kwargs)
+                cbv_img = self._prjobj(1, self._processing, os.path.basename(step01), subj, **kwargs)
                 for i, finfo in cbv_img:
                     print(" +Filename: {}".format(finfo.Filename))
                     shape = ImageObj.load(finfo.Abspath).shape
@@ -937,7 +937,7 @@ class Preprocess(object):
             print("-Subject: {}".format(subj))
             methods.mkdir(os.path.join(step02, subj))
             if self._prjobj.single_session:
-                funcs = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, **kwargs)
+                funcs = self._prjobj(1, self._processing, os.path.basename(step01), subj, **kwargs)
                 funcs = funcs.df.loc[0]
                 print(" +Filename: {}".format(funcs.Filename))
                 self._prjobj.run('afni_3dTstat', os.path.join(step02, subj, funcs.Filename),
@@ -946,7 +946,7 @@ class Preprocess(object):
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     methods.mkdir(os.path.join(step02, subj, sess))
-                    funcs = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, sess, **kwargs)
+                    funcs = self._prjobj(1, self._processing, os.path.basename(step01), subj, sess, **kwargs)
                     funcs = funcs.df.loc[0]
                     print(" +Filename: {}".format(funcs.Filename))
                     self._prjobj.run('afni_3dTstat', os.path.join(step02, subj, sess, funcs.Filename),
@@ -1026,7 +1026,7 @@ class Preprocess(object):
                 epi = self._prjobj(s0_dataclass, s0_func, subj, **kwargs)
                 if base:
                     if type(base) == str:
-                        meanimg = self._prjobj(1, self._pipeline, os.path.basename(base), subj, **kwargs)
+                        meanimg = self._prjobj(1, self._processing, os.path.basename(base), subj, **kwargs)
                         meanimg = meanimg.df.Abspath[baseidx]
 
                     else:
@@ -1044,7 +1044,7 @@ class Preprocess(object):
                     epi = self._prjobj(s0_dataclass, s0_func, subj, sess, **kwargs)
                     if base:
                         if type(base) == str:
-                            meanimg = self._prjobj(1, self._pipeline, os.path.basename(base), subj, sess)
+                            meanimg = self._prjobj(1, self._processing, os.path.basename(base), subj, sess)
                             meanimg = meanimg.df.Abspath[baseidx]
                         else:
                             meanimg = base
@@ -1228,11 +1228,11 @@ class Preprocess(object):
             methods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj))
             if self._prjobj.single_session:
                 # Load image paths
-                epi = self._prjobj(1, self._pipeline, meanfunc, subj, ignore='_mask')
-                t2 = self._prjobj(1, self._pipeline, anat, subj, ignore='_mask')
+                epi = self._prjobj(1, self._processing, meanfunc, subj, ignore='_mask')
+                t2 = self._prjobj(1, self._processing, anat, subj, ignore='_mask')
                 # Load mask image obj
-                epimask = self._prjobj(1, self._pipeline, meanfunc, subj, file_tag='_mask').df.Abspath[0]
-                t2mask = self._prjobj(1, self._pipeline, anat, subj, file_tag='_mask').df.Abspath[0]
+                epimask = self._prjobj(1, self._processing, meanfunc, subj, file_tag='_mask').df.Abspath[0]
+                t2mask = self._prjobj(1, self._processing, anat, subj, file_tag='_mask').df.Abspath[0]
                 # Execute process
                 for i, finfo in epi:
                     print(" +Filename of meanfunc: {}".format(finfo.Filename))
@@ -1261,11 +1261,11 @@ class Preprocess(object):
                     print(" :Session: {}".format(sess))
                     methods.mkdir(os.path.join(step01, subj, sess), os.path.join(step02, subj, sess))
                     # Load image paths
-                    epi = self._prjobj(1, self._pipeline, meanfunc, subj, sess, ignore='_mask')
-                    t2 = self._prjobj(1, self._pipeline, anat, subj, sess, ignore='_mask')
+                    epi = self._prjobj(1, self._processing, meanfunc, subj, sess, ignore='_mask')
+                    t2 = self._prjobj(1, self._processing, anat, subj, sess, ignore='_mask')
                     # Load mask image obj
-                    epimask = self._prjobj(1, self._pipeline, meanfunc, subj, sess, file_tag='_mask').df.Abspath[0]
-                    t2mask = self._prjobj(1, self._pipeline, anat, subj, sess, file_tag='_mask').df.Abspath[0]
+                    epimask = self._prjobj(1, self._processing, meanfunc, subj, sess, file_tag='_mask').df.Abspath[0]
+                    t2mask = self._prjobj(1, self._processing, anat, subj, sess, file_tag='_mask').df.Abspath[0]
                     # Execute process
                     for i, finfo in epi:
                         print("  +Filename of meanfunc: {}".format(finfo.Filename))
@@ -1312,7 +1312,7 @@ class Preprocess(object):
             methods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 # Load image paths
-                epi = self._prjobj(1, self._pipeline, func, subj)
+                epi = self._prjobj(1, self._processing, func, subj)
                 # Execute process
                 for i, finfo in epi:
                     print(" +Filename: {}".format(finfo.Filename))
@@ -1326,7 +1326,7 @@ class Preprocess(object):
                     print(" :Session: {}".format(sess))
                     methods.mkdir(os.path.join(step01, subj, sess))
                     # Load image paths
-                    epi = self._prjobj(1, self._pipeline, func, subj)
+                    epi = self._prjobj(1, self._processing, func, subj)
                     # Execute process
                     for i, finfo in epi:
                         print(" +Filename: {}".format(finfo.Filename))
@@ -1396,8 +1396,8 @@ class Preprocess(object):
             print("-Subject: {}".format(subj))
             methods.mkdir(os.path.join(step03, subj))
             if self._prjobj.single_session:
-                epi = self._prjobj(1, self._pipeline, os.path.basename(step01), subj)
-                t2 = self._prjobj(1, self._pipeline, os.path.basename(step02), subj)
+                epi = self._prjobj(1, self._processing, os.path.basename(step01), subj)
+                t2 = self._prjobj(1, self._processing, os.path.basename(step02), subj)
                 for i, finfo in epi:
                     print(" +Filename: {}".format(finfo.Filename))
                     fixed_img = t2.df.Abspath[0]
@@ -1419,8 +1419,8 @@ class Preprocess(object):
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     methods.mkdir(os.path.join(step03, subj, sess))
-                    epi = self._prjobj(1, self._pipeline, os.path.basename(step01), subj, sess)
-                    t2 = self._prjobj(1, self._pipeline, os.path.basename(step02), subj, sess)
+                    epi = self._prjobj(1, self._processing, os.path.basename(step01), subj, sess)
+                    t2 = self._prjobj(1, self._processing, os.path.basename(step02), subj, sess)
                     for i, finfo in epi:
                         print("  +Filename of anat: {}".format(finfo.Filename))
                         fixed_img = t2.df.Abspath[0]
@@ -1469,7 +1469,7 @@ class Preprocess(object):
             methods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 epi = self._prjobj(dataclass, func, subj)
-                epimask = self._prjobj(1, self._pipeline, os.path.basename(mask), subj, file_tag='_mask').df
+                epimask = self._prjobj(1, self._processing, os.path.basename(mask), subj, file_tag='_mask').df
                 maskobj = methods.load(epimask.Abspath[0])
                 if padded:
                     exec ('maskobj.crop({}=[1, {}])'.format(axis[zaxis], maskobj.shape[zaxis] - 1))
@@ -1484,7 +1484,7 @@ class Preprocess(object):
                     print(" :Session: {}".format(sess))
                     methods.mkdir(os.path.join(step01, subj, sess))
                     epi = self._prjobj(dataclass, func, subj, sess)
-                    epimask = self._prjobj(1, self._pipeline, os.path.basename(mask), subj, sess, file_tag='_mask').df
+                    epimask = self._prjobj(1, self._processing, os.path.basename(mask), subj, sess, file_tag='_mask').df
                     maskobj = methods.load(epimask.Abspath[0])
                     if padded:
                         exec ('maskobj.crop({}=[1, {}])'.format(axis[zaxis], maskobj.shape[zaxis] - 1))
@@ -1519,8 +1519,8 @@ class Preprocess(object):
             print("-Subject: {}".format(subj))
             methods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
-                ref = self._prjobj(1, self._pipeline, os.path.basename(realigned_func), subj)
-                param = self._prjobj(1, self._pipeline, os.path.basename(realigned_func), subj, ext='.1D')
+                ref = self._prjobj(1, self._processing, os.path.basename(realigned_func), subj)
+                param = self._prjobj(1, self._processing, os.path.basename(realigned_func), subj, ext='.1D')
                 funcs = self._prjobj(dataclass, os.path.basename(func), subj)
                 for i, finfo in funcs:
                     print(" +Filename: {}".format(finfo.Filename))
@@ -1531,8 +1531,8 @@ class Preprocess(object):
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     methods.mkdir(os.path.join(step01, subj, sess))
-                    ref = self._prjobj(1, self._pipeline, os.path.basename(realigned_func), subj, sess)
-                    param = self._prjobj(1, self._pipeline, os.path.basename(realigned_func), subj, sess, ext='.1D')
+                    ref = self._prjobj(1, self._processing, os.path.basename(realigned_func), subj, sess)
+                    param = self._prjobj(1, self._processing, os.path.basename(realigned_func), subj, sess, ext='.1D')
                     funcs = self._prjobj(dataclass, os.path.basename(func), subj, sess)
                     for i, finfo in funcs:
                         print("  +Filename: {}".format(finfo.Filename))
@@ -1699,7 +1699,7 @@ class Preprocess(object):
             if self._prjobj.single_session:
                 epi = self._prjobj(dataclass, func, subj)
                 if mask:
-                    epimask = self._prjobj(1, self._pipeline, os.path.basename(mask), subj, file_tag='_mask').df
+                    epimask = self._prjobj(1, self._processing, os.path.basename(mask), subj, file_tag='_mask').df
                 else:
                     epimask = None
                 for i, finfo in epi:
@@ -1714,7 +1714,7 @@ class Preprocess(object):
                     methods.mkdir(os.path.join(step01, subj, sess))
                     epi = self._prjobj(dataclass, func, subj, sess)
                     if mask:
-                        epimask = self._prjobj(1, self._pipeline, os.path.basename(mask), subj, sess, file_tag='_mask').df
+                        epimask = self._prjobj(1, self._processing, os.path.basename(mask), subj, sess, file_tag='_mask').df
                     else:
                         epimask = False
                     for i, finfo in epi:
@@ -1975,8 +1975,8 @@ class Preprocess(object):
             methods.mkdir(os.path.join(step01, subj),
                             os.path.join(step02, 'AllSubjects'))
             if self._prjobj.single_session:
-                ref = self._prjobj(1, self._pipeline, os.path.basename(norm_anat), subj)
-                param = self._prjobj(1, self._pipeline, os.path.basename(norm_anat), subj, ext='.1D')
+                ref = self._prjobj(1, self._processing, os.path.basename(norm_anat), subj)
+                param = self._prjobj(1, self._processing, os.path.basename(norm_anat), subj, ext='.1D')
                 temp_path = os.path.join(step01, subj, "base")
                 tempobj.save_as(temp_path, quiet=True)
                 funcs = self._prjobj(dataclass, os.path.basename(func), subj)
@@ -2002,8 +2002,8 @@ class Preprocess(object):
                     methods.mkdir(os.path.join(step01, subj, sess),
                                     os.path.join(step02, subj),
                                     os.path.join(step02, subj, 'AllSessions'))
-                    ref = self._prjobj(1, self._pipeline, os.path.basename(norm_anat), subj, sess)
-                    param = self._prjobj(1, self._pipeline, os.path.basename(norm_anat), subj, sess, ext='.1D')
+                    ref = self._prjobj(1, self._processing, os.path.basename(norm_anat), subj, sess)
+                    param = self._prjobj(1, self._processing, os.path.basename(norm_anat), subj, sess, ext='.1D')
                     temp_path = os.path.join(step01, subj, sess, "base")
                     tempobj.save_as(temp_path, quiet=True)
                     funcs = self._prjobj(dataclass, os.path.basename(func), subj, sess)
@@ -2212,7 +2212,7 @@ class Preprocess(object):
             if self._prjobj.single_session:
                 if not tempobj:
                     # atlas = self._prjobj(1, self._pipeline, atlas, subj).df.Abspath.loc[0]
-                    warped = self._prjobj(1, self._pipeline, subj, file_tag='_InverseWarped').df.Abspath.loc[0]
+                    warped = self._prjobj(1, self._processing, subj, file_tag='_InverseWarped').df.Abspath.loc[0]
                     tempobj = methods.load_temp(warped, atlas)
                 if not file_tag:
                     if not ignore:
@@ -2234,7 +2234,7 @@ class Preprocess(object):
                     print(" :Session: {}".format(sess))
                     if not tempobj:
                         # atlas = self._prjobj(1, self._pipeline, atlas, subj, sess).df.Abspath.loc[0]
-                        warped = self._prjobj(1, self._pipeline, subj, sess,
+                        warped = self._prjobj(1, self._processing, subj, sess,
                                               file_tag='_InverseWarped').df.Abspath.loc[0]
                         tempobj = methods.load_temp(warped, atlas)
                     if not file_tag:
@@ -2287,7 +2287,7 @@ class Preprocess(object):
             if self._prjobj.single_session:
                 if not tempobj:
                     # atlas = self._prjobj(1, self._pipeline, atlas, subj).df.Abspath.loc[0]
-                    warped = self._prjobj(1, self._pipeline, subj, file_tag='_InverseWarped').df.Abspath.loc[0]
+                    warped = self._prjobj(1, self._processing, subj, file_tag='_InverseWarped').df.Abspath.loc[0]
                     tempobj = methods.load_temp(warped, atlas)
                 if not file_tag:
                     if not ignore:
@@ -2314,7 +2314,7 @@ class Preprocess(object):
                     print(" :Session: {}".format(sess))
                     if not tempobj:
                         # atlas = self._prjobj(1, self._pipeline, atlas, subj, sess).df.Abspath.loc[0]
-                        warped = self._prjobj(1, self._pipeline, subj, sess,
+                        warped = self._prjobj(1, self._processing, subj, sess,
                                               file_tag='_InverseWarped').df.Abspath.loc[0]
                         tempobj = methods.load_temp(warped, atlas)
                     if not file_tag:
@@ -2406,8 +2406,8 @@ class Preprocess(object):
 
     def final_step(self, title):
         path = os.path.join(self._prjobj.path, self._prjobj.ds_type[2],
-                            self.pipeline, title)
+                            self.processing, title)
         methods.mkdir(os.path.join(self._prjobj.path, self._prjobj.ds_type[2],
-                                     self.pipeline), path)
+                                   self.processing), path)
         self._prjobj.scan_prj()
         return path
