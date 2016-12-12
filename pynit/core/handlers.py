@@ -539,6 +539,28 @@ class Process(object):
         self._parallel = parallel
         self._tempfiles = []
         self.init_proc()
+        self.step = Step(self)
+
+    def mean_calculation(self, input_path, surfix='func'):
+        """ BOLD image preparation step
+
+        Parameters
+        ----------
+        input_path : str
+            datatype of absolute_path
+        prefix : str
+
+        Returns
+        -------
+        None
+        """
+        self.step.set_input(name='func', input_path=input_path, static=True)
+        cmd01 = "3dvolreg -prefix {temp_01} -Fourier, -verbose -base 0 {func}"
+        self.step.set_command(cmd01)
+        cmd02 = "3dTstat -prefix {output} -mean {temp_01}"
+        self.step.set_command(cmd02)
+        output_path = self.step.run('MeanImgCalc', surfix)
+        return {'meanfunc':output_path}
 
     @property
     def path(self):
@@ -567,6 +589,7 @@ class Process(object):
             self._subjects = sorted(self._prjobj.subjects[:])
             if not self._prjobj.single_session:
                 self._sessions = sorted(self._prjobj.sessions[:])
+        self.logger.info('Attributes [subjects, sessions] are reset to default value.')
 
     def init_proc(self):
         """ Initiate process folder
@@ -584,10 +607,7 @@ class Process(object):
                 self._history = pickle.load(f)
             self.logger.info("History file is loaded".format(history))
         else:
-            methods.mkdir(self._path)
-            with open(history, 'w') as f:
-                pickle.dump(self._history, f)
-            self.logger.info("History file is generated at '{0}'".format(history))
+            self.save_history()
         return self._path
 
     def init_step(self, name):
@@ -609,6 +629,11 @@ class Process(object):
         else:
             methods.raiseerror(messages.Errors.InitiationFailure, 'Error on initiating step')
 
+    def save_history(self):
+        history = os.path.join(self._path, '.proc_hisroty')
+        with open(history, 'w') as f:
+            pickle.dump(self._history, f)
+        self.logger.info("History file is saved at '{0}'".format(history))
 
 class Step(object):
     """ Basic processing step template
@@ -622,6 +647,7 @@ class Step(object):
         self._tempfiles = []
         self._mainset = None
         self._sidesets = []
+        self._opsets = {}
         self._subjects = procobj.subjects[:]
         try:
             self._sessions = procobj.sessions[:]
@@ -717,18 +743,18 @@ class Step(object):
             sideobjs = None
         try:
             if mainobj.static:
-                inputcode = ['{0} = self._prjobj({1})[0]'.format(mainobj.name, self._filters['main'])]
+                inputcode = ['{0} = self._procobj._prjobj({1})[0]'.format(mainobj.name, self._filters['main'])]
             else:
-                inputcode = ['{0} = self._prjobj({1})'.format(mainobj.name, self._filters['main'])]
+                inputcode = ['{0} = self._procobj._prjobj({1})'.format(mainobj.name, self._filters['main'])]
         except:
             methods.raiseerror(NameError, 'Main input is not defined')
         if sideobjs:
             for sideobj in sideobjs:
                 name = sideobj.name
                 if sideobj.static:
-                    inputcode.append('{0} = self._prjobj({1})[0]'.format(name, self._filters['sides'][name]))
+                    inputcode.append('{0} = self._procobj._prjobj({1})[0]'.format(name, self._filters['sides'][name]))
                 else:
-                    inputcode.append('{0} = self._prjobj({1})'.format(name, self._filters['sides'][name]))
+                    inputcode.append('{0} = self._procobj._prjobj({1})'.format(name, self._filters['sides'][name]))
         else:
             pass
         return inputcode
@@ -755,10 +781,12 @@ class Step(object):
     def get_executefunc(self, name):
         filter = ['\t{}'.format(input) for input in self.get_inputcode()]
         if self._mainset.static:
-            body = ['\tmethods.shell({})'.format(cmd) for cmd in self._commands]
+            body = ['\toutputs = []']
+            body += ['\toutputs.append(methods.shell("{0}"))'.format(cmd) for cmd in self._commands]
         else:
-            loop = ['\tfor i in range(len({0})):'.format(self._mainset.name)]
-            body = ['\t\tmethods.shell({})'.format(cmd) for cmd in self._commands]
+            loop = ['\tfor i in progressbar(range(len({0}))):'.format(self._mainset.name)]
+            body = ['\t\toutputs = []']
+            body += ['\t\toutputs.append(methods.shell("{0}"))'.format(cmd) for cmd in self._commands]
             if self._tempfiles:
                 temp = ['\t\ttemppath = mkdtemp()']
                 close = ['\t\trmtree(temppath)']
@@ -767,16 +795,16 @@ class Step(object):
                 body = loop + body
         if self._sessions:
             header = ['def {0}(self, output_path, subj, sess):'.format(name),
-                      '\tmethods.mkdir(os.path.join(output_path, subj, sess))']
+                      '\tmethods.mkdir(os.path.join(output, subj, sess))']
         else:
             header = ['def {0}(self, output_path, subj):'.format(name),
-                      '\tmethods.mkdir(os.path.join(output_path, subj))']
-        footer = ['return ']
-        output = header+filter+body
+                      '\tmethods.mkdir(os.path.join(output, subj))']
+        footer = ['\treturn outputs']
+        output = header+filter+body+footer
         output = '\n'.join(output)
         return output
 
-    def run(self, step_name, prifix):
+    def run(self, step_name, surfix):
         """ Generate loop commands for step
         """
         if self._procobj.parallel:
@@ -784,15 +812,29 @@ class Step(object):
         else:
             thread = 1
         pool = ThreadPool(thread)
-
-        output_path = self._procobj.init_step("{0}-{1}".format(step_name, prifix))
+        self._procobj.logger("Step:{0} is executed with Thread({1}).".format(step_name, thread))
+        output_path = self._procobj.init_step("{0}-{1}".format(step_name, surfix))
+        results = []
         for subj in progressbar(self._subjects, desc="Subject loop"):
             methods.mkdir(os.path.join(output_path, subj))
             if self._sessions:
                 for sess in progressbar(self._sessions, desc="Session loop"):
-                    pass
+                    funccode = self.get_executefunc('stepexec')
+                    exec(funccode)
+                    results.append(pool.apply_async(stepexec, args=(output_path, subj, sess)))
+                pool.close()
+                pool.join()
             else:
-                pass
+                funccode = self.get_executefunc('stepexec')
+                exec (funccode)
+                results.append(pool.apply_async(stepexec, args=(output_path, subj)))
+        if self._sessions:
+            pool.close()
+            pool.join()
+        results = ['STDOUT:\n{0}\nError:\n{1}'.format(out, err) for out, err in results]
+        with open(os.path.join(output_path, 'stephistory.log'), 'w') as f:
+            f.write('\n'.join(results))
+        return output_path
 
 
 # Below classes will be deprecated soon

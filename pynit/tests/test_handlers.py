@@ -1,4 +1,5 @@
 from ..core.handlers import Project, Process, Step
+from ..core import methods
 from unittest import TestCase
 from shutil import rmtree
 import os
@@ -64,7 +65,10 @@ class StepTest(TestCase):
         self.step.set_command(command_2)
         command_3 = "3dcalc -prefix {output} -expr 'a*2' -a {temp_02}"
         self.step.set_command(command_3)
-        print(self.step.get_executefunc('test'))
+        output = self.step.get_executefunc('test')
+        print(output)
+        exec(output)
+        test(self.step, 'subj1', 'anat')
         self.assertEqual(isinstance(self.step.get_inputcode(), list), True, 'Error on Dataset filtering')
 
     def tearDown(self):
