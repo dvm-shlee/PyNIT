@@ -828,10 +828,7 @@ class Preprocess(object):
 
     def initiate_pipeline(self, pipeline):
         pipe_path = os.path.join(self._prjobj.path, self._prjobj.ds_type[1], pipeline)
-        if os.path.exists(pipe_path):
-            self._history = pickle.load(open(os.path.join(pipe_path, '.procrc')))
-        else:
-            methods.mkdir(os.path.join(self._prjobj.path, self._prjobj.ds_type[1], pipeline))
+        methods.mkdir(os.path.join(self._prjobj.path, self._prjobj.ds_type[1], pipeline))
         self._pipeline = pipeline
 
     def init_step(self, stepname):
