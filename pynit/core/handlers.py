@@ -6,10 +6,13 @@ import pandas as pd
 from tempfile import mkdtemp
 from shutil import rmtree
 
-if len([key for key in sys.modules.keys() if key == 'ipykernel']):
-    from tqdm import tqdm_notebook as progressbar
-else:
-    from tqdm import tqdm as progressbar
+try:
+    if len([key for key in sys.modules.keys() if key == 'ipykernel']):
+        from tqdm import tqdm_notebook as progressbar
+    else:
+        from tqdm import tqdm as progressbar
+except:
+    pass
 
 from collections import namedtuple
 
