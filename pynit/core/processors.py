@@ -3,6 +3,7 @@ from shutil import rmtree
 from subprocess import list2cmdline, check_output, call     # Old one
 import multiprocessing
 import shlex
+import os
 from methods import np
 
 import methods
