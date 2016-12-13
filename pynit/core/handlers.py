@@ -998,13 +998,15 @@ class Preprocess(object):
                 methods.mkdir(sess_output)
                 epi = self._prjobj(dataclass, self._processing, func, sess, *subjects, **kwargs).df.Abspath
                 grouplist = [path for path in epi.to_dict().values()]
-                print(grouplist)
+                print(" :List of subjects in {}".format(sess))
+                print("\n  ".join(grouplist))
                 self._prjobj.run('afni_3dMean', os.path.join(sess_output, '{0}-{1}.nii.gz'.format(group, sess)),
                                  *grouplist)
         else:
             epi = self._prjobj(dataclass, self._processing, func, *subjects, **kwargs).fg.Abspath
             grouplist = [path for path in epi.to_dict().values()]
-            print(grouplist)
+            print(":List of subjects in this group")
+            print("\n ".join(grouplist))
             self._prjobj.run('afni_3dMean', os.path.join(root_output, '{0}.nii.gz'.format(group)),
                              *grouplist)
         return {"groupavr": step01}
