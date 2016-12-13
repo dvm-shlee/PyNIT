@@ -321,6 +321,12 @@ class Interface(object):
         call(shlex.split(cmd))
 
     @staticmethod
+    def afni_3dTcorr1D(output_path, input_path, mask):
+        cmd = ['3dTcorr1D', '-prefix', output_path, input_path, mask]
+        cmd = list2cmdline(cmd)
+        call(shlex.split(cmd))
+
+    @staticmethod
     def afni_3dcalc(output_path, expr, *inputs):
         # AFNI image calculation (3dcalc)
         cmd = ['3dcalc', '-prefix', output_path]

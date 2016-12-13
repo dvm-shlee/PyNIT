@@ -542,21 +542,21 @@ class Process(object):
         self._tempfiles = []
         self.init_proc()
 
-    def mean_calculation(self, input_path, surfix='func'):
+    def mean_calculation(self, input_path, surfix='func', **kwargs):
         """ BOLD image preparation step
 
         Parameters
         ----------
         input_path : str
             datatype of absolute_path
-        prefix : str
+        surfix : str
 
         Returns
         -------
         None
         """
         step = Step(self)
-        step.set_input(name='func', input_path=input_path, static=True)
+        step.set_input(name='func', input_path=input_path, static=True) # TODO: filter not work properly
         cmd01 = "3dvolreg -prefix {temp_01} -Fourier -verbose -base 0 {func}"
         step.set_command(cmd01)
         cmd02 = "3dTstat -prefix {output} -mean {temp_01}"
@@ -649,7 +649,7 @@ class Step(object):
         self._tempfiles = []
         self._mainset = None
         self._sidesets = []
-        self._opsets = {}
+        self._staticinput = {}
         self._subjects = procobj.subjects[:]
         try:
             self._sessions = procobj.sessions[:]
@@ -685,6 +685,11 @@ class Step(object):
             self._mainset = self.dataset(name=name, input_path=input_path, static=static)
             self._filters['main'] = self.get_filtercode(str(dc), ipath, filters)
 
+    def set_staticinput(self, name, input_path):
+        """ Import static file
+        """
+        self._staticinput['name'] = input_path
+
     def set_command(self, command):
         """
 
@@ -708,6 +713,7 @@ class Step(object):
         residuals = [obj for obj in objs if obj not in totalobjs]
         residuals = [obj for obj in residuals if 'temp' not in obj]
         residuals = [obj for obj in residuals if 'output' not in obj]
+        residuals = [obj for obj in residuals if obj not in self._staticinput.keys()]
 
         # Get list of extra inputs
         lacks = [obj for obj in totalobjs if obj not in objs]
@@ -724,6 +730,8 @@ class Step(object):
                 if 'temp' in obj:
                     str_format.append("{0}=os.path.join(temppath, '{1}.nii')".format(obj, obj))
                     self._tempfiles.append(obj)
+                elif obj in self._staticinput.keys():
+                    str_format.append("{0}={1}".format(obj, self._staticinput[obj]))
                 else:
                     if total[obj]:
                         str_format.append("{0}={1}.Abspath".format(obj, obj))
@@ -825,9 +833,6 @@ class Step(object):
         output = '\n'.join(output)
         return output
 
-    def funccode(self):
-        pass
-
     def worker(self, args):
         """
 
@@ -854,13 +859,13 @@ class Step(object):
         else:
             thread = 1
         pool = ThreadPool(thread)
-        self._procobj.logger.info("Step:{0} is executed with Thread({1}).".format(step_name, thread))
+        self._procobj.logger.info("Step:[{0}] is executed with Thread({1}).".format(step_name, thread))
         output_path = self._procobj.init_step("{0}-{1}".format(step_name, surfix))
         if self._sessions:
             for subj in progressbar(self._subjects, desc='Subjects'):
                 methods.mkdir(os.path.join(output_path, subj))
                 iteritem = [(self._procobj, output_path, subj, sess) for sess in self._sessions]
-                for output in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Sessions'):
+                for output in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Sessions', leave=False):
                     print(output)
         else:
             dirs = [os.path.join(output_path, subj) for subj in self._subjects]
@@ -868,7 +873,7 @@ class Step(object):
             iteritem = [(self._procobj, output_path, subj) for subj in self._subjects]
             for output in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Subjects'):
                 print(output)
-        # results = ['STDOUT:\n{0}\nError:\n{1}'.format(out, err) for out, err in results]
+        # results = ['STDOUT:\n{0}\nError:\n{1}'.format(out, err) for out, err in results] #TODO: save the history and log for all execution.
         # with open(os.path.join(output_path, 'stephistory.log'), 'w') as f:
         #     f.write('\n'.join(results))
         # self._procobj._history[os.path.basename(output_path.split['_'][0])] = output_path
@@ -920,6 +925,89 @@ class Preprocess(object):
             return steppath
         else:
             raise messages.PipelineNotSet
+
+    def calculate_seedbased_global_connectivity(self, func, seed, dtype='func', **kwargs):
+        """ Seed-based Global Connectivity Analysis
+
+        Parameters
+        ----------
+        func : str
+            Root path for input dataset
+        seed : str
+            Absolute path for seed image
+        Returns
+        -------
+        path : dict
+            Absolute path for output
+        """
+        dataclass, func = methods.check_dataclass(func)
+        print('SeedBaseConnectivityMap-{}'.format(func))
+        step01 = self.init_step('SeedBaseConnectivityMap-{}'.format(dtype))
+        if not os.path.isfile(seed):
+            methods.raiseerror(ValueError, 'Input file does not exist.')
+        for subj in self.subjects:
+            print("-Subject: {}".format(subj))
+            methods.mkdir(os.path.join(step01, subj))
+            if self._prjobj.single_session:
+                epi = self._prjobj(dataclass, self._processing, func, subj, **kwargs)
+                for i, finfo in epi:
+                    print(" +Filename: {}".format(finfo.Filename))
+                    seed_path = os.path.join(step01, subj, "{0}.1D".format(methods.splitnifti(finfo.Filename)))
+                    output_path = os.path.join(step01, subj, finfo.Filename)
+                    self._prjobj.run('afni_3dmaskave', seed_path, finfo.Abspath, seed)
+                    self._prjobj.run('afni_3dTcorr1D', output_path, finfo.Abspath, seed_path)
+            else:
+                for sess in self.sessions:
+                    print(" :Session: {}".format(sess))
+                    methods.mkdir(os.path.join(step01, subj, sess))
+                    epi = self._prjobj(dataclass, self._processing, func, subj, sess, **kwargs)
+                    for i, finfo in epi:
+                        print("  +Filename: {}".format(finfo.Filename))
+                        seed_path = os.path.join(step01, subj, sess, "{0}.1D".format(methods.splitnifti(finfo.Filename)))
+                        output_path = os.path.join(step01, subj, sess, finfo.Filename)
+                        self._prjobj.run('afni_3dmaskave', seed_path, finfo.Abspath, seed)
+                        self._prjobj.run('afni_3dTcorr1D', output_path, finfo.Abspath, seed_path)
+        return {'connMap': step01}
+
+    def group_average(self, func, subjects, sessions=None, group='groupA', **kwargs):
+        """ Calculate group average
+
+        Parameters
+        ----------
+        func : str
+            Root path for input dataset
+        subjects : list
+            list of the subjects for group
+        sessions : list
+            list of the sessions that want to calculate average
+
+        Returns
+        -------
+
+        """
+        dataclass, func = methods.check_dataclass(func)
+        print('AverageGroupData-{0}: [{1}]'.format(func, ', '.join(subjects)))
+        step01 = self.final_step('AverageGRoupData-{}'.format(group))
+        root_output = os.path.join(step01, 'AllSubjects')
+        methods.mkdir(root_output)
+        if sessions:
+            print("*Average image will be calculated for each session listed in: [{0}]".format(', '.join(sessions)))
+            for sess in sessions:
+                print("-Session: {}".format(sess))
+                sess_output = os.path.join(root_output, sess)
+                methods.mkdir(sess_output)
+                epi = self._prjobj(dataclass, self._processing, func, sess, *subjects, **kwargs).df.Abspath
+                grouplist = [path for path in epi.to_dict().values()]
+                print(grouplist)
+                self._prjobj.run('afni_3dMean', os.path.join(sess_output, '{0}-{1}.nii.gz'.format(group, sess)),
+                                 *grouplist)
+        else:
+            epi = self._prjobj(dataclass, self._processing, func, *subjects, **kwargs).fg.Abspath
+            grouplist = [path for path in epi.to_dict().values()]
+            print(grouplist)
+            self._prjobj.run('afni_3dMean', os.path.join(root_output, '{0}.nii.gz'.format(group)),
+                             *grouplist)
+        return {"groupavr": step01}
 
     def cbv_meancalculation(self, func, **kwargs):
         """ CBV image preparation
