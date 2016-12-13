@@ -969,6 +969,30 @@ class Preprocess(object):
                         self._prjobj.run('afni_3dTcorr1D', output_path, finfo.Abspath, seed_path)
         return {'connMap': step01}
 
+    def fisher_transform(self, func, dtype='func', **kwargs):
+        dataclass, func = methods.check_dataclass(func)
+        print('FisherTransform-{}'.format(func))
+        step01 = self.init_step('FisherTransform-{}'.format(dtype))
+        for subj in self.subjects:
+            print("-Subject: {}".format(subj))
+            methods.mkdir(os.path.join(step01, subj))
+            if self._prjobj.single_session:
+                epi = self._prjobj(dataclass, self._processing, func, subj, **kwargs)
+                for i, finfo in epi:
+                    print(" +Filename: {}".format(finfo.Filename))
+                    output_path = os.path.join(step01, subj, finfo.Filename)
+                    self._prjobj.run('afni_3dcalc', output_path, 'atanh(a)', finfo.Abspath)
+            else:
+                for sess in self.sessions:
+                    print(" :Session: {}".format(sess))
+                    methods.mkdir(os.path.join(step01, subj, sess))
+                    epi = self._prjobj(dataclass, self._processing, func, subj, sess, **kwargs)
+                    for i, finfo in epi:
+                        print("  +Filename: {}".format(finfo.Filename))
+                        output_path = os.path.join(step01, subj, sess, finfo.Filename)
+                        self._prjobj.run('afni_3dcalc', output_path, 'atanh(a)', finfo.Abspath)
+        return {'Zmap': step01}
+
     def group_average(self, func, subjects, sessions=None, group='groupA', **kwargs):
         """ Calculate group average
 
