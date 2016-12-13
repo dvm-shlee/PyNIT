@@ -1027,7 +1027,7 @@ class Preprocess(object):
                 self._prjobj.run('afni_3dMean', os.path.join(sess_output, '{0}-{1}.nii.gz'.format(group, sess)),
                                  *grouplist)
         else:
-            epi = self._prjobj(dataclass, self._processing, func, *subjects, **kwargs).fg.Abspath
+            epi = self._prjobj(dataclass, self._processing, func, *subjects, **kwargs).df.Abspath
             grouplist = [path for path in epi.to_dict().values()]
             print(":List of subjects in this group")
             print("\n ".join(grouplist))
