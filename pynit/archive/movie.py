@@ -148,8 +148,8 @@ def figure_generator(nii, path, roi, temp):
     for i in range(12):
         j = 11 - i
         axes = fig.add_subplot(gs1[i])
-        axes.imshow(np.fliplr(temp[17:110,j,40:110].T), origin='lower', cmap='gray')
-        axes.imshow(np.fliplr(T_img[17:110,j,40:110].T), origin='lower', alpha=0.75, vmin=-20, vmax=20)
+        axes.imshow(np.fliplr(temp[:,::-1,j][17:110, 40:110].T), origin='lower', cmap='gray')
+        axes.imshow(np.fliplr(T_img[:,::-1,j][17:110, 40:110].T), origin='lower', alpha=0.75, vmin=-20, vmax=20)
         axes.patch.set_facecolor('black')
         axes.set_xticks([])
         axes.set_yticks([])

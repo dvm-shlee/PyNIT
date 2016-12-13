@@ -5,7 +5,9 @@ import pickle
 import pandas as pd
 from tempfile import mkdtemp
 from shutil import rmtree
+from time import sleep
 
+# from progressbar import ProgressBar, SimpleProgress
 try:
     if len([key for key in sys.modules.keys() if key == 'ipykernel']):
         from tqdm import tqdm_notebook as progressbar
@@ -535,11 +537,10 @@ class Process(object):
             self.logger = methods.get_logger(path, name)
         self._subjects = None
         self._sessions = None
-        self._history = []
+        self._history = {}
         self._parallel = parallel
         self._tempfiles = []
         self.init_proc()
-        self.step = Step(self)
 
     def mean_calculation(self, input_path, surfix='func'):
         """ BOLD image preparation step
@@ -554,12 +555,13 @@ class Process(object):
         -------
         None
         """
-        self.step.set_input(name='func', input_path=input_path, static=True)
-        cmd01 = "3dvolreg -prefix {temp_01} -Fourier, -verbose -base 0 {func}"
-        self.step.set_command(cmd01)
+        step = Step(self)
+        step.set_input(name='func', input_path=input_path, static=True)
+        cmd01 = "3dvolreg -prefix {temp_01} -Fourier -verbose -base 0 {func}"
+        step.set_command(cmd01)
         cmd02 = "3dTstat -prefix {output} -mean {temp_01}"
-        self.step.set_command(cmd02)
-        output_path = self.step.run('MeanImgCalc', surfix)
+        step.set_command(cmd02)
+        output_path = step.run('MeanImgCalc', surfix)
         return {'meanfunc':output_path}
 
     @property
@@ -599,8 +601,8 @@ class Process(object):
         None
         """
         self.reset()
+        methods.mkdir(self._path)
         self.logger.info('Process object is initiated with {0}'.format(self.processing))
-
         history = os.path.join(self._path, '.proc_hisroty')
         if os.path.exists(history):
             with open(history, 'r') as f:
@@ -743,18 +745,18 @@ class Step(object):
             sideobjs = None
         try:
             if mainobj.static:
-                inputcode = ['{0} = self._procobj._prjobj({1})[0]'.format(mainobj.name, self._filters['main'])]
+                inputcode = ['{0} = self._prjobj({1})[0]'.format(mainobj.name, self._filters['main'])]
             else:
-                inputcode = ['{0} = self._procobj._prjobj({1})'.format(mainobj.name, self._filters['main'])]
+                inputcode = ['{0} = self._prjobj({1})'.format(mainobj.name, self._filters['main'])]
         except:
             methods.raiseerror(NameError, 'Main input is not defined')
         if sideobjs:
             for sideobj in sideobjs:
                 name = sideobj.name
                 if sideobj.static:
-                    inputcode.append('{0} = self._procobj._prjobj({1})[0]'.format(name, self._filters['sides'][name]))
+                    inputcode.append('{0} = self._prjobj({1})[0]'.format(name, self._filters['sides'][name]))
                 else:
-                    inputcode.append('{0} = self._procobj._prjobj({1})'.format(name, self._filters['sides'][name]))
+                    inputcode.append('{0} = self._prjobj({1})'.format(name, self._filters['sides'][name]))
         else:
             pass
         return inputcode
@@ -781,59 +783,91 @@ class Step(object):
     def get_executefunc(self, name):
         filter = ['\t{}'.format(input) for input in self.get_inputcode()]
         if self._mainset.static:
-            body = ['\toutputs = []']
-            body += ['\toutputs.append(methods.shell("{0}"))'.format(cmd) for cmd in self._commands]
-        else:
-            loop = ['\tfor i in progressbar(range(len({0}))):'.format(self._mainset.name)]
-            body = ['\t\toutputs = []']
-            body += ['\t\toutputs.append(methods.shell("{0}"))'.format(cmd) for cmd in self._commands]
+            body = ['\toutputs = []',
+                    '\toutput = os.path.join(output, {0}.Filename)'.format(self._mainset.name),
+                    '\tif os.path.isfile(output):',
+                    '\t\tself.logger.info("TheFile[{0}] is already exist.".format(output))',
+                    '\telse:']
+            body += ['\t\toutputs.append(methods.shell({0}))'.format(cmd) for cmd in self._commands]
             if self._tempfiles:
-                temp = ['\t\ttemppath = mkdtemp()']
+                temp = ['\ttemppath = mkdtemp()',
+                        '\tself.logger.info("TempFolder[{0}] is generated".format(temppath))']
+                close = ['\trmtree(temppath)']
+                body = temp + body + close
+            else:
+                pass
+        else:
+            loop = ['\tfor i in range(len({0})):'.format(self._mainset)]
+            body = ['\t\toutputs = []',
+                    '\t\toutput = os.path.join(output, {0}.Filename)'.format(self._mainset.name),
+                    '\t\tprint(output)',
+                    '\t\tif os.path.isfile(output):',
+                    '\t\t\tself.logger.info("TheFile[{0}] is already exist.".format(output))',
+                    '\t\telse:']
+            body += ['\t\t\toutputs.append(methods.shell({0}))'.format(cmd) for cmd in self._commands]
+            if self._tempfiles:
+                temp = ['\t\ttemppath = mkdtemp()',
+                        '\t\tself.logger.info("TempFolder[{0}] is generated".format(temppath))']
                 close = ['\t\trmtree(temppath)']
                 body = loop + temp + body + close
             else:
                 body = loop + body
         if self._sessions:
-            header = ['def {0}(self, output_path, subj, sess):'.format(name),
-                      '\tmethods.mkdir(os.path.join(output, subj, sess))']
+            header = ['def {0}(self, output, subj, sess):'.format(name),
+                      '\toutput = os.path.join(output, subj, sess)',
+                      '\tmethods.mkdir(output)']
         else:
-            header = ['def {0}(self, output_path, subj):'.format(name),
-                      '\tmethods.mkdir(os.path.join(output, subj))']
+            header = ['def {0}(self, output, subj):'.format(name),
+                      '\toutput = os.path.join(output, subj, sess)',
+                      '\tmethods.mkdir(output)']
         footer = ['\treturn outputs']
         output = header+filter+body+footer
         output = '\n'.join(output)
+        # print(output)
         return output
 
     def run(self, step_name, surfix):
         """ Generate loop commands for step
         """
-        if self._procobj.parallel:
+        def mp_process_subject(*args):
+            try:
+                return stepexec
+            except Exception as e:
+                return str(e)
+
+        if self._procobj._parallel:
             thread = multiprocessing.cpu_count()
         else:
             thread = 1
         pool = ThreadPool(thread)
-        self._procobj.logger("Step:{0} is executed with Thread({1}).".format(step_name, thread))
+        self._procobj.logger.info("Step:{0} is executed with Thread({1}).".format(step_name, thread))
         output_path = self._procobj.init_step("{0}-{1}".format(step_name, surfix))
         results = []
-        for subj in progressbar(self._subjects, desc="Subject loop"):
+        # pbar = ProgressBar(widgets=[SimpleProgress()], maxval=len(self._subjects)).start()
+        for subj in progressbar(self._subjects):
             methods.mkdir(os.path.join(output_path, subj))
             if self._sessions:
-                for sess in progressbar(self._sessions, desc="Session loop"):
+                for sess in self._sessions:
                     funccode = self.get_executefunc('stepexec')
                     exec(funccode)
-                    results.append(pool.apply_async(stepexec, args=(output_path, subj, sess)))
-                pool.close()
-                pool.join()
+                    pool.imap(stepexec, args=(self._procobj, output_path, subj, sess),
+                              callback=results.append)
             else:
                 funccode = self.get_executefunc('stepexec')
                 exec (funccode)
-                results.append(pool.apply_async(stepexec, args=(output_path, subj)))
-        if self._sessions:
-            pool.close()
-            pool.join()
-        results = ['STDOUT:\n{0}\nError:\n{1}'.format(out, err) for out, err in results]
-        with open(os.path.join(output_path, 'stephistory.log'), 'w') as f:
-            f.write('\n'.join(results))
+                pool.imap(stepexec, args=(self._procobj, output_path, subj),
+                          callback=results.append)
+        pool.close()
+        # while len(results) != len(self._subjects):
+        #     pbar.update(len(results))
+        #     sleep(0.1)
+        # pbar.finish()
+        pool.join()
+        # results = ['STDOUT:\n{0}\nError:\n{1}'.format(out, err) for out, err in results]
+        # with open(os.path.join(output_path, 'stephistory.log'), 'w') as f:
+        #     f.write('\n'.join(results))
+        # self._procobj._history[os.path.basename(output_path.split['_'][0])] = output_path
+        # self._procobj.save_history()
         return output_path
 
 
@@ -1249,13 +1283,14 @@ class Preprocess(object):
                         epiimg = methods.load(finfo.Abspath)
                         if padding:
                             epiimg.padding(low=1, high=1, axis=zaxis)
-                        epiimg.save_as(os.path.join(step01, subj, sess, finfo.Filename))
+                        epiimg.save_as(os.path.join(step01, subj, sess, finfo.Filename), quiet=True)
                     for i, finfo in t2:
                         print("  +Filename: {}".format(finfo.Filename))
+                        print(finfo.Abspath)
                         t2img = methods.load(finfo.Abspath)
                         if padding:
                             t2img.padding(low=1, high=1, axis=zaxis)
-                        t2img.save_as(os.path.join(step02, subj, sess, finfo.Filename))
+                        t2img.save_as(os.path.join(step02, subj, sess, finfo.Filename), quiet=True)
         return {'meanfunc': step01, 'anat': step02}
 
     def compute_skullstripping(self, meanfunc, anat, padded=False, zaxis=2):

@@ -7,13 +7,15 @@
 # input argumants:
 #   $1 = common prefix of the subjects file
 #   $2 = mask file for [ROI_loc]
+#   $3 = p-value you want to use
+#   $4 = Template path
 #
 # output:
 #   [ROI_loc].roi : roi timeseries for all subjects
 #   T_????sec.nii : T contrast image of each time fraction
 
 # Checking accuracy of the arguments
-if ($#argv != 2) then
+if ($#argv != 4) then
     goto usage
     
 else if (! -e ${2}) then
@@ -58,30 +60,37 @@ set OUTPUT_dir = ${2:t:r:r}
 if (! -e ${OUTPUT_dir}) then
     echo 'Generating output folder: '${OUTPUT_dir}
     mkdir ${OUTPUT_dir}
+    mkdir ${OUTPUT_dir}/corr
+    mkdir ${OUTPUT_dir}/ROI
+    mkdir ${OUTPUT_dir}/z
+    mkdir ${OUTPUT_dir}/T
+    mkdir ${OUTPUT_dir}/cluster
+    mkdir ${OUTPUT_dir}/txt
 endif
 
 # Extracting the average time course data of ROI from Subjects
 set num = `cat ${Sampling_Curve}`
 unset Sampling_Curve
 
+set num_files=`ls -l ${1}* | wc -l | sed 's/ *//''`
+
 foreach file (${1}*)
     
     set SUBJ = ${file:t:r:r}
-    3dmaskave -mask ${2} -quiet ${file} > ${SUBJ}.1D
+    3dmaskave -mask ${2} -quiet ${file} > ${OUTPUT_dir}/ROI/${SUBJ}.1D
 
     @ i = ${Time_frac}
     while ($i <= ${Total_Time})
         
         @t = ${i} - 1
         
-        3dTcorr1D -prefix corr_${i}_${file} ${file}'[0..'${t}']' ${SUBJ}.1D'{0..'${t}'}'
-        3dcalc -a corr_${i}_${file} -expr 'atanh(a)' -prefix z_${i}_${file}
-        rm corr_${i}_${file}
+        3dTcorr1D -prefix ${OUTPUT_dir}/corr/corr_${i}_${file} ${file}'[0..'${t}']' ${OUTPUT_dir}/ROI/${SUBJ}.1D'{0..'${t}'}'
+        3dcalc -a ${OUTPUT_dir}/corr/corr_${i}_${file} -expr 'atanh(a)' -prefix ${OUTPUT_dir}/z/z_${i}_${file}
         @i += ${Time_frac}
     end
 end
 
-paste *.1D > ${OUTPUT_dir}.roi;mv ${OUTPUT_dir}.roi ${OUTPUT_dir}/.;rm *.1D;unset SUBJ;
+paste {OUTPUT_dir}/ROI/*.1D > ${OUTPUT_dir}.roi;mv ${OUTPUT_dir}.roi ${OUTPUT_dir}/.;unset SUBJ;
 unset i;unset file
 
 @ i = ${Time_frac}
@@ -94,10 +103,9 @@ while ($i <= ${Total_Time})
         set ofile=T_${i}sec.nii
     endif
 
-    3dttest++ -prefix $i.nii -setA z_${i}_*
-    3dclust -1Dformat -noabs -nosum -1dindex 0 -1tindex 1 -2thresh -5.041 5.041 -summarize -prefix ${ofile} -dxyz=1 1.01 95 ${i}.nii > ${ofile:r}.txt
-    rm z_${i}_*
-    rm ${i}.nii
+    3dttest++ -prefix ${OUTPUT_dir}/T/$i.nii -setA ${OUTPUT_dir}/z/z_${i}_*
+    set pval=`cdf -p2t fitt ${3} ${num_files} | sed 's/t = //'`
+    3dclust -1Dformat -noabs -nosum -1dindex 0 -1tindex 1 -2thresh -${pval} {pval} -summarize -prefix ${OUTPUT_dir}/clusters/${ofile} -dxyz=1 1.01 95 ${i}.nii > ${OUTPUT_dir}/txt/${ofile:r}.txt
     @ i += ${Time_frac}
 end
 
@@ -109,5 +117,5 @@ unset OUTPUT_dir
 exit
 
 usage:
-echo "usage: dynamic_rsfMRI [prefix] [roi_mask]"
+echo "usage: dynamic_rsfMRI [prefix] [roi_mask] [p-val] [Template]"
 exit
