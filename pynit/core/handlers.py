@@ -820,21 +820,35 @@ class Step(object):
             header = ['def {0}(self, output, subj):'.format(name),
                       '\toutput = os.path.join(output, subj, sess)',
                       '\tmethods.mkdir(output)']
-        footer = ['\treturn outputs']
+        footer = ['\treturn outputs\n']
         output = header+filter+body+footer
         output = '\n'.join(output)
-        # print(output)
+        return output
+
+    def funccode(self):
+        pass
+
+    def worker(self, args):
+        """
+
+        Parameters
+        ----------
+        func
+        args
+
+        Returns
+        -------
+
+        """
+        funccode = self.get_executefunc('stepexec')
+        exec(funccode)
+        output = None
+        exec('output = stepexec(*args)')
         return output
 
     def run(self, step_name, surfix):
         """ Generate loop commands for step
         """
-        def mp_process_subject(*args):
-            try:
-                return stepexec
-            except Exception as e:
-                return str(e)
-
         if self._procobj._parallel:
             thread = multiprocessing.cpu_count()
         else:
@@ -842,27 +856,18 @@ class Step(object):
         pool = ThreadPool(thread)
         self._procobj.logger.info("Step:{0} is executed with Thread({1}).".format(step_name, thread))
         output_path = self._procobj.init_step("{0}-{1}".format(step_name, surfix))
-        results = []
-        # pbar = ProgressBar(widgets=[SimpleProgress()], maxval=len(self._subjects)).start()
-        # for subj in progressbar(self._subjects):
-        #     methods.mkdir(os.path.join(output_path, subj))
-        #     if self._sessions:
-        #         for sess in self._sessions:
-        #             funccode = self.get_executefunc('stepexec')
-        #             exec(funccode)
-        #             pool.imap(stepexec, args=(self._procobj, output_path, subj, sess),
-        #                       callback=results.append)
-        #     else:
-        #         funccode = self.get_executefunc('stepexec')
-        #         exec (funccode)
-        #         pool.imap(stepexec, args=(self._procobj, output_path, subj),
-        #                   callback=results.append)
-        # pool.close()
-        # while len(results) != len(self._subjects):
-        #     pbar.update(len(results))
-        #     sleep(0.1)
-        # pbar.finish()
-        # pool.join()
+        if self._sessions:
+            for subj in progressbar(self._subjects, desc='Subjects'):
+                methods.mkdir(os.path.join(output_path, subj))
+                iteritem = [(self._procobj, output_path, subj, sess) for sess in self._sessions]
+                for output in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Sessions'):
+                    print(output)
+        else:
+            dirs = [os.path.join(output_path, subj) for subj in self._subjects]
+            methods.mkdir(dirs)
+            iteritem = [(self._procobj, output_path, subj) for subj in self._subjects]
+            for output in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Subjects'):
+                print(output)
         # results = ['STDOUT:\n{0}\nError:\n{1}'.format(out, err) for out, err in results]
         # with open(os.path.join(output_path, 'stephistory.log'), 'w') as f:
         #     f.write('\n'.join(results))

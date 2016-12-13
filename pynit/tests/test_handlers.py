@@ -45,30 +45,21 @@ class StepTest(TestCase):
         self.proc = Process(self.prj, 'TestProcess')
         self.step = Step(self.proc)
 
-    def test_filtering(self):
-        main_filters = {'file_tag':'file1', 'ext':'nii.gz'}
-        self.step.set_input(name='t2data', input_path='anat', filters=main_filters)
-        side_filters = {'file_tag':'file3', 'ext':'nii.gz'}
-        self.step.set_input(name='sidet2', input_path='anat', filters=side_filters, side=True, static=True)
-        command = "3dcalc -prefix {output} -expr 'a*step(b)' -a {t2data} -b {sidet2}"
-        self.step.set_command(command)
-        self.assertEqual(isinstance(self.step.get_inputcode(), list), True, 'Error on Dataset filtering')
-
     def test_more(self):
         main_filters = {'file_tag':'file2', 'ext':'nii.gz'}
         self.step.set_input(name='func1', input_path='func', filters=main_filters)
         side_filters = {'file_tag':'file4', 'ext':'nii.gz'}
         self.step.set_input(name='func2', input_path='func', filters=side_filters, side=True, static=True)
-        command_1 = "3dcalc -prefix {temp_01} -expr 'a+b' -a {func1} -b {func2}"
+        command_1 = '3dcalc -prefix {temp_01} -expr "a+b" -a {func1} -b {func2}'
         self.step.set_command(command_1)
-        command_2 = "3dcalc -prefix {temp_02} -expr '-a' -a {temp_01}"
+        command_2 = '3dcalc -prefix {temp_02} -expr "-a" -a {temp_01}'
         self.step.set_command(command_2)
-        command_3 = "3dcalc -prefix {output} -expr 'a*2' -a {temp_02}"
+        command_3 = '3dcalc -prefix {output} -expr "a*2" -a {temp_02}'
         self.step.set_command(command_3)
         output = self.step.get_executefunc('test')
         print(output)
         exec(output)
-        test(self.step, 'subj1', 'anat')
+        exec("test(self.step, 'subj1', 'anat')")
         self.assertEqual(isinstance(self.step.get_inputcode(), list), True, 'Error on Dataset filtering')
 
     def tearDown(self):
