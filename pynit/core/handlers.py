@@ -844,25 +844,25 @@ class Step(object):
         output_path = self._procobj.init_step("{0}-{1}".format(step_name, surfix))
         results = []
         # pbar = ProgressBar(widgets=[SimpleProgress()], maxval=len(self._subjects)).start()
-        for subj in progressbar(self._subjects):
-            methods.mkdir(os.path.join(output_path, subj))
-            if self._sessions:
-                for sess in self._sessions:
-                    funccode = self.get_executefunc('stepexec')
-                    exec(funccode)
-                    pool.imap(stepexec, args=(self._procobj, output_path, subj, sess),
-                              callback=results.append)
-            else:
-                funccode = self.get_executefunc('stepexec')
-                exec (funccode)
-                pool.imap(stepexec, args=(self._procobj, output_path, subj),
-                          callback=results.append)
-        pool.close()
+        # for subj in progressbar(self._subjects):
+        #     methods.mkdir(os.path.join(output_path, subj))
+        #     if self._sessions:
+        #         for sess in self._sessions:
+        #             funccode = self.get_executefunc('stepexec')
+        #             exec(funccode)
+        #             pool.imap(stepexec, args=(self._procobj, output_path, subj, sess),
+        #                       callback=results.append)
+        #     else:
+        #         funccode = self.get_executefunc('stepexec')
+        #         exec (funccode)
+        #         pool.imap(stepexec, args=(self._procobj, output_path, subj),
+        #                   callback=results.append)
+        # pool.close()
         # while len(results) != len(self._subjects):
         #     pbar.update(len(results))
         #     sleep(0.1)
         # pbar.finish()
-        pool.join()
+        # pool.join()
         # results = ['STDOUT:\n{0}\nError:\n{1}'.format(out, err) for out, err in results]
         # with open(os.path.join(output_path, 'stephistory.log'), 'w') as f:
         #     f.write('\n'.join(results))
@@ -1210,7 +1210,6 @@ class Preprocess(object):
                                                  matrix_apply=methods.splitnifti(param.Abspath[i])+'.aff12.1D')
                         except:
                             print('  ::Skipped')
-                            pass
                 else:
                     for sess in self.sessions:
                         print(" :Session: {}".format(sess))
@@ -1229,7 +1228,6 @@ class Preprocess(object):
                                                     matrix_apply=methods.splitnifti(param.Abspath[i]) + '.aff12.1D')
                             except:
                                 print('  ::Skipped')
-                                pass
             return {'func': step04}
         else:
             return {'func': step01}
