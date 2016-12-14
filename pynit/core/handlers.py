@@ -978,13 +978,13 @@ class Preprocess(object):
             """
             return processor(*args)
 
-        for subj in self.subjects:
+        for subj in progressbar(self.subjects, desc='Subjects', leave=False):
             print("-Subject: {}".format(subj))
             methods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 epi = self._prjobj(dataclass, self._processing, func, subj, **kwargs)
-                for i, finfo in epi:
-                    print(" +Filename: {}".format(finfo.Filename))
+                for i, finfo in progressbar(epi, desc='Files'):
+                    print(" +Filename: {}".format(finfo.Filename), leave=False)
                     # Check dimension
                     total, err = methods.shell(methods.shlex.split('3dinfo -nv {}'.format(finfo.Filename)))
                     if err:
@@ -1008,10 +1008,10 @@ class Preprocess(object):
                                                                           ' '.join(list_of_files)))
                     rmtree(temppath)
             else:
-                for sess in self.sessions:
+                for sess in progressbar(self.sessions, desc='Sessions', leave=False):
                     methods.mkdir(os.path.join(step01, subj, sess))
                     epi = self._prjobj(dataclass, self._processing, func, subj, sess, **kwargs)
-                    for i, finfo in epi:
+                    for i, finfo in progressbar(epi, desc='Files', leave=False):
                         print(" +Filename: {}".format(finfo.Filename))
                         # Check dimension
                         total, err = methods.shell('3dinfo -nv {0}'.format(finfo.Abspath))
