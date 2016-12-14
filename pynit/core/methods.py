@@ -765,7 +765,7 @@ def check_arguments(args, residuals, lists):
         for comp in filter:
             if comp in residuals:
                 residuals.remove(comp)
-    return filter, residuals
+    return list(set(filter)), list(set(residuals))
 
 
 def get_step_name(procobj, step):

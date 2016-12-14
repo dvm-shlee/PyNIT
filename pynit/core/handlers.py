@@ -268,7 +268,7 @@ class Project(object):
             self.reset_filters(self.ext)
         if args or kwargs:
             if args:
-                residuals = list(args)
+                residuals = list(set(args))
                 if self.subjects:
                     subj_filter, residuals = methods.check_arguments(args, residuals, self.subjects)
                     if self.__filters[0]:
