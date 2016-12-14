@@ -983,8 +983,8 @@ class Preprocess(object):
             methods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 epi = self._prjobj(dataclass, self._processing, func, subj, **kwargs)
-                for i, finfo in progressbar(epi, desc='Files'):
-                    print(" +Filename: {}".format(finfo.Filename), leave=False)
+                for i, finfo in progressbar(epi, desc='Files', leave=False):
+                    print(" +Filename: {}".format(finfo.Filename))
                     # Check dimension
                     total, err = methods.shell(methods.shlex.split('3dinfo -nv {}'.format(finfo.Filename)))
                     if err:
