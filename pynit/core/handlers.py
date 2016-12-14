@@ -14,7 +14,7 @@ try:
     else:
         from tqdm import tqdm as progressbar
 except:
-    pass
+    from tqdm import tqdm_notebook as progressbar
 
 from collections import namedtuple
 
