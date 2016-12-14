@@ -865,13 +865,15 @@ class Step(object):
             for subj in progressbar(self._subjects, desc='Subjects'):
                 methods.mkdir(os.path.join(output_path, subj))
                 iteritem = [(self._procobj, output_path, subj, sess) for sess in self._sessions]
-                for output in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Sessions', leave=False):
+                for output in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Sessions',
+                                          leave=False, total=len(iteritem)):
                     print(output)
         else:
             dirs = [os.path.join(output_path, subj) for subj in self._subjects]
             methods.mkdir(dirs)
             iteritem = [(self._procobj, output_path, subj) for subj in self._subjects]
-            for output in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Subjects'):
+            for output in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Subjects',
+                                      total=len(iteritem)):
                 print(output)
         # results = ['STDOUT:\n{0}\nError:\n{1}'.format(out, err) for out, err in results] #TODO: save the history and log for all execution.
         # with open(os.path.join(output_path, 'stephistory.log'), 'w') as f:
@@ -998,7 +1000,8 @@ class Preprocess(object):
                     list_of_files = []
                     pool = ThreadPool(multiprocessing.cpu_count())
                     iteritem = [(list_of_files, temppath, finfo, seed_path, winsize, i) for i in range(0, total - winsize, step)]
-                    for output in progressbar(pool.imap_unordered(worker, iteritem), desc='Window', leave=False):
+                    for output in progressbar(pool.imap_unordered(worker, iteritem), desc='Window',
+                                              total=len(iteritem) ,leave=False):
                         pass
                     list_of_files = sorted(list_of_files)
                     methods.shell('3dTcat -prefix {0} -tr {1} {2}'.format(output_path, str(step),
@@ -1027,7 +1030,8 @@ class Preprocess(object):
                         pool = ThreadPool(multiprocessing.cpu_count())
                         iteritem = [(list_of_files, temppath, finfo, seed_path, winsize, i) for i in
                                     range(0, total - winsize, step)]
-                        for output in progressbar(pool.imap_unordered(worker, iteritem), desc='Window', leave=False):
+                        for output in progressbar(pool.imap_unordered(worker, iteritem), desc='Window',
+                                                  total=len(iteritem), leave=False):
                             pass
                         list_of_files = sorted(list_of_files)
                         methods.shell('3dTcat -prefix {0} -tr {1} {2}'.format(output_path, str(step),
