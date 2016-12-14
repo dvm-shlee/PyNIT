@@ -14,7 +14,7 @@ try:
     else:
         from tqdm import tqdm as progressbar
 except:
-    from tqdm import tqdm_notebook as progressbar
+    pass
 
 from collections import namedtuple
 
@@ -954,6 +954,28 @@ class Preprocess(object):
         step01 = self.init_step('SeedBaseDynamicConnectivityMap-{}'.format(dtype))
         if not os.path.isfile(seed):
             methods.raiseerror(ValueError, 'Input file does not exist.')
+
+        def processor(result, temppath, finfo, seed_path, winsize, i):
+            temp_path = os.path.join(temppath, "{}.nii".format(str(i).zfill(5)))
+            self._prjobj.run('afni_3dTcorr1D', temp_path,
+                             "{0}'[{1}..{2}]'".format(finfo.Abspath, i, i + winsize - 1),
+                             "{0}'{{{1}..{2}}}'".format(seed_path, i, i + winsize - 1))
+            result.append(temp_path)
+
+        def worker(args):
+            """
+
+            Parameters
+            ----------
+            func
+            args
+
+            Returns
+            -------
+
+            """
+            return processor(*args)
+
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
             methods.mkdir(os.path.join(step01, subj))
@@ -974,12 +996,11 @@ class Preprocess(object):
                     output_path = os.path.join(step01, subj, finfo.Filename)
                     temppath = mkdtemp()
                     list_of_files = []
-                    for i in progressbar(range(0, total - winsize, step), desc='DynamicProcessing', leave=False):
-                        temp_path = os.path.join(temppath, "{}.nii".format(str(i).zfill(5)))
-                        self._prjobj.run('afni_3dTcorr1D', temp_path,
-                                         "{0}'[{1}..{2}]'".format(finfo.Abspath, i, i+winsize-1),
-                                         "{0}'{{{1}..{2}}}'".format(seed_path, i, i+winsize-1))
-                        list_of_files.append(temp_path)
+                    pool = ThreadPool(multiprocessing.cpu_count())
+                    iteritem = [(list_of_files, temppath, finfo, seed_path, winsize, i) for i in range(0, total - winsize, step)]
+                    for output in progressbar(pool.imap_unordered(worker, iteritem), desc='Window', leave=False):
+                        pass
+                    list_of_files = sorted(list_of_files)
                     methods.shell('3dTcat -prefix {0} -tr {1} {2}'.format(output_path, str(step),
                                                                           ' '.join(list_of_files)))
                     rmtree(temppath)
@@ -1003,17 +1024,16 @@ class Preprocess(object):
                         output_path = os.path.join(step01, subj, sess, finfo.Filename)
                         temppath = mkdtemp()
                         list_of_files = []
-                        for i in progressbar(range(0, total - winsize, step), desc='File', leave=False):
-                            temp_path = os.path.join(temppath, "{}.nii".format(str(i).zfill(5)))
-                            self._prjobj.run('afni_3dTcorr1D', temp_path,
-                                             "{0}'[{1}..{2}]'".format(finfo.Abspath, i, i + winsize - 1),
-                                             "{0}'{{{1}..{2}}}'".format(seed_path, i, i + winsize - 1))
-                            list_of_files.append(temp_path)
+                        pool = ThreadPool(multiprocessing.cpu_count())
+                        iteritem = [(list_of_files, temppath, finfo, seed_path, winsize, i) for i in
+                                    range(0, total - winsize, step)]
+                        for output in progressbar(pool.imap_unordered(worker, iteritem), desc='Window', leave=False):
+                            pass
+                        list_of_files = sorted(list_of_files)
                         methods.shell('3dTcat -prefix {0} -tr {1} {2}'.format(output_path, str(step),
                                                                               ' '.join(list_of_files)))
                         rmtree(temppath)
         return {'dynamicMap': step01}
-
 
     def calculate_seedbased_global_connectivity(self, func, seed, dtype='func', **kwargs):
         """ Seed-based Global Connectivity Analysis
