@@ -974,7 +974,7 @@ class Preprocess(object):
                     output_path = os.path.join(step01, subj, finfo.Filename)
                     temppath = mkdtemp()
                     list_of_files = []
-                    for i in progressbar(range(0, total - winsize, step), desc='DynamicProcessing'):
+                    for i in progressbar(range(0, total - winsize, step), desc='DynamicProcessing', leave=False):
                         temp_path = os.path.join(temppath, "{}.nii".format(str(i).zfill(5)))
                         self._prjobj.run('afni_3dTcorr1D', temp_path,
                                          "{0}'[{1}..{2}]'".format(finfo.Abspath, i, i+winsize-1),
@@ -1003,10 +1003,8 @@ class Preprocess(object):
                         output_path = os.path.join(step01, subj, sess, finfo.Filename)
                         temppath = mkdtemp()
                         list_of_files = []
-                        print(total, step)
-                        for i in progressbar(range(0, total - winsize, step), desc='DynamicProcessing'):
+                        for i in progressbar(range(0, total - winsize, step), desc='File', leave=False):
                             temp_path = os.path.join(temppath, "{}.nii".format(str(i).zfill(5)))
-                            print(temp_path)
                             self._prjobj.run('afni_3dTcorr1D', temp_path,
                                              "{0}'[{1}..{2}]'".format(finfo.Abspath, i, i + winsize - 1),
                                              "{0}'{{{1}..{2}}}'".format(seed_path, i, i + winsize - 1))
