@@ -238,7 +238,7 @@ class Project(object):
             for key in kwargs.keys():
                 if key == 'ext':
                     self.ext = kwargs['ext']
-                if key == 'file_tag':
+                elif key == 'file_tag':
                     if type(kwargs['file_tag']) == str:
                         self.__filters[4] = [kwargs['file_tag']]
                     elif type(kwargs['file_tag']) == list:
@@ -246,7 +246,7 @@ class Project(object):
                     else:
                         methods.raiseerror(messages.Errors.InputTypeError,
                                                  'Please use correct input type for FileTag')
-                if key == 'ignore':
+                elif key == 'ignore':
                     if type(kwargs['ignore']) == str:
                         self.__filters[5] = [kwargs['ignore']]
                     elif type(kwargs['ignore']) == list:
