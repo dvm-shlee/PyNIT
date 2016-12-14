@@ -996,7 +996,8 @@ class Preprocess(object):
                     seed_path = os.path.join(step01, subj, "{0}.1D".format(methods.splitnifti(finfo.Filename)))
                     self._prjobj.run('afni_3dmaskave', seed_path, finfo.Abspath, seed)
                     output_path = os.path.join(step01, subj, finfo.Filename)
-                    temppath = mkdtemp()
+                    methods.mkdir('.dtmp')
+                    temppath = os.path.join('.dtmp')
                     list_of_files = []
                     pool = ThreadPool(multiprocessing.cpu_count())
                     iteritem = [(list_of_files, temppath, finfo, seed_path, winsize, i) for i in range(0, total - winsize, step)]
@@ -1025,7 +1026,8 @@ class Preprocess(object):
                                                  "{0}.1D".format(methods.splitnifti(finfo.Filename)))
                         self._prjobj.run('afni_3dmaskave', seed_path, finfo.Abspath, seed)
                         output_path = os.path.join(step01, subj, sess, finfo.Filename)
-                        temppath = mkdtemp()
+                        methods.mkdir('.dtmp')
+                        temppath = os.path.join('.dtmp')
                         list_of_files = []
                         pool = ThreadPool(multiprocessing.cpu_count())
                         iteritem = [(list_of_files, temppath, finfo, seed_path, winsize, i) for i in
