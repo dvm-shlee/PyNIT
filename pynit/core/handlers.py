@@ -926,6 +926,97 @@ class Preprocess(object):
         else:
             raise messages.PipelineNotSet
 
+    def seedbased_dynamic_connectivity(self, func, seed, winsize=100, step=1, dtype='func', **kwargs):
+        """ Seed-based dynamic connectivity using sliding windows
+
+        Parameters
+        ----------
+        func : str
+            Root path for input dataset
+        seed : str
+            Absolute path for seed image
+        winsize : int
+            Size of sliding window
+        step : int
+            Moving step for sliding window
+        dtype : str
+            Surfix for output folder
+        kwargs : dict
+            Options (Nothing available)
+
+        Returns
+        -------
+        path : dict
+            output path
+        """
+        dataclass, func = methods.check_dataclass(func)
+        print('SeedBaseDynamicConnectivityMap-{}'.format(func))
+        step01 = self.init_step('SeedBaseDynamicConnectivityMap-{}'.format(dtype))
+        if not os.path.isfile(seed):
+            methods.raiseerror(ValueError, 'Input file does not exist.')
+        for subj in self.subjects:
+            print("-Subject: {}".format(subj))
+            methods.mkdir(os.path.join(step01, subj))
+            if self._prjobj.single_session:
+                epi = self._prjobj(dataclass, self._processing, func, subj, **kwargs)
+                for i, finfo in epi:
+                    print(" +Filename: {}".format(finfo.Filename))
+                    # Check dimension
+                    total, err = methods.shell(methods.shlex.split('3dinfo -nv {}'.format(finfo.Filename)))
+                    if err:
+                        methods.raiseerror(NameError, 'Cannot load: {0}'.format(finfo.Filename))
+                    total = int(total[0])
+                    if total <= winsize:
+                        methods.raiseerror(KeyError,
+                                           'Please use proper windows size: [less than {}]'.format(str(total)))
+                    seed_path = os.path.join(step01, subj, "{0}.1D".format(methods.splitnifti(finfo.Filename)))
+                    self._prjobj.run('afni_3dmaskave', seed_path, finfo.Abspath, seed)
+                    output_path = os.path.join(step01, subj, finfo.Filename)
+                    temppath = mkdtemp()
+                    list_of_files = []
+                    for i in range(0, total - winsize, step):
+                        temp_path = os.path.join(temppath, "{}.nii".format(str(i).zfill(5)))
+                        self._prjobj.run('afni_3dTcorr1D', temp_path,
+                                         "{0}'[{1}..{2}]'".format(finfo.Abspath, i, i+winsize-1),
+                                         "{0}'{{{1}..{2}}}'".format(seed_path, i, i+winsize-1))
+                        list_of_files.append(temp_path)
+                    methods.shell('3dTcat -prefix {0} -tr {1} {2}'.format(output_path, str(step),
+                                                                          ' '.join(list_of_files)))
+                    rmtree(temppath)
+            else:
+                for sess in self.sessions:
+                    methods.mkdir(os.path.join(step01, subj, sess))
+                    epi = self._prjobj(dataclass, self._processing, func, subj, sess, **kwargs)
+                    for i, finfo in epi:
+                        print(" +Filename: {}".format(finfo.Filename))
+                        # Check dimension
+                        total, err = methods.shell('3dinfo -nv {0}'.format(finfo.Abspath))
+                        if err:
+                            methods.raiseerror(NameError, 'Cannot load: {0}'.format(finfo.Filename))
+                        total = int(total)
+                        if total <= winsize:
+                            methods.raiseerror(KeyError,
+                                               'Please use proper windows size: [less than {}]'.format(str(total)))
+                        seed_path = os.path.join(step01, subj, sess,
+                                                 "{0}.1D".format(methods.splitnifti(finfo.Filename)))
+                        self._prjobj.run('afni_3dmaskave', seed_path, finfo.Abspath, seed)
+                        output_path = os.path.join(step01, subj, sess, finfo.Filename)
+                        temppath = mkdtemp()
+                        list_of_files = []
+                        print(total, step)
+                        for i in range(0, total - winsize, step):
+                            temp_path = os.path.join(temppath, "{}.nii".format(str(i).zfill(5)))
+                            print(temp_path)
+                            self._prjobj.run('afni_3dTcorr1D', temp_path,
+                                             "{0}'[{1}..{2}]'".format(finfo.Abspath, i, i + winsize - 1),
+                                             "{0}'{{{1}..{2}}}'".format(seed_path, i, i + winsize - 1))
+                            list_of_files.append(temp_path)
+                        methods.shell('3dTcat -prefix {0} -tr {1} {2}'.format(output_path, str(step),
+                                                                              ' '.join(list_of_files)))
+                        rmtree(temppath)
+        return {'dynamicMap': step01}
+
+
     def calculate_seedbased_global_connectivity(self, func, seed, dtype='func', **kwargs):
         """ Seed-based Global Connectivity Analysis
 

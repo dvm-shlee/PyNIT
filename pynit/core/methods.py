@@ -1,29 +1,24 @@
 from __future__ import print_function
-
 import os
 import re
 import shutil
 import sys
 import logging
 import logging.handlers
+from pandas import DataFrame, Series
+import nibabel as nib
+import numpy as np
+from skimage import exposure
+from nibabel import affines as affns
+import objects
+import messages
+import shlex
+from subprocess import PIPE, Popen
 
 try:
     import SimpleITK as sitk
 except ImportError:
     pass
-
-from pandas import DataFrame, Series
-
-import nibabel as nib
-import numpy as np
-from skimage import exposure
-from nibabel import affines as affns
-
-import objects
-import messages
-
-import shlex
-from subprocess import PIPE, Popen
 
 
 def reset_orient(imageobj, affine):
@@ -403,18 +398,18 @@ def get_warp_matrix(preproc, *args, **kwargs):
     else:
         inverse = None
     if inverse:
-        mats = preproc._prjobj(1, preproc._pipeline, os.path.basename(args[0]),
+        mats = preproc._prjobj(1, preproc._processing, os.path.basename(args[0]),
                                *args[1:], ext='.mat').df.Abspath.loc[0]
-        warps = preproc._prjobj(1, preproc._pipeline, os.path.basename(args[0]),
+        warps = preproc._prjobj(1, preproc._processing, os.path.basename(args[0]),
                                 *args[1:], file_tag='_1InverseWarp').df.Abspath.loc[0]
-        warped = preproc._prjobj(1, preproc._pipeline, os.path.basename(args[0]),
+        warped = preproc._prjobj(1, preproc._processing, os.path.basename(args[0]),
                                  *args[1:], file_tag='_InverseWarped').df.loc[0]
     else:
-        mats = preproc._prjobj(1, preproc._pipeline, os.path.basename(args[0]),
+        mats = preproc._prjobj(1, preproc._processing, os.path.basename(args[0]),
                                *args[1:], ext='.mat').df.Abspath.loc[0]
-        warps = preproc._prjobj(1, preproc._pipeline, os.path.basename(args[0]),
+        warps = preproc._prjobj(1, preproc._processing, os.path.basename(args[0]),
                                 *args[1:], file_tag='_1Warp').df.Abspath.loc[0]
-        warped = preproc._prjobj(1, preproc._pipeline, os.path.basename(args[0]),
+        warped = preproc._prjobj(1, preproc._processing, os.path.basename(args[0]),
                                  *args[1:], file_tag='_Warped').df.loc[0]
     return mats, warps, warped
 
