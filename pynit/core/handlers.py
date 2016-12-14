@@ -227,25 +227,18 @@ class Project(object):
                 Keywords of interest for filename
             (key) ignore    : str or list of str
                 Keywords of neglect for filename
-            (key) keep      : boolean
-                True, if you want to keep previous parameter
 
         Returns
         -------
         None
 
         """
+        self.reset_filters(self.ext)
         if kwargs:
             for key in kwargs.keys():
                 if key == 'ext':
                     self.ext = kwargs['ext']
-                elif key == 'keep':
-                    # This option allows to keep previous filter
-                    if kwargs['keep']:
-                        self.__update()
-                    else:
-                        self.reset_filters(self.ext)
-                elif key == 'file_tag':
+                if key == 'file_tag':
                     if type(kwargs['file_tag']) == str:
                         self.__filters[4] = [kwargs['file_tag']]
                     elif type(kwargs['file_tag']) == list:
@@ -253,7 +246,7 @@ class Project(object):
                     else:
                         methods.raiseerror(messages.Errors.InputTypeError,
                                                  'Please use correct input type for FileTag')
-                elif key == 'ignore':
+                if key == 'ignore':
                     if type(kwargs['ignore']) == str:
                         self.__filters[5] = [kwargs['ignore']]
                     elif type(kwargs['ignore']) == list:
@@ -265,7 +258,7 @@ class Project(object):
                     methods.raiseerror(messages.Errors.KeywordError,
                                              "'{key}' is not correct kwarg")
         else:
-            self.reset_filters(self.ext)
+            pass
         if args or kwargs:
             if args:
                 residuals = list(set(args))
