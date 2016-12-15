@@ -992,7 +992,9 @@ class Preprocess(object):
                     methods.mkdir('.dtmp')
                     temppath = os.path.join('.dtmp')
                     list_of_files = []
-                    pool = ThreadPool(multiprocessing.cpu_count())
+                    cpu = multiprocessing.cpu_count()
+                    cpu = cpu - int(cpu / 4)
+                    pool = ThreadPool(cpu)
                     iteritem = [(list_of_files, temppath, finfo, seed_path, winsize, i) for i in range(0, total - winsize, step)]
                     for output in progressbar(pool.imap_unordered(worker, iteritem), desc='Window',
                                               total=len(iteritem) ,leave=False):
@@ -1022,7 +1024,9 @@ class Preprocess(object):
                         methods.mkdir('.dtmp')
                         temppath = os.path.join('.dtmp')
                         list_of_files = []
-                        pool = ThreadPool(multiprocessing.cpu_count())
+                        cpu = multiprocessing.cpu_count()
+                        cpu = cpu - int(cpu/4)
+                        pool = ThreadPool(cpu)
                         iteritem = [(list_of_files, temppath, finfo, seed_path, winsize, i) for i in
                                     range(0, total - winsize, step)]
                         for output in progressbar(pool.imap_unordered(worker, iteritem), desc='Window',
