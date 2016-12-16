@@ -989,20 +989,21 @@ class Preprocess(object):
                     seed_path = os.path.join(step01, subj, "{0}.1D".format(methods.splitnifti(finfo.Filename)))
                     self._prjobj.run('afni_3dmaskave', seed_path, finfo.Abspath, seed)
                     output_path = os.path.join(step01, subj, finfo.Filename)
-                    methods.mkdir('.dtmp')
-                    temppath = os.path.join('.dtmp')
-                    list_of_files = []
-                    cpu = multiprocessing.cpu_count()
-                    cpu = cpu - int(cpu / 4)
-                    pool = ThreadPool(cpu)
-                    iteritem = [(list_of_files, temppath, finfo, seed_path, winsize, i) for i in range(0, total - winsize, step)]
-                    for output in progressbar(pool.imap_unordered(worker, iteritem), desc='Window',
-                                              total=len(iteritem) ,leave=False):
-                        pass
-                    list_of_files = sorted(list_of_files)
-                    methods.shell('3dTcat -prefix {0} -tr {1} {2}'.format(output_path, str(step),
-                                                                          ' '.join(list_of_files)))
-                    rmtree(temppath)
+                    if not os.path.exists(output_path):
+                        methods.mkdir('.dtmp')
+                        temppath = os.path.join('.dtmp')
+                        list_of_files = []
+                        cpu = multiprocessing.cpu_count()
+                        cpu = cpu - int(cpu / 4)
+                        pool = ThreadPool(cpu)
+                        iteritem = [(list_of_files, temppath, finfo, seed_path, winsize, i) for i in range(0, total - winsize, step)]
+                        for output in progressbar(pool.imap_unordered(worker, iteritem), desc='Window',
+                                                  total=len(iteritem) ,leave=False):
+                            pass
+                        list_of_files = sorted(list_of_files)
+                        methods.shell('3dTcat -prefix {0} -tr {1} {2}'.format(output_path, str(step),
+                                                                              ' '.join(list_of_files)))
+                        rmtree(temppath)
             else:
                 for sess in progressbar(self.sessions, desc='Sessions', leave=False):
                     methods.mkdir(os.path.join(step01, subj, sess))
@@ -1021,21 +1022,22 @@ class Preprocess(object):
                                                  "{0}.1D".format(methods.splitnifti(finfo.Filename)))
                         self._prjobj.run('afni_3dmaskave', seed_path, finfo.Abspath, seed)
                         output_path = os.path.join(step01, subj, sess, finfo.Filename)
-                        methods.mkdir('.dtmp')
-                        temppath = os.path.join('.dtmp')
-                        list_of_files = []
-                        cpu = multiprocessing.cpu_count()
-                        cpu = cpu - int(cpu/4)
-                        pool = ThreadPool(cpu)
-                        iteritem = [(list_of_files, temppath, finfo, seed_path, winsize, i) for i in
-                                    range(0, total - winsize, step)]
-                        for output in progressbar(pool.imap_unordered(worker, iteritem), desc='Window',
-                                                  total=len(iteritem), leave=False):
-                            pass
-                        list_of_files = sorted(list_of_files)
-                        methods.shell('3dTcat -prefix {0} -tr {1} {2}'.format(output_path, str(step),
-                                                                              ' '.join(list_of_files)))
-                        rmtree(temppath)
+                        if not os.path.exists(output_path):
+                            methods.mkdir('.dtmp')
+                            temppath = os.path.join('.dtmp')
+                            list_of_files = []
+                            cpu = multiprocessing.cpu_count()
+                            cpu = cpu - int(cpu/4)
+                            pool = ThreadPool(cpu)
+                            iteritem = [(list_of_files, temppath, finfo, seed_path, winsize, i) for i in
+                                        range(0, total - winsize, step)]
+                            for output in progressbar(pool.imap_unordered(worker, iteritem), desc='Window',
+                                                      total=len(iteritem), leave=False):
+                                pass
+                            list_of_files = sorted(list_of_files)
+                            methods.shell('3dTcat -prefix {0} -tr {1} {2}'.format(output_path, str(step),
+                                                                                  ' '.join(list_of_files)))
+                            rmtree(temppath)
         return {'dynamicMap': step01}
 
     def calculate_seedbased_global_connectivity(self, func, seed, dtype='func', **kwargs):
