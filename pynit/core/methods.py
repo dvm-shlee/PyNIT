@@ -176,17 +176,6 @@ def set_center(imageobj, corr):
 
 
 # Method collection for templateObject handler
-def remove_nifti_ext(path):
-    """ Remove extension
-
-    :param path:
-    :return:
-    """
-    filename = os.path.splitext(path)[0]
-    if '.nii' in filename:
-        filename = os.path.splitext(filename)[0]
-    return filename
-
 
 def parsing_atlas(path):
     """ Parsing atlas imageobj and label

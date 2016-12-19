@@ -29,7 +29,7 @@ import multiprocessing
 from multiprocessing.pool import ThreadPool
 
 
-class Project(object):
+class Project(object): # TODO: load all data and later handle it to reduce the re-loading time
     """Project Handler for functional Neuro MRI datasets
     """
 
@@ -633,6 +633,7 @@ class Process(object):
 class Step(object):
     """ Basic processing step template
     """
+    oppset = namedtuple('Output', ['name', 'ext']) # output_param handler
     dataset = namedtuple('Dataset', ['name', 'input_path', 'static'])  # projectobj handler
     cmdset = namedtuple('Command', ['name', 'command', 'option'])  # commandobj handler
 
@@ -643,6 +644,7 @@ class Step(object):
         self._mainset = None
         self._sidesets = []
         self._staticinput = {}
+        self._outparam = {}
         self._subjects = procobj.subjects[:]
         try:
             self._sessions = procobj.sessions[:]
@@ -678,20 +680,26 @@ class Step(object):
             self._mainset = self.dataset(name=name, input_path=input_path, static=static)
             self._filters['main'] = self.get_filtercode(str(dc), ipath, filters)
 
+    def set_outparam(self, name, ext):
+        """
+
+        Parameters
+        ----------
+        name
+        output_ext
+        """
+        self._outparam[name] = (self.oppset(name=name, ext=ext))
+
     def set_staticinput(self, name, input_path):
         """ Import static file
         """
         self._staticinput['name'] = input_path
 
-    def set_command(self, command):
+    def set_command(self, command, verbose=False):
         """
 
         Parameters
         ----------
-        command : str
-
-        Returns
-        -------
         command : str
         """
         objs = [obj.strip('{}') for obj in command.split(" ") if obj[0] == '{' and obj[-1] == '}']
@@ -707,6 +715,7 @@ class Step(object):
         residuals = [obj for obj in residuals if 'temp' not in obj]
         residuals = [obj for obj in residuals if 'output' not in obj]
         residuals = [obj for obj in residuals if obj not in self._staticinput.keys()]
+        residuals = [obj for obj in residuals if obj not in self._outparam.keys()]
 
         # Get list of extra inputs
         lacks = [obj for obj in totalobjs if obj not in objs]
@@ -725,6 +734,8 @@ class Step(object):
                     self._tempfiles.append(obj)
                 elif obj in self._staticinput.keys():
                     str_format.append("{0}={1}".format(obj, self._staticinput[obj]))
+                elif obj in self._outparam.keys():
+                    str_format.append("{0}=methods.splitnifti(output)+'{1}'".format(obj, self._outparam[obj].ext))
                 else:
                     if total[obj]:
                         str_format.append("{0}={1}.Abspath".format(obj, obj))
@@ -734,6 +745,8 @@ class Step(object):
         self._commands.append(output)
         if self._tempfiles:
             self._tempfiles = sorted(list(set(self._tempfiles)))
+        if verbose:
+            return output
 
     def get_inputcode(self):
         """ Generate datasets to execute step
@@ -781,7 +794,19 @@ class Step(object):
             pass
         return ', '.join(output_filters)
 
-    def get_executefunc(self, name):
+    def get_executefunc(self, name, execute=True, verbose=False):
+        """ Generate the function for execution # TODO: low level progressbar need to be applied here
+
+        Parameters
+        ----------
+        name
+        execute
+        verbose
+
+        Returns
+        -------
+
+        """
         filter = ['\t{}'.format(input) for input in self.get_inputcode()]
         if self._mainset.static:
             body = ['\toutputs = []',
@@ -813,18 +838,25 @@ class Step(object):
                 body = loop + temp + body + close
             else:
                 body = loop + body
-        if self._sessions:
+        if self._sessions: # Check the project is multi-session
             header = ['def {0}(self, output, subj, sess):'.format(name),
                       '\toutput = os.path.join(output, subj, sess)',
                       '\tmethods.mkdir(output)']
         else:
             header = ['def {0}(self, output, subj):'.format(name),
-                      '\toutput = os.path.join(output, subj, sess)',
+                      '\toutput = os.path.join(output, subj)',
                       '\tmethods.mkdir(output)']
         footer = ['\treturn outputs\n']
         output = header+filter+body+footer
         output = '\n'.join(output)
-        return output
+        if verbose:
+            print(output)
+        else:
+            pass
+        if execute:
+            return output
+        else:
+            return None
 
     def worker(self, args):
         """
@@ -860,20 +892,26 @@ class Step(object):
                 iteritem = [(self._procobj, output_path, subj, sess) for sess in self._sessions]
                 for output in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Sessions',
                                           leave=False, total=len(iteritem)):
-                    print(output)
+                    pass
+                    # print(output)
         else:
             dirs = [os.path.join(output_path, subj) for subj in self._subjects]
             methods.mkdir(dirs)
             iteritem = [(self._procobj, output_path, subj) for subj in self._subjects]
             for output in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Subjects',
                                       total=len(iteritem)):
-                print(output)
+                pass
+                # print(output)
         # results = ['STDOUT:\n{0}\nError:\n{1}'.format(out, err) for out, err in results] #TODO: save the history and log for all execution.
         # with open(os.path.join(output_path, 'stephistory.log'), 'w') as f:
         #     f.write('\n'.join(results))
         # self._procobj._history[os.path.basename(output_path.split['_'][0])] = output_path
         # self._procobj.save_history()
         return output_path
+
+
+class Pipelines(object):
+    pass
 
 
 # Below classes will be deprecated soon
@@ -922,7 +960,7 @@ class Preprocess(object):
             raise messages.PipelineNotSet
 
     def seedbased_dynamic_connectivity(self, func, seed, winsize=100, step=1, dtype='func', **kwargs):
-        """ Seed-based dynamic connectivity using sliding windows
+        """ Seed-based dynamic connectivity using sliding windows # TODO: use this methods as model
 
         Parameters
         ----------
@@ -971,6 +1009,9 @@ class Preprocess(object):
             """
             return processor(*args)
 
+        def start_process():
+            print 'Starting', multiprocessing.current_process().name
+
         for subj in progressbar(self.subjects, desc='Subjects', leave=False):
             print("-Subject: {}".format(subj))
             methods.mkdir(os.path.join(step01, subj))
@@ -995,7 +1036,7 @@ class Preprocess(object):
                         list_of_files = []
                         cpu = multiprocessing.cpu_count()
                         cpu = cpu - int(cpu / 4)
-                        pool = ThreadPool(cpu)
+                        pool = ThreadPool(cpu, initializer=start_process)
                         iteritem = [(list_of_files, temppath, finfo, seed_path, winsize, i) for i in range(0, total - winsize, step)]
                         for output in progressbar(pool.imap_unordered(worker, iteritem), desc='Window',
                                                   total=len(iteritem) ,leave=False):
@@ -1004,6 +1045,8 @@ class Preprocess(object):
                         methods.shell('3dTcat -prefix {0} -tr {1} {2}'.format(output_path, str(step),
                                                                               ' '.join(list_of_files)))
                         rmtree(temppath)
+                        pool.close()
+                        pool.join()
             else:
                 for sess in progressbar(self.sessions, desc='Sessions', leave=False):
                     methods.mkdir(os.path.join(step01, subj, sess))
@@ -1028,7 +1071,7 @@ class Preprocess(object):
                             list_of_files = []
                             cpu = multiprocessing.cpu_count()
                             cpu = cpu - int(cpu/4)
-                            pool = ThreadPool(cpu)
+                            pool = ThreadPool(cpu, initializer=start_process)
                             iteritem = [(list_of_files, temppath, finfo, seed_path, winsize, i) for i in
                                         range(0, total - winsize, step)]
                             for output in progressbar(pool.imap_unordered(worker, iteritem), desc='Window',
@@ -1038,6 +1081,8 @@ class Preprocess(object):
                             methods.shell('3dTcat -prefix {0} -tr {1} {2}'.format(output_path, str(step),
                                                                                   ' '.join(list_of_files)))
                             rmtree(temppath)
+                            pool.close()
+                            pool.join()
         return {'dynamicMap': step01}
 
     def calculate_seedbased_global_connectivity(self, func, seed, dtype='func', **kwargs):
