@@ -2161,10 +2161,10 @@ class Preprocess(object):
                     imgobj._dataobj = np.mean(imgobj._dataobj[:, :, :, :mean_range], axis=3)
                     spre = TempFile(imgobj, 'spre_{}'.format(subj))
                     print(" +Filename: {}".format(finfo.Filename))
-                    # self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, finfo.Filename), 'log(a/b)/log(b/c)',
-                    #                  finfo.Abspath, str(spre), szero.Abspath)
-                    self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, finfo.Filename), '(b-a)/(c-b)*100',
+                    self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, finfo.Filename), 'log(b/a)/log(c/b)',
                                      finfo.Abspath, str(spre), szero.Abspath)
+                    # self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, finfo.Filename), '(b-a)/(c-b)*100',
+                    #                  finfo.Abspath, str(spre), szero.Abspath)
                     spre.close()
             else:
                 for sess in self.sessions:
@@ -2177,10 +2177,10 @@ class Preprocess(object):
                         imgobj._dataobj = np.mean(imgobj._dataobj[:, :, :, :mean_range], axis=3)
                         spre = TempFile(imgobj, 'spre_{}_{}'.format(subj, sess))
                         print(" +Filename: {}".format(finfo.Filename))
-                        # self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, sess, finfo.Filename), 'log(a/b)/log(b/c)',
-                        #                  finfo.Abspath, str(spre), szero.Abspath)
-                        self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, sess, finfo.Filename),
-                                         '(b-a)/(c-b)*100', finfo.Abspath, str(spre), szero.Abspath)
+                        self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, sess, finfo.Filename), 'log(b/a)/log(c/b)',
+                                         finfo.Abspath, str(spre), szero.Abspath)
+                        # self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, sess, finfo.Filename),
+                        #                  '(b-a)/(c-b)*100', finfo.Abspath, str(spre), szero.Abspath)
                         spre.close()
         return {'cbv': step01}
 
