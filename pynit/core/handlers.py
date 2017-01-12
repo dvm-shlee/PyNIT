@@ -2493,14 +2493,17 @@ class Preprocess(object):
                     moved_img = os.path.join(step01, subj, finfo.Filename)
                     self._prjobj.run('afni_3dAllineate', moved_img, finfo.Abspath, master=ref.df.Abspath.loc[0],
                                      matrix_apply=param.df.Abspath.loc[0], warp='shr')
-                subjatlas = methods.load_temp(moved_img, '{}_atlas.nii'.format(temp_path))
-                fig = subjatlas.show(**kwargs)
-                if type(fig) is tuple:
-                    fig = fig[0]
-                fig.suptitle('Check atlas registration of {}'.format(subj), fontsize=12, color='yellow')
-                fig.savefig(
-                    os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'checkatlas']))),
-                    facecolor=fig.get_facecolor())
+                try:
+                    subjatlas = methods.load_temp(moved_img, '{}_atlas.nii'.format(temp_path))
+                    fig = subjatlas.show(**kwargs)
+                    if type(fig) is tuple:
+                        fig = fig[0]
+                    fig.suptitle('Check atlas registration of {}'.format(subj), fontsize=12, color='yellow')
+                    fig.savefig(
+                        os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'checkatlas']))),
+                        facecolor=fig.get_facecolor())
+                except:
+                    pass
                 os.remove('{}_atlas.nii'.format(temp_path))
                 os.remove('{}_atlas.label'.format(temp_path))
                 os.remove('{}_template.nii'.format(temp_path))
@@ -2520,15 +2523,18 @@ class Preprocess(object):
                         moved_img = os.path.join(step01, subj, sess, finfo.Filename)
                         self._prjobj.run('afni_3dAllineate', moved_img, finfo.Abspath, master=ref.df.Abspath.loc[0],
                                          matrix_apply=param.df.Abspath.loc[0], warp='shr')
-                    subjatlas = methods.load_temp(moved_img, '{}_atlas.nii'.format(temp_path))
-                    fig = subjatlas.show(**kwargs)
-                    if type(fig) is tuple:
-                        fig = fig[0]
-                    fig.suptitle('Check atlas registration of {}-{}'.format(subj, sess), fontsize=12, color='yellow')
-                    fig.savefig(
-                        os.path.join(step02, subj, 'AllSessions',
-                                     '{}.png'.format('-'.join([subj, sess, 'checkatlas']))),
-                        facecolor=fig.get_facecolor())
+                    try:
+                        subjatlas = methods.load_temp(moved_img, '{}_atlas.nii'.format(temp_path))
+                        fig = subjatlas.show(**kwargs)
+                        if type(fig) is tuple:
+                            fig = fig[0]
+                        fig.suptitle('Check atlas registration of {}-{}'.format(subj, sess), fontsize=12, color='yellow')
+                        fig.savefig(
+                            os.path.join(step02, subj, 'AllSessions',
+                                         '{}.png'.format('-'.join([subj, sess, 'checkatlas']))),
+                            facecolor=fig.get_facecolor())
+                    except:
+                        pass
                     os.remove('{}_atlas.nii'.format(temp_path))
                     os.remove('{}_atlas.label'.format(temp_path))
                     os.remove('{}_template.nii'.format(temp_path))
