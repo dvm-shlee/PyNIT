@@ -278,9 +278,10 @@ class Atlas(object):
             self._image = path
         elif type(path) is str:
             # try:
+            print(path)
             self.load(path)
             # except:
-            # raise error.InputPathError
+                # raise error.InputPathError
         else:
             raise messages.InputFileError
 
