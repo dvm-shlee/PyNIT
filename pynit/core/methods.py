@@ -189,6 +189,7 @@ def parsing_atlas(path):
         print(path)
         atlasdata = None
         list_of_rois = [img for img in os.listdir(path) if '.nii' in img]
+        print(list_of_rois)
         rgbs = np.random.rand(len(list_of_rois), 3)
         label[0] = 'Clear Label', [.0, .0, .0]
 
@@ -199,12 +200,12 @@ def parsing_atlas(path):
                 atlasdata = np.asarray(imageobj.dataobj)
             else:
                 atlasdata += np.asarray(imageobj.dataobj) * (idx + 1)
-            label[idx+1] = remove_nifti_ext(img), rgbs[idx]
+            label[idx+1] = splitnifti(img), rgbs[idx]
         atlas = objects.ImageObj(atlasdata, affine[0])
     elif os.path.isfile(path):
         atlas = objects.ImageObj.load(path)
         if '.nii' in path:
-            filepath = os.path.basename(remove_nifti_ext(path))
+            filepath = os.path.basename(splitnifti(path))
             dirname = os.path.dirname(path)
             for f in os.listdir(dirname):
                 if filepath in f:
@@ -214,7 +215,7 @@ def parsing_atlas(path):
                         filepath = os.path.join(dirname, "{}.label".format(filepath))
                     else:
                         filepath = filepath
-            if filepath == os.path.basename(remove_nifti_ext(path)):
+            if filepath == os.path.basename(splitnifti(path)):
                 raise messages.NoLabelFile
         else:
             raise messages.NoLabelFile
