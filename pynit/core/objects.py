@@ -278,7 +278,7 @@ class Atlas(object):
             self._image = path
         elif type(path) is str:
             # try:
-            print(path)
+            # print(path)
             self.load(path)
             # except:
                 # raise error.InputPathError
