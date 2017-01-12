@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import copy
 import pickle
@@ -6,6 +7,7 @@ import pandas as pd
 from tempfile import mkdtemp
 from shutil import rmtree
 from time import sleep
+from pprint import pprint
 
 # from progressbar import ProgressBar, SimpleProgress
 try:
@@ -457,7 +459,7 @@ class Project(object): # TODO: load all data and later handle it to reduce the r
                     self.__steps = None
             except:
                 methods.raiseerror(messages.Errors.UpdateAttributesFailed,
-                                         "Error occured during update project's attributes")
+                                   "Error occured during update project's attributes")
         else:
             self.__subjects = None
             self.__sessions = None
@@ -535,27 +537,122 @@ class Process(object):
         self._tempfiles = []
         self.init_proc()
 
-    def mean_calculation(self, input_path, surfix='func', **kwargs):
-        """ BOLD image preparation step
+    def check_input(self, input_path):
+        """ Check input_path and return absolute path
+
+        Parameters
+        ----------
+        input_path : str
+            Step path
+
+        Returns
+        -------
+        input_path : str
+            Absolute path of step
+        """
+        if input_path in self.executed:
+            return self._history[input_path]
+        else:
+            return input_path
+
+    def afni_MeanImgCalc(self, input_path, cbv=False, surfix='func'):
+        """ Mean image calculation for functional image
+
+        Major purpose of this preprocessing step is to prepare base-images
+        for both mask drawing and motion correction.
 
         Parameters
         ----------
         input_path : str
             datatype of absolute_path
+        cbv : boolean
+            True if MION contrast agent is infused
+        surfix : str
+            Output folder surfix
+
+        Returns
+        -------
+        output_path : dict
+        """
+        input_path = self.check_input(input_path)
+        step = Step(self)
+        step.set_input(name='func', input_path=input_path, static=True)
+        step.set_outparam(name='mparam', ext='.1D')
+        cmd01 = "3dvolreg -prefix {temp_01} -1Dfile {mparam} -Fourier -verbose -base 0 {func}"
+        step.set_command(cmd01)
+        if cbv:
+            cmd02 = "3dinfo -nv {func}"
+            step.set_staticinput('bold', 'int(int(ttime)/3)')
+            step.set_staticinput('bold_output', 'methods.splitnifti(output)+"_bold.nii.gz"')
+            step.set_staticinput('cbv', 'int(int(ttime)*2/3)')
+            step.set_staticinput('cbv_output', 'methods.splitnifti(output)+"_cbv.nii.gz"')
+            step.set_command(cmd02, stdout='ttime')
+            options = ['"[0..{bold}]"',
+                       '"[{cbv}..$]"']
+            cmd03 = "3dTstat -prefix {bold_output} -mean {temp_01}" + options[0]
+            step.set_command(cmd03)
+            cmd04 = "3dTstat -prefix {cbv_output} -mean {temp_01}" + options[1]
+            step.set_command(cmd04)
+            # print(step.get_executefunc('test', test=True))
+            # print(step._commands)
+            output_path = step.run('MeanImgCalc', surfix)
+        else:
+            cmd02 = "3dTstat -prefix {output} -mean {temp_01}"
+            step.set_command(cmd02)
+            output_path = step.run('MeanImgCalc', surfix)
+        return dict(meanfunc=output_path)
+
+    def afni_SliceTimingCorrection(self, input_path, tr=None, tpattern=None, surfix='func'):
+        """ Corrects for slice time differences when individual 2D slices are recorded over a 3D image
+
+        Parameters
+        ----------
+        input_path : str
+        tr : int
+        tpattern : str
         surfix : str
 
         Returns
         -------
-        None
+        output_path : dict
         """
+        input_path = self.check_input(input_path)
+        options = str()
         step = Step(self)
-        step.set_input(name='func', input_path=input_path, static=True) # TODO: filter not work properly
-        cmd01 = "3dvolreg -prefix {temp_01} -Fourier -verbose -base 0 {func}"
-        step.set_command(cmd01)
-        cmd02 = "3dTstat -prefix {output} -mean {temp_01}"
-        step.set_command(cmd02)
-        output_path = step.run('MeanImgCalc', surfix)
-        return {'meanfunc':output_path}
+        step.set_input(name='func', input_path=input_path, static=False)
+        cmd = "3dTshift -prefix {output}"
+        if tr:
+            options += " -tr {0}".format(tr)
+        if tpattern:
+            options += " -tpattern {0}".format(tpattern)
+        else:
+            options += " -tpattern altplus"
+        input_str = " {func}"
+        cmd = cmd+options+input_str
+        step.set_command(cmd)
+        step.get_executefunc('test', test=True)
+        # output_path = step.run('SliceTmCorrect', surfix)
+        # return dict(func=output_path)
+
+    def afni_MotionCorrection(self, input_path, surfix='func'):
+        """
+
+        Parameters
+        ----------
+        input_path
+
+        Returns
+        -------
+
+        """
+        input_path = self.check_input(input_path)
+        step = Step(self)
+        step.set_input(name='func', input_path=input_path, static=False)
+        step.set_outparam(name='mparam', ext='.1D')
+        cmd = "3dvolreg -prefix {temp_01} -1Dfile {mparam} -Fourier -verbose -base 0 {func}"
+        step.set_command(cmd)
+        output_path = step.run('MotionCorrection', surfix)
+        return dict(func=output_path)
 
     @property
     def path(self):
@@ -572,6 +669,10 @@ class Process(object):
     @property
     def sessions(self):
         return self._sessions
+
+    @property
+    def executed(self):
+        return sorted(self._history.keys())
 
     def reset(self):
         """ reset subject and session information
@@ -630,6 +731,7 @@ class Process(object):
             pickle.dump(self._history, f)
         self.logger.info("History file is saved at '{0}'".format(history))
 
+
 class Step(object):
     """ Basic processing step template
     """
@@ -687,22 +789,33 @@ class Step(object):
         ----------
         name
         output_ext
+
+        Returns
+        -------
+        None
         """
         self._outparam[name] = (self.oppset(name=name, ext=ext))
 
-    def set_staticinput(self, name, input_path):
+    def set_staticinput(self, name, value):
         """ Import static file
         """
-        self._staticinput['name'] = input_path
+        self._staticinput[name] = value
 
-    def set_command(self, command, verbose=False):
+    def set_command(self, command, verbose=False, idx=None, stdout=None )  :
         """
 
         Parameters
         ----------
         command : str
+        verbose : boolean
+        idx : int
+        stdout : str or None
+
+        Returns
+        -------
+
         """
-        objs = [obj.strip('{}') for obj in command.split(" ") if obj[0] == '{' and obj[-1] == '}']
+        objs = [obj.strip('{}') for obj in re.findall(r"[{\w'}]+", command) if obj[0] == '{' and obj[-1] == '}']
         total = dict([(sideobj.name, sideobj.static) for sideobj in self._sidesets])
         total[self._mainset.name] = self._mainset.static
         try:
@@ -725,12 +838,15 @@ class Step(object):
             methods.raiseerror(ValueError, 'Too many inputs{0}'.format(str(residuals)))
         output = "'{0}'.format(".format(command)
         str_format = []
+        # print(objs)
         for obj in objs:
+            # if obj == 'output':
             if obj == 'output':
-                str_format.append("output={0}".format(obj))
+                str_format.append("{0}={0}".format(obj))
+                # str_format.append("output={0}".format(obj))
             else:
                 if 'temp' in obj:
-                    str_format.append("{0}=os.path.join(temppath, '{1}.nii')".format(obj, obj))
+                    str_format.append("{0}=os.path.join(temppath, '{0}.nii')".format(obj))
                     self._tempfiles.append(obj)
                 elif obj in self._staticinput.keys():
                     str_format.append("{0}={1}".format(obj, self._staticinput[obj]))
@@ -742,7 +858,10 @@ class Step(object):
                     else:
                         str_format.append("{0}={1}[i].Abspath".format(obj, obj))
         output = "{0}{1})".format(output, ", ".join(str_format))
-        self._commands.append(output)
+        if idx:
+            self._commands[idx] = (output, stdout)
+        else:
+            self._commands.append((output, stdout))
         if self._tempfiles:
             self._tempfiles = sorted(list(set(self._tempfiles)))
         if verbose:
@@ -750,6 +869,10 @@ class Step(object):
 
     def get_inputcode(self):
         """ Generate datasets to execute step
+
+        Returns
+        -------
+        inputcode : str
         """
         inputcode = []
         mainobj = self._mainset
@@ -794,27 +917,30 @@ class Step(object):
             pass
         return ', '.join(output_filters)
 
-    def get_executefunc(self, name, execute=True, verbose=False):
-        """ Generate the function for execution # TODO: low level progressbar need to be applied here
+    def get_executefunc(self, name, test=False):
+        """ Step function generator
 
         Parameters
         ----------
-        name
-        execute
-        verbose
+        name : str
+        test : boolean
 
         Returns
         -------
-
+        output : str
         """
-        filter = ['\t{}'.format(input) for input in self.get_inputcode()]
+        filters = ['\t{}'.format(input) for input in self.get_inputcode()]
         if self._mainset.static:
             body = ['\toutputs = []',
                     '\toutput = os.path.join(output, {0}.Filename)'.format(self._mainset.name),
                     '\tif os.path.isfile(output):',
                     '\t\tself.logger.info("TheFile[{0}] is already exist.".format(output))',
                     '\telse:']
-            body += ['\t\toutputs.append(methods.shell({0}))'.format(cmd) for cmd in self._commands]
+            for cmd, stdout in self._commands:
+                if stdout:
+                    body += ['\t\t{0}, err = methods.shell({1})'.format(stdout, cmd)]
+                else:
+                    body += ['\t\toutputs.append(methods.shell({0}))'.format(cmd)]
             if self._tempfiles:
                 temp = ['\ttemppath = mkdtemp()',
                         '\tself.logger.info("TempFolder[{0}] is generated".format(temppath))']
@@ -823,14 +949,19 @@ class Step(object):
             else:
                 pass
         else:
-            loop = ['\tfor i in range(len({0})):'.format(self._mainset)]
-            body = ['\t\toutputs = []',
-                    '\t\toutput = os.path.join(output, {0}.Filename)'.format(self._mainset.name),
-                    '\t\tprint(output)',
+            loop = ['\toutputs = []',
+                    '\tfor i in progressbar(range(len({0})), desc="Files", leave=False):'.format(self._mainset.name)]
+            body = ['\t\ttemp_outputs = []',
+                    '\t\toutput = os.path.join(output, {0}[i].Filename)'.format(self._mainset.name),
                     '\t\tif os.path.isfile(output):',
                     '\t\t\tself.logger.info("TheFile[{0}] is already exist.".format(output))',
                     '\t\telse:']
-            body += ['\t\t\toutputs.append(methods.shell({0}))'.format(cmd) for cmd in self._commands]
+            for cmd, stdout in self._commands:
+                if stdout:
+                    body += ['\t\t\t{0}, err = methods.shell({1})'.format(stdout, cmd)]
+                else:
+                    body += ['\t\t\toutputs.append(methods.shell({0}))'.format(cmd)]
+            body += ['\t\toutputs.append(temp_outputs)']
             if self._tempfiles:
                 temp = ['\t\ttemppath = mkdtemp()',
                         '\t\tself.logger.info("TempFolder[{0}] is generated".format(temppath))']
@@ -847,66 +978,86 @@ class Step(object):
                       '\toutput = os.path.join(output, subj)',
                       '\tmethods.mkdir(output)']
         footer = ['\treturn outputs\n']
-        output = header+filter+body+footer
+        output = header + filters + body + footer
         output = '\n'.join(output)
-        if verbose:
+        if test:
             print(output)
-        else:
-            pass
-        if execute:
-            return output
-        else:
             return None
+        else:
+            return output
 
     def worker(self, args):
         """
 
         Parameters
         ----------
-        func
-        args
+        args : list
+            Arguments for step execution
 
-        Returns
+        Returns : str
+            output
         -------
-
         """
         funccode = self.get_executefunc('stepexec')
-        exec(funccode)
         output = None
+        exec(funccode)
         exec('output = stepexec(*args)')
         return output
 
     def run(self, step_name, surfix):
         """ Generate loop commands for step
+
+        Parameters
+        ----------
+        step_name : str
+        surfix : str
+
+        Returns
+        -------
+        None
         """
         if self._procobj._parallel:
             thread = multiprocessing.cpu_count()
         else:
             thread = 1
         pool = ThreadPool(thread)
-        self._procobj.logger.info("Step:[{0}] is executed with Thread({1}).".format(step_name, thread))
+        self._procobj.logger.info("Step:[{0}] is executed with {1} thread(s).".format(step_name, thread))
         output_path = self._procobj.init_step("{0}-{1}".format(step_name, surfix))
         if self._sessions:
             for subj in progressbar(self._subjects, desc='Subjects'):
                 methods.mkdir(os.path.join(output_path, subj))
                 iteritem = [(self._procobj, output_path, subj, sess) for sess in self._sessions]
-                for output in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Sessions',
+                for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Sessions',
                                           leave=False, total=len(iteritem)):
-                    pass
-                    # print(output)
+                    try:
+                        if isinstance(outputs[0], list):
+                            all_outputs = []
+                            for output in outputs:
+                                all_outputs.extend(['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in output])
+                            outputs = all_outputs[:]
+                        else:
+                            outputs = ['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in outputs if outputs]
+                        with open(os.path.join(output_path, 'stephistory.log'), 'a') as f:
+                            f.write('\n\n'.join(outputs))
+                    except Exception as e:
+                        print(e)
         else:
             dirs = [os.path.join(output_path, subj) for subj in self._subjects]
             methods.mkdir(dirs)
             iteritem = [(self._procobj, output_path, subj) for subj in self._subjects]
-            for output in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Subjects',
+            for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Subjects',
                                       total=len(iteritem)):
-                pass
-                # print(output)
-        # results = ['STDOUT:\n{0}\nError:\n{1}'.format(out, err) for out, err in results] #TODO: save the history and log for all execution.
-        # with open(os.path.join(output_path, 'stephistory.log'), 'w') as f:
-        #     f.write('\n'.join(results))
-        # self._procobj._history[os.path.basename(output_path.split['_'][0])] = output_path
-        # self._procobj.save_history()
+                if isinstance(outputs[0], list):
+                    all_outputs = []
+                    for output in outputs:
+                        all_outputs.append(['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in output])
+                    outputs = all_outputs[:]
+                else:
+                    outputs = ['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in outputs]
+                with open(os.path.join(output_path, 'stephistory.log'), 'a') as f:
+                    f.write('\n\n'.join(outputs))
+        self._procobj._history[os.path.basename(output_path)] = output_path
+        self._procobj.save_history()
         return output_path
 
 
@@ -2010,7 +2161,9 @@ class Preprocess(object):
                     imgobj._dataobj = np.mean(imgobj._dataobj[:, :, :, :mean_range], axis=3)
                     spre = TempFile(imgobj, 'spre_{}'.format(subj))
                     print(" +Filename: {}".format(finfo.Filename))
-                    self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, finfo.Filename), 'log(a/b)/log(b/c)',
+                    # self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, finfo.Filename), 'log(a/b)/log(b/c)',
+                    #                  finfo.Abspath, str(spre), szero.Abspath)
+                    self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, finfo.Filename), '(b-a)/(c-b)*100',
                                      finfo.Abspath, str(spre), szero.Abspath)
                     spre.close()
             else:
@@ -2024,8 +2177,10 @@ class Preprocess(object):
                         imgobj._dataobj = np.mean(imgobj._dataobj[:, :, :, :mean_range], axis=3)
                         spre = TempFile(imgobj, 'spre_{}_{}'.format(subj, sess))
                         print(" +Filename: {}".format(finfo.Filename))
-                        self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, sess, finfo.Filename), 'log(a/b)/log(b/c)',
-                                         finfo.Abspath, str(spre), szero.Abspath)
+                        # self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, sess, finfo.Filename), 'log(a/b)/log(b/c)',
+                        #                  finfo.Abspath, str(spre), szero.Abspath)
+                        self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, sess, finfo.Filename),
+                                         '(b-a)/(c-b)*100', finfo.Abspath, str(spre), szero.Abspath)
                         spre.close()
         return {'cbv': step01}
 
