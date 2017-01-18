@@ -4,10 +4,10 @@ import sys
 import copy
 import pickle
 import pandas as pd
-from tempfile import mkdtemp
+# from tempfile import mkdtemp
 from shutil import rmtree
-from time import sleep
-from pprint import pprint
+# from time import sleep
+# from pprint import pprint
 
 # from progressbar import ProgressBar, SimpleProgress
 try:
@@ -1382,9 +1382,11 @@ class Preprocess(object):
                     self._prjobj.run('afni_3dTstat', os.path.join(step02, subj, finfo.Filename),
                                      "{path}'[{start}..{end}]'".format(path=finfo.Abspath,
                                                                        start=0,
+                                                                       # end=20))
                                                                        end=(int(shape[-1] / 3))))
                     self._prjobj.run('afni_3dTstat', os.path.join(step03, subj, finfo.Filename),
                                      "{path}'[{start}..{end}]'".format(path=finfo.Abspath,
+                                                                       # start=int(shape[-1]-21),
                                                                        start=int(shape[-1] * 2 / 3),
                                                                        end=shape[-1] - 1))
             else:
@@ -1398,10 +1400,12 @@ class Preprocess(object):
                         self._prjobj.run('afni_3dTstat', os.path.join(step02, subj, sess, finfo.Filename),
                                          "{path}'[{start}..{end}]'".format(path=finfo.Abspath,
                                                                            start=0,
+                                                                           # end=20))
                                                                            end=(int(shape[-1] / 3))))
                         self._prjobj.run('afni_3dTstat', os.path.join(step03, subj, sess, finfo.Filename),
                                          "{path}'[{start}..{end}]'".format(path=finfo.Abspath,
                                                                            start=int(shape[-1] * 2 / 3),
+                                                                           # start=int(shape[-1]-21),
                                                                            end=shape[-1] - 1))
         return {'CBVinduction': step01, 'meanBOLD': step02, 'meanCBV': step03}
 
@@ -2184,6 +2188,67 @@ class Preprocess(object):
                         spre.close()
         return {'cbv': step01}
 
+    def check_cbv_correction(self, func, meanBOLD, mean_range=20, echotime=0.08, dtype='func', **kwargs):
+        """
+
+        Parameters
+        ----------
+        func
+        meanBOLD
+        dtype
+        kwargs
+
+        Returns
+        -------
+
+        """
+        dataclass, func = methods.check_dataclass(func)
+        mb_dataclass, meanBOLD = methods.check_dataclass(meanBOLD)
+        print('CBV_Calculation-{}'.format(func))
+        step01 = self.init_step('deltaR2forSTIM-{}'.format(dtype))
+        step02 = self.init_step('deltaR2forMION-{}'.format(dtype))
+        for subj in self.subjects:
+            print("-Subject: {}".format(subj))
+            methods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj))
+            if self._prjobj.single_session:
+                funcs = self._prjobj(dataclass, func, subj)
+                szero = self._prjobj(mb_dataclass, meanBOLD, subj).df.loc[0]
+                for i, finfo in funcs:
+                    imgobj = methods.load(finfo.Abspath)
+                    imgobj._dataobj = np.mean(imgobj._dataobj[:, :, :, :mean_range], axis=3)
+                    spre = TempFile(imgobj, 'spre_{}'.format(subj))
+                    print(" +Filename: {}".format(finfo.Filename))
+                    self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, finfo.Filename),
+                                     '(-1/{TE})log(a/b)'.format(TE=echotime),
+                                     finfo.Abspath, str(spre))
+                    self._prjobj.run('afni_3dcalc', os.path.join(step02, subj, finfo.Filename),
+                                     '(-1/{TE})log(a/b)'.format(TE=echotime),
+                                     str(spre), szero.Abspath)
+                    # self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, finfo.Filename), '(b-a)/(c-b)*100',
+                    #                  finfo.Abspath, str(spre), szero.Abspath)
+                    spre.close()
+            else:
+                for sess in self.sessions:
+                    print(" :Session: {}".format(sess))
+                    methods.mkdir(os.path.join(step01, subj, sess), os.path.join(step02, subj, sess))
+                    funcs = self._prjobj(dataclass, func, subj, sess)
+                    szero = self._prjobj(mb_dataclass, meanBOLD, subj, sess).df.loc[0]
+                    for i, finfo in funcs:
+                        imgobj = methods.load(finfo.Abspath)
+                        imgobj._dataobj = np.mean(imgobj._dataobj[:, :, :, :mean_range], axis=3)
+                        spre = TempFile(imgobj, 'spre_{}_{}'.format(subj, sess))
+                        print(" +Filename: {}".format(finfo.Filename))
+                        self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, sess, finfo.Filename),
+                                         '(-1/{TE})log(a/b)'.format(TE=echotime),
+                                         finfo.Abspath, str(spre), szero.Abspath)
+                        self._prjobj.run('afni_3dcalc', os.path.join(step02, subj, sess, finfo.Filename),
+                                         '(-1/{TE})log(a/b)'.format(TE=echotime),
+                                         str(spre), szero.Abspath)
+                        # self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, sess, finfo.Filename),
+                        #                  '(b-a)/(c-b)*100', finfo.Abspath, str(spre), szero.Abspath)
+                        spre.close()
+        return {'cbv': step01}
+
     def spatial_smoothing(self, func, mask=False, FWHM=False, quiet=False, dtype='func'):
         """
 
@@ -2504,9 +2569,12 @@ class Preprocess(object):
                         facecolor=fig.get_facecolor())
                 except:
                     pass
-                os.remove('{}_atlas.nii'.format(temp_path))
-                os.remove('{}_atlas.label'.format(temp_path))
-                os.remove('{}_template.nii'.format(temp_path))
+                try:
+                    os.remove('{}_atlas.nii'.format(temp_path))
+                    os.remove('{}_atlas.label'.format(temp_path))
+                    os.remove('{}_template.nii'.format(temp_path))
+                except:
+                    pass
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
@@ -2535,10 +2603,12 @@ class Preprocess(object):
                             facecolor=fig.get_facecolor())
                     except:
                         pass
-                    os.remove('{}_atlas.nii'.format(temp_path))
-                    os.remove('{}_atlas.label'.format(temp_path))
-                    os.remove('{}_template.nii'.format(temp_path))
-
+                    try:
+                        os.remove('{}_atlas.nii'.format(temp_path))
+                        os.remove('{}_atlas.label'.format(temp_path))
+                        os.remove('{}_template.nii'.format(temp_path))
+                    except:
+                        pass
         return {'func': step01}
 
     def warp_anat_to_template(self, anat, tempobj, dtype='anat', ttype='s', **kwargs): # TODO: This code not work if the template image resolution is different with T2 image

@@ -90,7 +90,7 @@ foreach file (${1}*)
     end
 end
 
-paste {OUTPUT_dir}/ROI/*.1D > ${OUTPUT_dir}.roi;mv ${OUTPUT_dir}.roi ${OUTPUT_dir}/.;unset SUBJ;
+paste ${OUTPUT_dir}/ROI/*.1D > ${OUTPUT_dir}.roi;mv ${OUTPUT_dir}.roi ${OUTPUT_dir}/.;unset SUBJ;
 unset i;unset file
 
 @ i = ${Time_frac}

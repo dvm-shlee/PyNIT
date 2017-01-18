@@ -6,8 +6,9 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 import scipy.interpolate as si
 import os, re
 import argparse
+from skimage import exposure
 
-def voxel_count(path, mid_point = 47):
+def voxel_count(path, pval, mid_point = 64):
     'Data parsing for counting voxels'
     pat = re.compile('T_(\d{3})sec.nii')
 
@@ -22,10 +23,20 @@ def voxel_count(path, mid_point = 47):
 
     for i, file in enumerate(file_list):
         img = nib.load(os.path.join(path, file)).get_data()
-        whole.append(np.count_nonzero(img[:,:,:,0,1]))
-        contr.append(np.count_nonzero(img[:mid_point,:,:,0,1]))
-
+        th_img = img[:,:,:,0,1]
+        vox_img = img[:,:,:,0,0]
+        vox_img[th_img < pval] = 0
+        whole.append(np.count_nonzero(vox_img))
+        contr.append(np.count_nonzero(vox_img[:mid_point,:,:]))
     return time, whole, contr
+
+def apply_p2_98(data):
+    """ Image normalization
+    """
+    p2 = np.percentile(data, 2)
+    p98 = np.percentile(data, 98)
+    data = exposure.rescale_intensity(data, in_range=(p2, p98))
+    return data
 
 def calc_time(time):
     try:
@@ -56,11 +67,11 @@ def get_spline(x, y):
     y_i = si.splev(ipl_t, y_tup)
     return x_i, y_i
 
-def figure_generator(nii, path, roi, temp):
+def figure_generator(nii, path, roi, temp, pval):
     'function for generating figure'
 
     # 1D data collection
-    time, whole, contr = voxel_count(path)
+    time, whole, contr = voxel_count(path, pval)
     time_frac, total_time = calc_time(time)
     try:
         time_i, whole_i = get_spline(time, whole)
@@ -84,12 +95,12 @@ def figure_generator(nii, path, roi, temp):
 
     try:
         nib_obj = nib.load(os.path.join(path, nii)).get_data()
-        T_img = nib_obj[:,:,:,0,1]
-        T_img[T_img == 0] = np.nan
+        th_img = nib_obj[:,:,:,0,1]
+        T_img = nib_obj[:,:,:,0,0]
     except:
+        th_img = np.zeros(temp.shape)
         T_img = np.zeros(temp.shape)
-    
-    T_img[T_img == 0] = np.nan
+    T_img[th_img <= pval] = np.nan
     try:
         c_idx = get_idx(time, cur_t_pnt)
         c_idx_i = get_idx_i(time_i, cur_t_pnt)
@@ -145,11 +156,13 @@ def figure_generator(nii, path, roi, temp):
     vox_axes.set_ylim([0, vox_max_ylim])
     vox_axes_t.set_ylim([vox_t_min_ylim, vox_t_max_ylim])
 
+    temp = apply_p2_98(temp)
+
     for i in range(12):
         j = 11 - i
         axes = fig.add_subplot(gs1[i])
-        axes.imshow(np.fliplr(temp[:,::-1,j][17:110, 40:110].T), origin='lower', cmap='gray')
-        axes.imshow(np.fliplr(T_img[:,::-1,j][17:110, 40:110].T), origin='lower', alpha=0.75, vmin=-20, vmax=20)
+        axes.imshow(np.fliplr(temp[:,::-1,j][17:110, 30:100].T), origin='lower', cmap='gray')
+        axes.imshow(np.fliplr(T_img[:,::-1,j][17:110, 30:100].T), origin='lower', alpha=0.75, vmin=-1, vmax=1)
         axes.patch.set_facecolor('black')
         axes.set_xticks([])
         axes.set_yticks([])
@@ -158,8 +171,8 @@ def figure_generator(nii, path, roi, temp):
     pcObj = axes.pcolormesh(T_img[0],T_img[1],T_img[2])
     cbar = fig.colorbar(pcObj, ax=axes, cax=cbaxes, ticks=tick_loc)
 
-    cbar.ax.set_yticklabels(['Min', '0', 'Max'])
-    fig.savefig(p.match(nii).group(1)+".png")
+    cbar.ax.set_yticklabels(['-1', '0', '1'])
+    fig.savefig(os.path.join(os.path.split(path)[-2], 'pngs', p.match(nii).group(1)+".png"))
     return fig
 
 if __name__ == "__main__":
@@ -168,19 +181,21 @@ if __name__ == "__main__":
     parser.add_argument("path", help="path", type=str)
     parser.add_argument("tf", help="time fraction", type=int)
     parser.add_argument("tt", help="total time", type=int)
+    parser.add_argument("pval", help="p-value", type=float)
 
     args = parser.parse_args()
 
     path = args.path
     roi = np.genfromtxt(path+'/'+path+'.roi').T
     temp = nib.load('temp_12slice.nii').get_data()
+    pval = args.pval
 
     time = range(0, args.tt + 1, args.tf)
     print "Video generating script is initiated..."
 
     for i in time:
         fname = 'T_'+str(i).zfill(3)+'sec.nii'
-        fig = figure_generator(fname, path, roi, temp)
-        print '%s is generated' % fname
+        fig = figure_generator(fname, os.path.join(path, 'clusters'), roi, temp, pval)
+        print '%s is generated to png file' % fname
         fig.clf()
 
