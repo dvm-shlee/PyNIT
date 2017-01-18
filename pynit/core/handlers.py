@@ -2240,7 +2240,7 @@ class Preprocess(object):
                         print(" +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, sess, finfo.Filename),
                                          '(-1/{TE})*log(a/b)'.format(TE=echotime),
-                                         finfo.Abspath, str(spre), szero.Abspath)
+                                         finfo.Abspath, str(spre))
                         self._prjobj.run('afni_3dcalc', os.path.join(step02, subj, sess, finfo.Filename),
                                          '(-1/{TE})*log(a/b)'.format(TE=echotime),
                                          str(spre), szero.Abspath)
