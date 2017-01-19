@@ -2188,7 +2188,7 @@ class Preprocess(object):
                         spre.close()
         return {'cbv': step01}
 
-    def check_cbv_correction(self, func, meanBOLD, mean_range=20, echotime=0.008, dtype='func', **kwargs):
+    def check_cbv_correction(self, func, meanBOLD, meanCBV, mean_range=20, echotime=0.008, dtype='func', **kwargs):
         """
 
         Parameters
@@ -2204,15 +2204,18 @@ class Preprocess(object):
         """
         dataclass, func = methods.check_dataclass(func)
         mb_dataclass, meanBOLD = methods.check_dataclass(meanBOLD)
+        mc_dataclass, meanCBV = methods.check_dataclass(meanCBV)
         print('CBV_Calculation-{}'.format(func))
         step01 = self.init_step('deltaR2forSTIM-{}'.format(dtype))
         step02 = self.init_step('deltaR2forMION-{}'.format(dtype))
+        step03 = self.init_step('deltaR2forMIONcorrected-{}'.format(dtype))
         for subj in self.subjects:
             print("-Subject: {}".format(subj))
-            methods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj))
+            methods.mkdir(os.path.join(step01, subj), os.path.join(step02, subj), os.path.join(step03, subj))
             if self._prjobj.single_session:
                 funcs = self._prjobj(dataclass, func, subj)
                 szero = self._prjobj(mb_dataclass, meanBOLD, subj).df.loc[0]
+                smion = self._prjobj(mb_dataclass, meanCBV, subj).df.loc[0]
                 for i, finfo in funcs:
                     imgobj = methods.load(finfo.Abspath)
                     imgobj._dataobj = np.mean(imgobj._dataobj[:, :, :, :mean_range], axis=3)
@@ -2223,6 +2226,9 @@ class Preprocess(object):
                                      finfo.Abspath, str(spre))
                     self._prjobj.run('afni_3dcalc', os.path.join(step02, subj, finfo.Filename),
                                      '(-1/{TE})*log(a/b)'.format(TE=echotime),
+                                     smion.Abspath, szero.Abspath)
+                    self._prjobj.run('afni_3dcalc', os.path.join(step03, subj, finfo.Filename),
+                                     '(-1/{TE})*log(a/b)'.format(TE=echotime),
                                      str(spre), szero.Abspath)
                     # self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, finfo.Filename), '(b-a)/(c-b)*100',
                     #                  finfo.Abspath, str(spre), szero.Abspath)
@@ -2230,9 +2236,11 @@ class Preprocess(object):
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
-                    methods.mkdir(os.path.join(step01, subj, sess), os.path.join(step02, subj, sess))
+                    methods.mkdir(os.path.join(step01, subj, sess), os.path.join(step02, subj, sess),
+                                  os.path.join(step03, subj, sess))
                     funcs = self._prjobj(dataclass, func, subj, sess)
                     szero = self._prjobj(mb_dataclass, meanBOLD, subj, sess).df.loc[0]
+                    smion = self._prjobj(mb_dataclass, meanCBV, subj, sess).df.loc[0]
                     for i, finfo in funcs:
                         imgobj = methods.load(finfo.Abspath)
                         imgobj._dataobj = np.mean(imgobj._dataobj[:, :, :, :mean_range], axis=3)
@@ -2241,6 +2249,9 @@ class Preprocess(object):
                         self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, sess, finfo.Filename),
                                          '(-1/{TE})*log(a/b)'.format(TE=echotime),
                                          finfo.Abspath, str(spre))
+                        self._prjobj.run('afni_3dcalc', os.path.join(step02, subj, sess, finfo.Filename),
+                                         '(-1/{TE})*log(a/b)'.format(TE=echotime),
+                                         smion.Abspath, szero.Abspath)
                         self._prjobj.run('afni_3dcalc', os.path.join(step02, subj, sess, finfo.Filename),
                                          '(-1/{TE})*log(a/b)'.format(TE=echotime),
                                          str(spre), szero.Abspath)
