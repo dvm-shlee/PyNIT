@@ -2188,7 +2188,7 @@ class Preprocess(object):
                         spre.close()
         return {'cbv': step01}
 
-    def check_cbv_correction(self, func, meanBOLD, mean_range=20, echotime=0.08, dtype='func', **kwargs):
+    def check_cbv_correction(self, func, meanBOLD, mean_range=20, echotime=0.008, dtype='func', **kwargs):
         """
 
         Parameters
