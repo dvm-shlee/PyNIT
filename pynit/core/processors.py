@@ -76,7 +76,6 @@ class Analysis(object):
     def get_timetrace(imageobj, tempobj, **kwargs):
         """ Parsing timetrace from imageobj, with multiple rois
         """
-        tempobj = tempobj.atlas
         contra = None
         bilateral = None
         merged = None
@@ -92,27 +91,27 @@ class Analysis(object):
         # Initiate dataframe
 
         if contra:
-            tempobj._dataobj = tempobj._dataobj[::-1, :, :]
+            tempobj.atlas._dataobj = tempobj.atlas._dataobj[::-1, :, :]
         if bilateral:
             list_of_rois = [roi[0] for roi in tempobj.label.itervalues()][1:]
             input_file = TempFile(imageobj, filename='input')
-            mask_file = TempFile(tempobj, filename='mask')
+            mask_file = TempFile(tempobj.atlas, filename='mask')
             df = Interface.afni_3dROIstats(None, input_file, mask_file)
             df.columns = list_of_rois
-            tempobj._dataobj = tempobj._dataobj[::-1, :, :]
+            tempobj.atlas._dataobj = tempobj.atlas._dataobj[::-1, :, :]
             list_of_rois = ['contra_'+roi[0] for roi in tempobj.label.itervalues()][1:]
-            mask_file = TempFile(tempobj, filename='mask')
+            mask_file = TempFile(tempobj.atlas, filename='mask')
             cont_df = Interface.afni_3dROIstats(None, input_file, mask_file)
             cont_df.columns = list_of_rois
             df.join(cont_df)
         else:
             if merged:
-                tempobj._dataobj += tempobj._dataobj[::-1, :, :]
+                tempobj.atlas._dataobj += tempobj.atlas._dataobj[::-1, :, :]
                 list_of_rois = ['bilateral_' + roi[0] for roi in tempobj.label.itervalues()][1:]
             else:
                 list_of_rois = [roi[0] for roi in tempobj.label.itervalues()][1:]
             input_file = TempFile(imageobj, filename='input')
-            mask_file = TempFile(tempobj, filename='mask')
+            mask_file = TempFile(tempobj.atlas, filename='mask')
             df = Interface.afni_3dROIstats(None, input_file, mask_file)
             df.columns = list_of_rois
         # Check each labels
