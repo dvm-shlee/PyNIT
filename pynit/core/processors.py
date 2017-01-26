@@ -89,8 +89,6 @@ class Analysis(object):
                 if arg == 'merge':
                     merged = kwargs[arg]
         # Initiate dataframe
-        tempobj.atlas._dataobj[tempobj.atlas._dataobj > 117] == 0
-
         if contra:
             tempobj.atlas._dataobj = tempobj.atlas._dataobj[::-1, :, :]
         if bilateral:
@@ -104,7 +102,7 @@ class Analysis(object):
             mask_file = TempFile(tempobj.atlas, filename='mask')
             cont_df = Interface.afni_3dROIstats(None, input_file, mask_file)
             cont_df.columns = list_of_rois
-            df.join(cont_df)
+            df = df.join(cont_df)
         else:
             if merged:
                 tempobj.atlas._dataobj += tempobj.atlas._dataobj[::-1, :, :]
