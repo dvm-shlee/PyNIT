@@ -89,6 +89,7 @@ class Analysis(object):
                 if arg == 'merge':
                     merged = kwargs[arg]
         # Initiate dataframe
+        tempobj.atlas._dataobj[tempobj.atlas._dataobj > 117] == 0
 
         if contra:
             tempobj.atlas._dataobj = tempobj.atlas._dataobj[::-1, :, :]
