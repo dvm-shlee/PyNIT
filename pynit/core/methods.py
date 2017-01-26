@@ -5,7 +5,7 @@ import shutil
 import sys
 import logging
 import logging.handlers
-from pandas import DataFrame, Series
+from pandas import DataFrame, Series, read_table
 import nibabel as nib
 import numpy as np
 from skimage import exposure

@@ -4,12 +4,9 @@ import sys
 import copy
 import pickle
 import pandas as pd
-# from tempfile import mkdtemp
+from tempfile import mkdtemp
 from shutil import rmtree
-# from time import sleep
-# from pprint import pprint
 
-# from progressbar import ProgressBar, SimpleProgress
 try:
     if len([key for key in sys.modules.keys() if key == 'ipykernel']):
         from tqdm import tqdm_notebook as progressbar

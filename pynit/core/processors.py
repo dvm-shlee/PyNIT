@@ -1,13 +1,14 @@
 from string import ascii_lowercase as lc
 from shutil import rmtree
-from subprocess import list2cmdline, check_output, call     # Old one
-import multiprocessing
+from subprocess import list2cmdline, check_output, call
 import shlex
 import os
-from methods import np
+from methods import np, read_table
 
 import methods
 import messages
+
+from StringIO import StringIO
 
 
 class Analysis(object):
@@ -78,8 +79,6 @@ class Analysis(object):
         contra = None
         bilateral = None
         merged = None
-        afni = None
-        quiet = None
         # Check kwargs
         if kwargs:
             for arg in kwargs.keys():
@@ -89,42 +88,89 @@ class Analysis(object):
                     bilateral = kwargs[arg]
                 if arg == 'merge':
                     merged = kwargs[arg]
-                if arg == 'afni':
-                    afni = kwargs[arg]
-                if arg == 'quiet':
-                    quiet = kwargs[arg]
         # Initiate dataframe
-        df = methods.DataFrame()
-        # Check each labels
-        for idx in tempobj.label.keys():
-            if idx:
-                roi, maskobj = tempobj[idx]
-                if merged:
-                    col = Analysis.mask_average(imageobj, maskobj, merge=True, afni=afni)
-                    roi = 'Bilateral_{}'.format(roi)
-                else:
-                    if contra:
-                        col = Analysis.mask_average(imageobj, maskobj, contra=True, afni=afni)
-                    else:
-                        col = Analysis.mask_average(imageobj, maskobj, afni=afni)
-                df[roi] = col
-                if not quiet:
-                    print("  * Time trace is extracted using the mask '{}'".format(roi))
+
+        if contra:
+            tempobj._dataobj = tempobj._dataobj[::-1, :, :]
         if bilateral:
-            for idx in tempobj.label.keys():
-                if idx:
-                    roi, maskobj = tempobj[idx]
-                    if merged:
-                        pass
-                    else:
-                        if contra:
-                            col = Analysis.mask_average(imageobj, maskobj, afni=afni)
-                        else:
-                            col = Analysis.mask_average(imageobj, maskobj, contra=True, afni=afni)
-                        df["Cont_{}".format(roi)] = col
-                        if not quiet:
-                            print("  * Time trace is extracted using the mask 'Cont_{}'".format(roi))
+            list_of_rois = [roi[0] for roi in tempobj.label.itervalues()][1:]
+            input_file = TempFile(imageobj, filename='input')
+            mask_file = TempFile(tempobj, filename='mask')
+            df = Interface.afni_3dROIstats(None, input_file, mask_file)
+            df.columns = list_of_rois
+            tempobj._dataobj = tempobj._dataobj[::-1, :, :]
+            list_of_rois = ['contra_'+roi[0] for roi in tempobj.label.itervalues()][1:]
+            mask_file = TempFile(tempobj, filename='mask')
+            cont_df = Interface.afni_3dROIstats(None, input_file, mask_file)
+            cont_df.columns = list_of_rois
+            df.join(cont_df)
+        else:
+            if merged:
+                tempobj._dataobj += tempobj._dataobj[::-1, :, :]
+                list_of_rois = ['bilateral_' + roi[0] for roi in tempobj.label.itervalues()][1:]
+            else:
+                list_of_rois = [roi[0] for roi in tempobj.label.itervalues()][1:]
+            input_file = TempFile(imageobj, filename='input')
+            mask_file = TempFile(tempobj, filename='mask')
+            df = Interface.afni_3dROIstats(None, input_file, mask_file)
+            df.columns = list_of_rois
+        # Check each labels
         return df
+
+    # @staticmethod
+    # def get_timetrace(imageobj, tempobj, **kwargs):
+    #     """ Parsing timetrace from imageobj, with multiple rois
+    #     """
+    #     contra = None
+    #     bilateral = None
+    #     merged = None
+    #     afni = None
+    #     quiet = None
+    #     # Check kwargs
+    #     if kwargs:
+    #         for arg in kwargs.keys():
+    #             if arg == 'contra':
+    #                 contra = kwargs[arg]
+    #             if arg == 'bilateral':
+    #                 bilateral = kwargs[arg]
+    #             if arg == 'merge':
+    #                 merged = kwargs[arg]
+    #             if arg == 'afni':
+    #                 afni = kwargs[arg]
+    #             if arg == 'quiet':
+    #                 quiet = kwargs[arg]
+    #     # Initiate dataframe
+    #     df = methods.DataFrame()
+    #     # Check each labels
+    #     for idx in tempobj.label.keys():
+    #         if idx:
+    #             roi, maskobj = tempobj[idx]
+    #             if merged:
+    #                 col = Analysis.mask_average(imageobj, maskobj, merge=True, afni=afni)
+    #                 roi = 'Bilateral_{}'.format(roi)
+    #             else:
+    #                 if contra:
+    #                     col = Analysis.mask_average(imageobj, maskobj, contra=True, afni=afni)
+    #                 else:
+    #                     col = Analysis.mask_average(imageobj, maskobj, afni=afni)
+    #             df[roi] = col
+    #             if not quiet:
+    #                 print("  * Time trace is extracted using the mask '{}'".format(roi))
+    #     if bilateral:
+    #         for idx in tempobj.label.keys():
+    #             if idx:
+    #                 roi, maskobj = tempobj[idx]
+    #                 if merged:
+    #                     pass
+    #                 else:
+    #                     if contra:
+    #                         col = Analysis.mask_average(imageobj, maskobj, afni=afni)
+    #                     else:
+    #                         col = Analysis.mask_average(imageobj, maskobj, contra=True, afni=afni)
+    #                     df["Cont_{}".format(roi)] = col
+    #                     if not quiet:
+    #                         print("  * Time trace is extracted using the mask 'Cont_{}'".format(roi))
+    #     return df
 
     @staticmethod
     def cal_mean(imgobj, start=None, end=None):
@@ -417,6 +463,33 @@ class Interface(object):
             cmd.extend(band)
         cmd = list2cmdline(cmd)
         call(shlex.split(cmd))
+
+    @staticmethod
+    def afni_3dROIstats(output_path, input_path, mask_path):
+        """ AFNI 3dROIstats command wrapper
+
+        Parameters
+        ----------
+        output_path
+        input_path
+        mask_path
+
+        Returns
+        -------
+
+        """
+        cmd = ['3dROIstats', '-mask']
+        cmd.append("'{}'".format(mask_path))
+        cmd.append("'{}'".format(input_path))
+        cmd = list2cmdline(cmd)
+        out, err = methods.shell(cmd)
+        if output_path == None:
+            df = read_table(StringIO(out))
+            df = df[df.columns[2:]]
+            return df
+        else:
+            with open(output_path, 'w') as f:
+                f.write(out)
 
     @staticmethod
     def afni_3dmaskave(output_path, input_path, mask_path):
