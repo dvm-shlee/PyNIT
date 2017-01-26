@@ -76,6 +76,7 @@ class Analysis(object):
     def get_timetrace(imageobj, tempobj, **kwargs):
         """ Parsing timetrace from imageobj, with multiple rois
         """
+        tempobj = tempobj.atlas
         contra = None
         bilateral = None
         merged = None
