@@ -657,13 +657,14 @@ class TempFile(object):
             self._image = None
             self._atlas = obj
             if flip:
-                self._atlas._dataobj = obj._dataobj[::-1, :, :]
+                self._atlas.flip(invertx=True)
             self._atlas.extract('./.atlas_tmp')
             self._listdir = [ f for f in os.listdir('./.atlas_tmp') if '.nii' in f ]
         else:
             self._image = obj
             if flip:
-                self._image._dataobj = obj._dataobj[::-1, :, :]
+                self._image.flip(invertx=True)
+                print('Flipped!')
             self._fname = filename
             methods.mkdir('./.tmp')
             self._image.save_as(os.path.join('./.tmp', filename), quiet=True)
