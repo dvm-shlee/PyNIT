@@ -90,7 +90,7 @@ class Analysis(object):
                     merged = kwargs[arg]
         # Initiate dataframe
         cont_data = np.asarray(tempobj.atlas._dataobj[::-1, :, :])
-        cont_maskobj = nib.Nifti1Image(cont_data, tempobj._affine)
+        cont_maskobj = nib.Nifti1Image(cont_data, tempobj.atlas._affine)
         if contra:
             pass
         if bilateral:
