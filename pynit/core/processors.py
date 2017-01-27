@@ -656,14 +656,18 @@ class Interface(object):
 class TempFile(object):
     """Object for temporary file
     """
-    def __init__(self, obj, filename='image_cache', atlas=False):
+    def __init__(self, obj, filename='image_cache', atlas=False, flip=False):
         if atlas:
             self._image = None
             self._atlas = obj
+            if flip:
+                self._atlas._dataobj = obj._dataobj[::-1, :, :]
             self._atlas.extract('./.atlas_tmp')
             self._listdir = [ f for f in os.listdir('./.atlas_tmp') if '.nii' in f ]
         else:
             self._image = obj
+            if flip:
+                self._image._dataobj = obj._dataobj[::-1, :, :]
             self._fname = filename
             methods.mkdir('./.tmp')
             self._image.save_as(os.path.join('./.tmp', filename), quiet=True)
