@@ -93,8 +93,6 @@ class Analysis(object):
         input_file = TempFile(imageobj, filename='input')
         if contra:
             mask_file = TempFile(tempobj.atlas, filename='mask', flip=True)
-        else:
-
         if bilateral:
             list_of_rois = [roi[0] for roi in tempobj.label.itervalues()][1:]
             mask_file = TempFile(tempobj.atlas, filename='mask')
