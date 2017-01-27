@@ -92,7 +92,7 @@ class Analysis(object):
         cont_data = np.asarray(tempobj.atlas._dataobj[::-1, :, :])
         cont_maskobj = nib.Nifti1Image(cont_data, tempobj._affine)
         if contra:
-
+            pass
         if bilateral:
             list_of_rois = [roi[0] for roi in tempobj.label.itervalues()][1:]
             input_file = TempFile(imageobj, filename='input')
