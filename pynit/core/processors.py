@@ -3,7 +3,8 @@ from shutil import rmtree
 from subprocess import list2cmdline, check_output, call
 import shlex
 import os
-from methods import np, read_table, nib
+from methods import np, read_table
+import copy
 
 import methods
 import messages
@@ -655,13 +656,13 @@ class TempFile(object):
     def __init__(self, obj, filename='image_cache', atlas=False, flip=False):
         if atlas:
             self._image = None
-            self._atlas = obj
+            self._atlas = copy.copy(obj)
             if flip:
                 self._atlas.flip(invertx=True)
             self._atlas.extract('./.atlas_tmp')
             self._listdir = [ f for f in os.listdir('./.atlas_tmp') if '.nii' in f ]
         else:
-            self._image = obj
+            self._image = copy.copy(obj)
             if flip:
                 self._image.flip(invertx=True)
                 print('Flipped!')
