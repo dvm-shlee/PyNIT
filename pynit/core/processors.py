@@ -98,8 +98,7 @@ class Analysis(object):
             df = Interface.afni_3dROIstats(None, input_file, mask_file)
             df.columns = list_of_rois
             # mask_file.close()
-            tempobj.flip(invertx=True)
-            # tempobj.atlas._dataobj = np.asarray(tempobj.atlas.dataobj)[::-1, :, :]
+            tempobj.atlas.flip(invertx=True)
             list_of_rois = ['contra_'+roi[0] for roi in tempobj.label.itervalues()][1:]
             mask2_file = TempFile(tempobj.atlas, filename='mask2')
             cont_df = Interface.afni_3dROIstats(None, input_file, mask2_file)
