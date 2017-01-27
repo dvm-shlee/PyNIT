@@ -3,7 +3,7 @@ from shutil import rmtree
 from subprocess import list2cmdline, check_output, call
 import shlex
 import os
-from methods import np, read_table
+from methods import np, read_table, nib
 
 import methods
 import messages
@@ -89,20 +89,20 @@ class Analysis(object):
                 if arg == 'merge':
                     merged = kwargs[arg]
         # Initiate dataframe
+        cont_data = np.asarray(tempobj.atlas._dataobj[::-1, :, :])
+        cont_maskobj = nib.Nifti1Image(cont_data, tempobj._affine)
         if contra:
-            tempobj.atlas._dataobj = np.asarray(tempobj.atlas._dataobj)[::-1, :, :]
+
         if bilateral:
             list_of_rois = [roi[0] for roi in tempobj.label.itervalues()][1:]
             input_file = TempFile(imageobj, filename='input')
             mask_file = TempFile(tempobj.atlas, filename='mask')
             df = Interface.afni_3dROIstats(None, input_file, mask_file)
             df.columns = list_of_rois
-            # mask_file.close()
+
             # tempobj.atlas.flip(invertx=True)
             list_of_rois = ['contra_'+roi[0] for roi in tempobj.label.itervalues()][1:]
-            tempobj.atlas._dataobj = tempobj.atlas._dataobj[::-1, :, :]
-            print('Flipped')
-            mask2_file = TempFile(tempobj.atlas, filename='mask2')
+            mask2_file = TempFile(cont_maskobj, filename='mask2')
             cont_df = Interface.afni_3dROIstats(None, input_file, mask2_file)
             cont_df.columns = list_of_rois
             df = df.join(cont_df)
