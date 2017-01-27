@@ -89,24 +89,23 @@ class Analysis(object):
                 if arg == 'merge':
                     merged = kwargs[arg]
         # Initiate dataframe
-        cont_data = np.asarray(tempobj.atlas._dataobj[::-1, :, :])
-        cont_maskobj = nib.Nifti1Image(cont_data, tempobj.atlas._affine)
+
+        input_file = TempFile(imageobj, filename='input')
         if contra:
-            pass
+            mask_file = TempFile(tempobj.atlas, filename='mask', flip=True)
+        else:
+
         if bilateral:
             list_of_rois = [roi[0] for roi in tempobj.label.itervalues()][1:]
-            input_file = TempFile(imageobj, filename='input')
             mask_file = TempFile(tempobj.atlas, filename='mask')
             df = Interface.afni_3dROIstats(None, input_file, mask_file)
             df.columns = list_of_rois
 
-            # tempobj.atlas.flip(invertx=True)
             list_of_rois = ['contra_'+roi[0] for roi in tempobj.label.itervalues()][1:]
-            mask2_file = TempFile(cont_maskobj, filename='mask2')
+            mask2_file = TempFile(tempobj.atlas, filename='mask2', flip=True)
             cont_df = Interface.afni_3dROIstats(None, input_file, mask2_file)
             cont_df.columns = list_of_rois
             df = df.join(cont_df)
-            input_file.close()
             # mask_file.close()
         else:
             if merged:
@@ -114,13 +113,12 @@ class Analysis(object):
                 list_of_rois = ['bilateral_' + roi[0] for roi in tempobj.label.itervalues()][1:]
             else:
                 list_of_rois = [roi[0] for roi in tempobj.label.itervalues()][1:]
-            input_file = TempFile(imageobj, filename='input')
             mask_file = TempFile(tempobj.atlas, filename='mask')
             df = Interface.afni_3dROIstats(None, input_file, mask_file)
             df.columns = list_of_rois
-            input_file.close()
             mask_file.close()
         # Check each labels
+        input_file.close()
         return df
 
     # @staticmethod
