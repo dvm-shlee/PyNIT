@@ -259,7 +259,8 @@ class Project(object):
                 self.scan_prj()
                 if self.__empty_project:
                     print("Dataclass '{}' is Empty".format(self.ds_type[self.__dc_idx]))
-            prj_file = os.path.join(self.__path, self.ds_type[0], '.class_dataframe')
+            self.__dc_idx = 0
+            prj_file = os.path.join(self.__path, self.ds_type[self.__dc_idx], '.class_dataframe')
             with open(prj_file, 'r') as f:
                 self.__df = pickle.load(f)
 
