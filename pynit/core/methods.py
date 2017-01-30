@@ -611,7 +611,6 @@ def parsing(path, ds_type, idx):
     elif not len(df):
         empty_prj = True
     if empty_prj:
-        # print('{ds_type} folder is empty'.format(ds_type=ds_type[idx]))
         return DataFrame(), single_session, empty_prj
     else:
         return df.sort_values('Abspath'), single_session, empty_prj

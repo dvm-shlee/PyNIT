@@ -269,11 +269,10 @@ class Project(object):
             try:
                 with open(prj_file, 'r') as f:
                     self.__df = pickle.load(f)
-                if len(self.__df):
-                    self.__empty_project = Fasle
             except:
                 self.scan_prj()
-
+        if len(self.__df):
+            self.__empty_project = False
 
     def save_df(self, dc_idx):
         """ Save Dataframe to pickle file
