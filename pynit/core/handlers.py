@@ -234,6 +234,8 @@ class Project(object):
                 output = img_ext
             elif type == 'txt':
                 output = txt_ext
+            else:
+                output = None
             return list(itertools.chain.from_iterable(output))
         else:
             methods.raiseerror(messages.Errors.InputTypeError,
@@ -252,7 +254,9 @@ class Project(object):
         """
         prj_file = os.path.join(self.__path, self.ds_type[self.__dc_idx], '.class_dataframe')
         if rescan:
-            self.scan_prj()
+            for i in range(3):
+                self.__dc_idx = i
+                self.scan_prj()
         else:
             try:
                 with open(prj_file, 'r') as f:
