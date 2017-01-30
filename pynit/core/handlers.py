@@ -252,20 +252,25 @@ class Project(object):
         -------
         None
         """
-        prj_file = os.path.join(self.__path, self.ds_type[self.__dc_idx], '.class_dataframe')
+
         if rescan:
             for i in range(3):
                 self.__dc_idx = i
-                print(self.__dc_idx)
                 self.scan_prj()
-            self.dataclass = 0
+                if self.__empty_project:
+                    print("Dataclass '{}' is Empty".format(self.ds_type[self.__dc_idx]))
+            prj_file = os.path.join(self.__path, self.ds_type[0], '.class_dataframe')
+            with open(prj_file, 'r') as f:
+                self.__df = pickle.load(f)
+
         else:
+            prj_file = os.path.join(self.__path, self.ds_type[self.__dc_idx], '.class_dataframe')
             try:
                 with open(prj_file, 'r') as f:
                     self.__df = pickle.load(f)
-                # print('Reloaded')
             except:
                 self.scan_prj()
+
 
     def save_df(self, dc_idx):
         """ Save Dataframe to pickle file
