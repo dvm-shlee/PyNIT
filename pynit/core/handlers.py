@@ -583,6 +583,8 @@ class Project(object):
         prj = copy.copy(self)
         if self.__dc_idx != dc_id:
             prj.dataclass = dc_id
+        else:
+            prj.reset()
         prj.set_filters(*args, **kwargs)
         prj.apply()
         return prj
