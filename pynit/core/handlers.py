@@ -715,14 +715,16 @@ class Process(object):
             step.set_command(cmd03)
             cmd04 = "3dTstat -prefix {cbv_output} -mean {temp_01}" + options[1]
             step.set_command(cmd04)
-            # print(step.get_executefunc('test', test=True))
-            # print(step._commands)
-            output_path = step.run('MeanImgCalc', surfix)
+            print(step._commands)
+            print(step.get_executefunc('test', test=True))
+            # output_path = step.run('MeanImgCalc', surfix)
         else:
             cmd02 = "3dTstat -prefix {output} -mean {temp_01}"
             step.set_command(cmd02)
-            output_path = step.run('MeanImgCalc', surfix)
-        return dict(meanfunc=output_path)
+            print(step._commands)
+            step.get_executefunc('test', test=True)
+            # output_path = step.run('MeanImgCalc', surfix)
+        # return dict(meanfunc=output_path)
 
     def afni_SliceTimingCorrection(self, input_path, tr=None, tpattern=None, surfix='func'):
         """ Corrects for slice time differences when individual 2D slices are recorded over a 3D image
