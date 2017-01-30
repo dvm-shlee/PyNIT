@@ -268,6 +268,8 @@ class Project(object):
             try:
                 with open(prj_file, 'r') as f:
                     self.__df = pickle.load(f)
+                if len(self.__df):
+                    self.__empty_project = Fasle
             except:
                 self.scan_prj()
 
@@ -591,15 +593,12 @@ class Project(object):
     def __call__(self, dc_id, *args, **kwargs):
         """Return DataFrame followed applying filters
         """
+        self.dataclass = dc_id
+        self.reset()
         prj = copy.copy(self)
-        if self.__dc_idx != dc_id:
-            prj.dataclass = dc_id
-        else:
-            prj.reset()
         prj.set_filters(*args, **kwargs)
         prj.apply()
         return prj
-
 
     def __repr__(self):
         """Return absolute path for current filtered dataframe
