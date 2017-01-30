@@ -256,7 +256,9 @@ class Project(object):
         if rescan:
             for i in range(3):
                 self.__dc_idx = i
+                print(self.__dc_idx)
                 self.scan_prj()
+            self.dataclass = 0
         else:
             try:
                 with open(prj_file, 'r') as f:
