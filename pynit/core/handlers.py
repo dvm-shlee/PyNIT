@@ -284,8 +284,8 @@ class Project(object):
         None
         """
         dc_df = os.path.join(self.__path, self.ds_type[dc_idx], '.class_dataframe')
-        with open(dc_df, 'w') as f:
-            pickle.dump(self.__df, f)
+        with open(dc_df, 'wb') as f:
+            pickle.dump(self.__df, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     def reset_filters(self, ext=None):
         """ Reset filter - Clear all filter information and extension
