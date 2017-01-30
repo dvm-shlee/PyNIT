@@ -4,6 +4,7 @@ import sys
 import copy
 import pickle
 import pandas as pd
+import itertools
 from tempfile import mkdtemp
 from shutil import rmtree
 
@@ -28,8 +29,8 @@ import multiprocessing
 from multiprocessing.pool import ThreadPool
 
 
-class Project(object): # TODO: load all data and later handle it to reduce the re-loading time
-    """Project Handler for functional Neuro MRI datasets
+class Project(object):
+    """Project Handler for fMRI datasets
     """
 
     def __init__(self, project_path, ds_ref='NIRAL', img_format='NifTi-1', **kwargs):
@@ -67,10 +68,10 @@ class Project(object): # TODO: load all data and later handle it to reduce the r
         self.__df = methods.DataFrame()
 
         # Parsing the information from the reference
-        self.__ref = [ds_ref, img_format]       #
-        ref = Reference(*self.__ref)
-        self.img_ext = ref.imgext
-        self.ds_type = ref.ref_ds
+        self.__ref = [ds_ref, img_format]       #TODO: Check the develope note for future usage of this part
+        self.ref = Reference(*self.__ref)
+        self.img_ext = self.ref.imgext
+        self.ds_type = self.ref.ref_ds
 
         # Define default filter values
         self.__dc_idx = 0                       # Dataclass index
@@ -80,8 +81,10 @@ class Project(object): # TODO: load all data and later handle it to reduce the r
         methods.mk_main_folder(self)
 
         # Scan project folder
+
         try:
             self.scan_prj()
+            self.apply()
         except:
             methods.raiseerror(messages.Errors.ProjectScanFailure, 'Error is occurred during a scanning.')
 
@@ -120,8 +123,8 @@ class Project(object): # TODO: load all data and later handle it to reduce the r
     def dataclass(self, idx):
         if idx in range(3):
             self.__dc_idx = idx
-            self.reset_filters()
-            self.__update()
+            self.reset()
+            self.apply()
         else:
             methods.raiseerror(messages.Errors.InputDataclassError, 'Wrong dataclass index.')
 
@@ -129,9 +132,41 @@ class Project(object): # TODO: load all data and later handle it to reduce the r
     def subjects(self):
         return self.__subjects
 
+    # @subjects.setter
+    # def subjects(self, idx):
+    #     self.__subjects = sorted(list(set(self.df.Subject.tolist())))
+    #     try:
+    #         if isinstance(idx, list):
+    #             if len(idx) == 2:
+    #                 self.__subjects = self.__subjects[idx[0]:idx[1]]
+    #             else:
+    #                 methods.raiseerror(messages.Errors.InputValueError, 'Wrong indexing.')
+    #         elif isinstance(idx, int):
+    #             self.__subjects = [self.__subjects[idx]]
+    #         else:
+    #             methods.raiseerror(messages.Errors.InputValueError, 'Wrong indexing.')
+    #     except:
+    #         methods.raiseerror(messages.Errors.InputValueError, 'Wrong indexing.')
+
     @property
     def sessions(self):
         return self.__sessions
+
+    # @sessions.setter
+    # def sessions(self, idx):
+    #     self.__sessions = sorted(list(set(self.df.Session.tolist())))
+    #     try:
+    #         if isinstance(idx, list):
+    #             if len(idx) == 2:
+    #                 self.__sessions = self.__sessions[idx[0]:idx[1]]
+    #             else:
+    #                 methods.raiseerror(messages.Errors.InputValueError, 'Wrong indexing.')
+    #         elif isinstance(idx, int):
+    #             self.__sessions = [self.__sessions[idx]]
+    #         else:
+    #             methods.raiseerror(messages.Errors.InputValueError, 'Wrong indexing.')
+    #     except:
+    #         methods.raiseerror(messages.Errors.InputValueError, 'Wrong indexing.')
 
     @property
     def dtypes(self):
@@ -172,7 +207,74 @@ class Project(object): # TODO: load all data and later handle it to reduce the r
         else:
             methods.raiseerror(messages.Errors.InputTypeError,
                                'Please use correct input type.')
-        self.scan_prj()
+        self.reset()
+        self.apply()
+
+    @property
+    def ref_exts(self, type='all'):
+        """
+
+        Parameters
+        ----------
+        type    : str
+            type of ext ['all', 'img', 'txt']
+
+        Returns
+        -------
+        return value
+
+        """
+        img_ext = self.ref.img.values()
+        txt_ext = self.ref.txt.values()
+        all_ext = img_ext+txt_ext
+        if type in ['all', 'img', 'txt']:
+            if type == 'all':
+                output = all_ext
+            elif type == 'img':
+                output = img_ext
+            elif type == 'txt':
+                output = txt_ext
+            return list(itertools.chain.from_iterable(output))
+        else:
+            methods.raiseerror(messages.Errors.InputTypeError,
+                               "only one of the value in ['all'.'img'.'txt'] is available for type.")
+
+    def reset(self, rescan=False):
+        """ Reset DataFrame
+
+        Parameters
+        ----------
+        rescan  : Boolean
+
+        Returns
+        -------
+        None
+        """
+        prj_file = os.path.join(self.__path, self.ds_type[self.__dc_idx], '.class_dataframe')
+        if rescan:
+            self.scan_prj()
+        else:
+            try:
+                with open(prj_file, 'r') as f:
+                    self.__df = pickle.load(f)
+                print('Reloaded')
+            except:
+                self.scan_prj()
+
+    def save_df(self, dc_idx):
+        """ Save Dataframe to pickle file
+
+        Parameters
+        ----------
+        dc_idx  : index in range(3)
+
+        Returns
+        -------
+        None
+        """
+        dc_df = os.path.join(self.__path, self.ds_type[dc_idx], '.class_dataframe')
+        with open(dc_df, 'w') as f:
+            pickle.dump(self.__df, f)
 
     def reset_filters(self, ext=None):
         """ Reset filter - Clear all filter information and extension
@@ -191,8 +293,6 @@ class Project(object): # TODO: load all data and later handle it to reduce the r
             self.ext = self.img_ext
         else:
             self.ext = ext
-        self.scan_prj()
-        self.__update()
 
     def scan_prj(self):
         """ Reload the Dataframe based on current set data class and extension
@@ -204,13 +304,14 @@ class Project(object): # TODO: load all data and later handle it to reduce the r
         # Parsing command works
         self.__df, self.single_session, empty_prj = methods.parsing(self.path, self.ds_type, self.__dc_idx)
         if not empty_prj:
-            self.__df = methods.initial_filter(self.__df, self.ds_type, self.__ext_filter)
+            self.__df = methods.initial_filter(self.__df, self.ds_type, self.ref_exts)
             if len(self.__df):
                 self.__df = self.__df[methods.reorder_columns(self.__dc_idx, self.single_session)]
-            self.__update()
             self.__empty_project = False
         else:
             self.__empty_project = True
+        self.__update()
+        self.save_df(self.__dc_idx)
 
     def set_filters(self, *args, **kwargs):
         """ Set filters
@@ -235,7 +336,9 @@ class Project(object): # TODO: load all data and later handle it to reduce the r
         self.reset_filters(self.ext)
         if kwargs:
             for key in kwargs.keys():
-                if key == 'ext':
+                if key == 'dataclass':
+                    self.dataclass = kwargs['dataclass']
+                elif key == 'ext':
                     self.ext = kwargs['ext']
                 elif key == 'file_tag':
                     if type(kwargs['file_tag']) == str:
@@ -258,78 +361,85 @@ class Project(object): # TODO: load all data and later handle it to reduce the r
                                              "'{key}' is not correct kwarg")
         else:
             pass
-        if args or kwargs:
-            if args:
-                residuals = list(set(args))
-                if self.subjects:
-                    subj_filter, residuals = methods.check_arguments(args, residuals, self.subjects)
-                    if self.__filters[0]:
-                        self.__filters[0].extend(subj_filter)
-                    else:
-                        self.__filters[0] = subj_filter[:]
-                    if not self.single_session:
-                        sess_filter, residuals = methods.check_arguments(args, residuals, self.sessions)
-                        if self.__filters[1]:
-                            self.__filters[1].extend(sess_filter)
-                        else:
-                            self.__filters[1] = sess_filter[:]
-                    else:
-                        self.__filters[1] = None
+        if args:
+            residuals = list(set(args))
+            if self.subjects:
+                subj_filter, residuals = methods.check_arguments(args, residuals, self.subjects)
+                if self.__filters[0]:
+                    self.__filters[0].extend(subj_filter)
                 else:
-                    self.__filters[0] = None
+                    self.__filters[0] = subj_filter[:]
+                if not self.single_session:
+                    sess_filter, residuals = methods.check_arguments(args, residuals, self.sessions)
+                    if self.__filters[1]:
+                        self.__filters[1].extend(sess_filter)
+                    else:
+                        self.__filters[1] = sess_filter[:]
+                else:
                     self.__filters[1] = None
-                if self.__dc_idx == 0:
-                    if self.dtypes:
-                        dtyp_filter, residuals = methods.check_arguments(args, residuals, self.dtypes)
-                        if self.__filters[2]:
-                            self.__filters[2].extend(dtyp_filter)
-                        else:
-                            self.__filters[2] = dtyp_filter[:]
+            else:
+                self.__filters[0] = None
+                self.__filters[1] = None
+            if self.__dc_idx == 0:
+                if self.dtypes:
+                    dtyp_filter, residuals = methods.check_arguments(args, residuals, self.dtypes)
+                    if self.__filters[2]:
+                        self.__filters[2].extend(dtyp_filter)
                     else:
-                        self.__filters[2] = None
-                    self.__filters[3] = None
-                elif self.__dc_idx == 1:
-                    if self.pipelines:
-                        pipe_filter, residuals = methods.check_arguments(args, residuals, self.pipelines)
-                        if self.__filters[2]:
-                            self.__filters[2].extend(pipe_filter)
-                        else:
-                            self.__filters[2] = pipe_filter[:]
-                    else:
-                        self.__filters[2] = None
-                    if self.steps:
-                        step_filter, residuals = methods.check_arguments(args, residuals, self.steps)
-                        if self.__filters[3]:
-                            self.__filters[3].extend(step_filter)
-                        else:
-                            self.__filters[3] = step_filter
-                    else:
-                        self.__filters[3] = None
+                        self.__filters[2] = dtyp_filter[:]
                 else:
-                    if self.pipelines:
-                        pipe_filter, residuals = methods.check_arguments(args, residuals, self.pipelines)
-                        if self.__filters[2]:
-                            self.__filters[2].extend(pipe_filter)
-                        else:
-                            self.__filters[2] = pipe_filter[:]
+                    self.__filters[2] = None
+                self.__filters[3] = None
+            elif self.__dc_idx == 1:
+                if self.pipelines:
+                    pipe_filter, residuals = methods.check_arguments(args, residuals, self.pipelines)
+                    if self.__filters[2]:
+                        self.__filters[2].extend(pipe_filter)
                     else:
-                        self.__filters[2] = None
-                    if self.results:
-                        rslt_filter, residuals = methods.check_arguments(args, residuals, self.results)
-                        if self.__filters[3]:
-                            self.__filters[3].extend(rslt_filter)
-                        else:
-                            self.__filters[3] = rslt_filter[:]
+                        self.__filters[2] = pipe_filter[:]
+                else:
+                    self.__filters[2] = None
+                if self.steps:
+                    step_filter, residuals = methods.check_arguments(args, residuals, self.steps)
+                    if self.__filters[3]:
+                        self.__filters[3].extend(step_filter)
                     else:
-                        self.__filters[3] = None
-                if len(residuals):
-                    methods.raiseerror(messages.Errors.InputValueError,
-                                             'Wrong filter input:{residuals}'.format(residuals=residuals))
+                        self.__filters[3] = step_filter
+                else:
+                    self.__filters[3] = None
+            else:
+                if self.pipelines:
+                    pipe_filter, residuals = methods.check_arguments(args, residuals, self.pipelines)
+                    if self.__filters[2]:
+                        self.__filters[2].extend(pipe_filter)
+                    else:
+                        self.__filters[2] = pipe_filter[:]
+                else:
+                    self.__filters[2] = None
+                if self.results:
+                    rslt_filter, residuals = methods.check_arguments(args, residuals, self.results)
+                    if self.__filters[3]:
+                        self.__filters[3].extend(rslt_filter)
+                    else:
+                        self.__filters[3] = rslt_filter[:]
+                else:
+                    self.__filters[3] = None
+            if len(residuals):
+                methods.raiseerror(messages.Errors.InputValueError,
+                                         'Wrong filter input:{residuals}'.format(residuals=residuals))
+
+    def apply(self):
+        """ Applying all filters to current dataframe
+
+        Returns
+        -------
+        None
+        """
         self.__df = self.applying_filters(self.__df)
         self.__update()
 
     def applying_filters(self, df):
-        """ Applying current filters to the input dataframe
+        """ Applying current filters to the given dataframe
 
         Parameters
         ----------
@@ -362,6 +472,8 @@ class Project(object): # TODO: load all data and later handle it to reduce the r
             if self.__filters[5] is not None:
                 ignore = list(self.__filters[5])
                 df = df[~df.Filename.str.contains('|'.join(ignore))]
+            if self.ext:
+                df = df[df['Filename'].str.contains('|'.join([r"{ext}$".format(ext=ext) for ext in self.ext]))]
             return df
         else:
             return df
@@ -472,6 +584,7 @@ class Project(object): # TODO: load all data and later handle it to reduce the r
         if self.__dc_idx != dc_id:
             prj.dataclass = dc_id
         prj.set_filters(*args, **kwargs)
+        prj.apply()
         return prj
 
 
@@ -1095,7 +1208,7 @@ class Preprocess(object):
 
     def initiate_pipeline(self, pipeline):
         pipe_path = os.path.join(self._prjobj.path, self._prjobj.ds_type[1], pipeline)
-        methods.mkdir(os.path.join(self._prjobj.path, self._prjobj.ds_type[1], pipeline))
+        methods.mkdir(pipe_path)
         self._processing = pipeline
 
     def init_step(self, stepname):
@@ -2931,70 +3044,6 @@ class Preprocess(object):
                         np.arctanh(df.corr()).to_excel(
                             os.path.join(step03, subj, sess, "{}.xlsx".format(os.path.splitext(finfo.Filename)[0])))
         return {'timecourse': step01, 'cc_matrix': step02}
-
-    def set_stim_paradigm(self, num_of_time, tr, filename='stim_paradigm', **kwargs):
-        onset = []
-        num_stimts = 1
-        duration = None
-        peak = 1
-        stim_type = None
-        if kwargs:
-            for kwarg in kwargs.keys():
-                if kwarg is 'onset':
-                    if type(kwargs[kwarg]) is not list:
-                        raise messages.CommandExecutionFailure
-                    else:
-                        onset = kwargs[kwarg]
-                if kwarg is 'duration':
-                    if type(kwargs[kwarg]) is not int:
-                        raise messages.CommandExecutionFailure
-                    else:
-                        duration = str(kwargs[kwarg])
-                if kwarg is 'peak':
-                    if type(kwargs[kwarg]) is not int:
-                        raise messages.CommandExecutionFailure
-                    else:
-                        peak = str(kwargs[kwarg])
-                if kwarg is 'hrf_function':
-                    if type(kwargs[kwarg]) is not str:
-                        raise messages.CommandExecutionFailure
-                    else:
-                        if kwargs[kwarg] is 'MION':
-                            stim_type = "MIONN({})".format(duration)
-                        elif kwargs[kwarg] is 'BLOCK':
-                            stim_type = "BLOCK({},{})".format(duration, peak)
-                        else:
-                            raise messages.CommandExecutionFailure
-        output_path = os.path.join('.tmp', '{}.xmat.1D'.format(filename))
-        Interface.afni_3dDeconvolve(output_path, None, nodata=[str(num_of_time), str(tr)],
-                                    num_stimts=num_stimts, polort=-1,
-                                    stim_times=['1', '1D: {}'.format(" ".join(onset)),
-                                                "'{}'".format(stim_type)])
-        return {'paradigm': output_path}
-
-    # def general_linear_model(self, func, paradigm, dtype='func'):
-    #     if os.path.exists(func):
-    #         dataclass = 1
-    #         func = methods.path_splitter(func)[-1]
-    #     else:
-    #         dataclass = 0
-    #     print('GLM Analysis-{}'.format(func))
-    #     step01 = self.init_step('ExtractTimeCourse-{}'.format(dtype))
-    #     # num_step = os.path.basename(step02).split('_')[0]
-    #     # step02 = self.final_step('{}_ActivityMap-{}'.format(num_step, dtype))
-    #     for subj in self.subjects:
-    #         print("-Subject: {}".format(subj))
-    #         SystemMethods.mkdir(os.path.join(step01, subj))
-    #         if self._prjobj.single_session:
-    #             funcs = self._prjobj(dataclass, func, subj)
-    #             for i, finfo in funcs.iterrows():
-    #                 print(" +Filename: {}".format(finfo.Filename))
-    #                 output_path = os.path.join(step01, subj, finfo.Filename)
-    #                 self._prjobj.run('afni_3dDeconvolve', str(output_path), str(finfo.Abspath),
-    #                                  num_stimts='1', nfirst='0', polort='-1', stim_file=['1', "'{}'".format(paradigm)],
-    #                                  stim_label=['1', "'STIM'"], num_glt='1', glt_label=['1', "'STIM'"],
-    #                                  gltsym='SYM: +STIM')
-    #     return {'func': step01}
 
     def final_step(self, title):
         path = os.path.join(self._prjobj.path, self._prjobj.ds_type[2],

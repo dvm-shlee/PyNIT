@@ -15,16 +15,16 @@ class Reference(object):
            'ANALYZE7.5':        ['.img', '.hdr'],
            'AFNI':              ['.BRIK', '.HEAD'],
            'Shihlab':           ['.sdt', '.spr'],
-           'Nrrd':              ['.nrrd', '.nrrdh']
+           'Nrrd':              ['.nrrd', '.nrdh']
            }
     txt = {'Common':            ['.txt', '.cvs', '.tvs'],
+           'Mictosoft':         ['.xlsx', '.xls'],
            'AFNI':              ['.1D'],
            'MATLAB':            ['.mat'],
            'Slicer_Transform':  ['.tfm'],
            'JSON':              ['.json']
            }
     data_structure = {'NIRAL': ['Data', 'Processing', 'Results'],
-                      'BIDS': ['sourcedata', 'derivatives']
                       }
 
     def __init__(self, *args):

@@ -616,7 +616,6 @@ def parsing(path, ds_type, idx):
     else:
         return df.sort_values('Abspath'), single_session, empty_prj
 
-
 def initial_filter(df, data_class, exts):
     """ Filtering out only selected file type in the project folder
 
