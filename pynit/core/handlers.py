@@ -261,7 +261,7 @@ class Project(object):
             try:
                 with open(prj_file, 'r') as f:
                     self.__df = pickle.load(f)
-                print('Reloaded')
+                # print('Reloaded')
             except:
                 self.scan_prj()
 
