@@ -2575,11 +2575,10 @@ class Preprocess(object):
             methods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 funcs = self._prjobj(dataclass, func, subj)
-                if ort:
-                    mparm = self._prjobj(mdataclass, ort, subj, ignore='aff12', ext='.1D')
                 for i, finfo in funcs:
                     if ort:
-                        ort = mparm.df.Abspath[i]
+                        ort = self._prjobj(dataclass, ort, subj, ext='.1D', ignore='.aff12',
+                                                 file_tag=os.path.splitext(finfo.Filename)[0]).df.Abspath[0]
                     print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dTproject', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
                                      ort=ort, norm=norm, blur=blur, band=band, dt=dt)
@@ -2588,11 +2587,10 @@ class Preprocess(object):
                     print(" :Session: {}".format(sess))
                     methods.mkdir(os.path.join(step01, subj, sess))
                     funcs = self._prjobj(dataclass, func, subj, sess)
-                    if ort:
-                        mparm = self._prjobj(mdataclass, ort, subj, sess, ignore='aff12', ext='.1D')
                     for i, finfo in funcs:
                         if ort:
-                            ort = mparm.df.Abspath[i]
+                            ort = self._prjobj(dataclass, ort, subj, sess, ext='.1D', ignore='.aff12',
+                                               file_tag=os.path.splitext(finfo.Filename)[0]).df.Abspath[0]
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dTproject', os.path.join(step01, subj, sess, finfo.Filename),
                                          finfo.Abspath, ort=ort, norm=norm, blur=blur, band=band, dt=dt)
