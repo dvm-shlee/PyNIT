@@ -471,7 +471,7 @@ class Interface(object):
     def afni_3dTproject(output_path, input_path, ort=None, mask=None, norm=False, blur=False,
                         band=False, dt='1'):
         # AFNI signal processing for resting state (3dBandpass)
-        cmd = ['3dBandpass', '-input', input_path, '-prefix', output_path]
+        cmd = ['3dTproject', '-input', input_path, '-prefix', output_path]
         if 'dt':
             if type(dt) is not str:
                 dt = str(dt)
