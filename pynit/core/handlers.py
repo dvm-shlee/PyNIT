@@ -2567,7 +2567,8 @@ class Preprocess(object):
 
         """
         dataclass, func = methods.check_dataclass(func)
-        mdataclass, ort = methods.check_dataclass(ort)
+        if ort:
+            mdataclass, ort = methods.check_dataclass(ort)
         print('SignalProcessing-{}'.format(func))
         step01 = self.init_step('SignalProcessing-{}'.format(dtype))
         for subj in self.subjects:
