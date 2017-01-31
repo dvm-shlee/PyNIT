@@ -2567,6 +2567,7 @@ class Preprocess(object):
 
         """
         dataclass, func = methods.check_dataclass(func)
+        mdataclass, ort = methods.check_dataclass(ort)
         print('SignalProcessing-{}'.format(func))
         step01 = self.init_step('SignalProcessing-{}'.format(dtype))
         for subj in self.subjects:
@@ -2574,7 +2575,8 @@ class Preprocess(object):
             methods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
                 funcs = self._prjobj(dataclass, func, subj)
-                mparm = self._prjobj(dataclass, func, subj, ignore='aff12', ext='.1D')
+                if ort:
+                    mparm = self._prjobj(mdataclass, ort, subj, ignore='aff12', ext='.1D')
                 for i, finfo in funcs:
                     print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dTproject', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
@@ -2584,7 +2586,8 @@ class Preprocess(object):
                     print(" :Session: {}".format(sess))
                     methods.mkdir(os.path.join(step01, subj, sess))
                     funcs = self._prjobj(dataclass, func, subj, sess)
-                    mparm = self._prjobj(dataclass, func, subj, sess, ignore='aff12', ext='.1D')
+                    if ort:
+                        mparm = self._prjobj(mdataclass, ort, subj, sess, ignore='aff12', ext='.1D')
                     for i, finfo in funcs:
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dTproject', os.path.join(step01, subj, sess, finfo.Filename),
