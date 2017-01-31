@@ -477,7 +477,7 @@ class Interface(object):
                 dt = str(dt)
             cmd.extend(['-dt', dt])
         if ort:
-            cmd.extend(['-ort' '{}'.format(ort)])
+            cmd.extend(['-ort {}'.format(ort)])
         if mask:
             cmd.extend(['-mask', mask])
         if blur:
