@@ -476,8 +476,6 @@ class Interface(object):
             if type(dt) is not str:
                 dt = str(dt)
             cmd.extend(['-dt', dt])
-        if norm:
-            cmd.append('-norm')
         if ort:
             cmd.append("-ort '{}'".format(ort))
         if mask:
@@ -490,6 +488,8 @@ class Interface(object):
             cmd.append('-passband')
             band = map(str, band)
             cmd.extend(band)
+        if norm:
+            cmd.append('-norm')
         cmd = list2cmdline(cmd)
         call(shlex.split(cmd))
 
