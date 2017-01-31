@@ -2592,7 +2592,7 @@ class Preprocess(object):
                         if ort:
                             regressor = self._prjobj(mdataclass, ort, subj, sess, ext='.1D', ignore='.aff12').df.Abspath[i]
                         else:
-                            regressot = None
+                            regressor = None
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dTproject', os.path.join(step01, subj, sess, finfo.Filename),
                                          finfo.Abspath, ort=regressor, norm=norm, blur=blur, band=band, dt=dt)
