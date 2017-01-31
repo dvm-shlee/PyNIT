@@ -2578,9 +2578,11 @@ class Preprocess(object):
                 if ort:
                     mparm = self._prjobj(mdataclass, ort, subj, ignore='aff12', ext='.1D')
                 for i, finfo in funcs:
+                    if ort:
+                        ort = mparm.Abspath[i]
                     print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dTproject', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
-                                     ort=mparm.Abspath[i], norm=norm, blur=blur, band=band, dt=dt)
+                                     ort=ort, norm=norm, blur=blur, band=band, dt=dt)
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
@@ -2589,9 +2591,11 @@ class Preprocess(object):
                     if ort:
                         mparm = self._prjobj(mdataclass, ort, subj, sess, ignore='aff12', ext='.1D')
                     for i, finfo in funcs:
+                        if ort:
+                            ort = mparm.Abspath[i]
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dTproject', os.path.join(step01, subj, sess, finfo.Filename),
-                                         finfo.Abspath, ort=mparm.Abspath[i], norm=norm, blur=blur, band=band, dt=dt)
+                                         finfo.Abspath, ort=ort, norm=norm, blur=blur, band=band, dt=dt)
         self._prjobj.reset(True)
         self._prjobj.apply()
         return {'func': step01}
