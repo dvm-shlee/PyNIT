@@ -2546,7 +2546,7 @@ class Preprocess(object):
         return {'func': step01}
 
     def signal_processing2(self, func, dt=1, mask=None, ort=None, norm=False, blur=False, band=False,
-                           dtype='func', file_tag=None, ignore=None):
+                           dtype='func'):
         """ New method for signal processing and spatial smoothing of individual functional image
 
         Parameters
@@ -2573,17 +2573,8 @@ class Preprocess(object):
             print("-Subject: {}".format(subj))
             methods.mkdir(os.path.join(step01, subj))
             if self._prjobj.single_session:
-                if not file_tag:
-                    if not ignore:
-                        funcs = self._prjobj(dataclass, func, subj)
-                    else:
-                        funcs = self._prjobj(dataclass, func, subj, ignore=ignore)
-                else:
-                    if not ignore:
-                        funcs = self._prjobj(dataclass, func, subj, file_tag=file_tag)
-                    else:
-                        funcs = self._prjobj(dataclass, func, subj, file_tag=file_tag, ignore=ignore)
-                        mparm = self._prjobj(dataclass, func, subj, ext='.1D')
+                funcs = self._prjobj(dataclass, func, subj)
+                mparm = self._prjobj(dataclass, func, subj, ignore='aff12', ext='.1D')
                 for i, finfo in funcs:
                     print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dTproject', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
@@ -2592,16 +2583,8 @@ class Preprocess(object):
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
                     methods.mkdir(os.path.join(step01, subj, sess))
-                    if not file_tag:
-                        if not ignore:
-                            funcs = self._prjobj(dataclass, func, subj, sess)
-                        else:
-                            funcs = self._prjobj(dataclass, func, subj, sess, ignore=ignore)
-                    else:
-                        if not ignore:
-                            funcs = self._prjobj(dataclass, func, subj, sess, file_tag=file_tag)
-                        else:
-                            funcs = self._prjobj(dataclass, func, subj, sess, file_tag=file_tag, ignore=ignore)
+                    funcs = self._prjobj(dataclass, func, subj, sess)
+                    mparm = self._prjobj(dataclass, func, subj, sess, ignore='aff12', ext='.1D')
                     for i, finfo in funcs:
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dTproject', os.path.join(step01, subj, sess, finfo.Filename),
