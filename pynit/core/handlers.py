@@ -1873,6 +1873,8 @@ class Preprocess(object):
         return {'meanfunc': step01, 'anat': step02}
 
     def compute_skullstripping(self, meanfunc, anat, padded=False, zaxis=2):
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         axis = {0: 'x', 1: 'y', 2: 'z'}
         f_dataclass, meanfunc = methods.check_dataclass(meanfunc)
         a_dataclass, anat = methods.check_dataclass(anat)
@@ -2539,6 +2541,71 @@ class Preprocess(object):
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dBandpass', os.path.join(step01, subj, sess, finfo.Filename), finfo.Abspath,
                                          norm=norm, despike=despike, detrend=detrend, blur=blur, band=band, dt=dt)
+        self._prjobj.reset(True)
+        self._prjobj.apply()
+        return {'func': step01}
+
+    def signal_processing2(self, func, dt=1, mask=None, ort=None, norm=False, blur=False, band=False,
+                           dtype='func', file_tag=None, ignore=None):
+        """ New method for signal processing and spatial smoothing of individual functional image
+
+        Parameters
+        ----------
+        func
+        dt
+        mask
+        ort
+        norm
+        blur
+        band
+        dtype
+        file_tag
+        ignore
+
+        Returns
+        -------
+
+        """
+        dataclass, func = methods.check_dataclass(func)
+        print('SignalProcessing-{}'.format(func))
+        step01 = self.init_step('SignalProcessing-{}'.format(dtype))
+        for subj in self.subjects:
+            print("-Subject: {}".format(subj))
+            methods.mkdir(os.path.join(step01, subj))
+            if self._prjobj.single_session:
+                if not file_tag:
+                    if not ignore:
+                        funcs = self._prjobj(dataclass, func, subj)
+                    else:
+                        funcs = self._prjobj(dataclass, func, subj, ignore=ignore)
+                else:
+                    if not ignore:
+                        funcs = self._prjobj(dataclass, func, subj, file_tag=file_tag)
+                    else:
+                        funcs = self._prjobj(dataclass, func, subj, file_tag=file_tag, ignore=ignore)
+                        mparm = self._prjobj(dataclass, func, subj, ext='.1D')
+                for i, finfo in funcs:
+                    print(" +Filename: {}".format(finfo.Filename))
+                    self._prjobj.run('afni_3dTproject', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
+                                     ort=mparm.Abspath[i], norm=norm, blur=blur, band=band, dt=dt)
+            else:
+                for sess in self.sessions:
+                    print(" :Session: {}".format(sess))
+                    methods.mkdir(os.path.join(step01, subj, sess))
+                    if not file_tag:
+                        if not ignore:
+                            funcs = self._prjobj(dataclass, func, subj, sess)
+                        else:
+                            funcs = self._prjobj(dataclass, func, subj, sess, ignore=ignore)
+                    else:
+                        if not ignore:
+                            funcs = self._prjobj(dataclass, func, subj, sess, file_tag=file_tag)
+                        else:
+                            funcs = self._prjobj(dataclass, func, subj, sess, file_tag=file_tag, ignore=ignore)
+                    for i, finfo in funcs:
+                        print("  +Filename: {}".format(finfo.Filename))
+                        self._prjobj.run('afni_3dTproject', os.path.join(step01, subj, sess, finfo.Filename),
+                                         finfo.Abspath, ort=mparm.Abspath[i], norm=norm, blur=blur, band=band, dt=dt)
         self._prjobj.reset(True)
         self._prjobj.apply()
         return {'func': step01}
