@@ -479,7 +479,7 @@ class Interface(object):
         if norm:
             cmd.append('-norm')
         if ort:
-            cmd.append('-ort {}'.format(ort))
+            cmd.append("-ort '{}'".format(ort))
         if mask:
             cmd.extend(['-mask', mask])
         if blur:
