@@ -2568,7 +2568,6 @@ class Preprocess(object):
         """
         dataclass, func = methods.check_dataclass(func)
         mdataclass, ort = methods.check_dataclass(ort)
-        print(ort)
         print('SignalProcessing-{}'.format(func))
         step01 = self.init_step('SignalProcessing-{}'.format(dtype))
         for subj in self.subjects:
@@ -2578,10 +2577,12 @@ class Preprocess(object):
                 funcs = self._prjobj(dataclass, func, subj)
                 for i, finfo in funcs:
                     if ort:
-                        ort = self._prjobj(mdataclass, ort, subj, ext='.1D', ignore='.aff12').df.Abspath[i]
+                        regressor = self._prjobj(mdataclass, ort, subj, ext='.1D', ignore='.aff12').df.Abspath[i]
+                    else:
+                        regressor = None
                     print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dTproject', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
-                                     ort=ort, norm=norm, blur=blur, band=band, dt=dt)
+                                     ort=regressor, norm=norm, blur=blur, band=band, dt=dt)
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
@@ -2589,10 +2590,12 @@ class Preprocess(object):
                     funcs = self._prjobj(dataclass, func, subj, sess)
                     for i, finfo in funcs:
                         if ort:
-                            ort = self._prjobj(mdataclass, ort, subj, sess, ext='.1D', ignore='.aff12').df.Abspath[0]
+                            regressor = self._prjobj(mdataclass, ort, subj, sess, ext='.1D', ignore='.aff12').df.Abspath[0]
+                        else:
+                            regressot = None
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dTproject', os.path.join(step01, subj, sess, finfo.Filename),
-                                         finfo.Abspath, ort=ort, norm=norm, blur=blur, band=band, dt=dt)
+                                         finfo.Abspath, ort=regressor, norm=norm, blur=blur, band=band, dt=dt)
         self._prjobj.reset(True)
         self._prjobj.apply()
         return {'func': step01}
