@@ -491,6 +491,7 @@ class Interface(object):
         if norm:
             cmd.append('-norm')
         cmd = list2cmdline(cmd)
+        print(cmd)
         call(shlex.split(cmd))
 
     @staticmethod

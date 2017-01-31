@@ -499,7 +499,6 @@ class Project(object):
                 if os.path.exists(args[0]):
                     pass
                 else:
-                    print('{}, {}, {}'.format(command, args, kwargs))
                     getattr(Interface, command)(*args, **kwargs)
             except:
                 exec('help(Interface.{})'.format(command))
