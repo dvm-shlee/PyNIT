@@ -468,7 +468,7 @@ class Interface(object):
         call(shlex.split(cmd))
 
     @staticmethod
-    def afni_3dTproject(output_path, input_path, ort=None, mask=None, norm=False, blur=False,
+    def afni_3dTproject(output_path, input_path, ort=None, orange=None, mask=None, norm=False, blur=False,
                         band=False, dt='1'):
         # AFNI signal processing for resting state (3dBandpass)
         cmd = ['3dTproject', '-input', input_path, '-prefix', output_path]
@@ -477,7 +477,11 @@ class Interface(object):
                 dt = str(dt)
             cmd.extend(['-dt', dt])
         if ort:
-            cmd.extend(['-ort', ort])
+            if orange:
+                if isinstance(orange, list):
+                    if len(orange) == 2:
+                        orange = "'\{{}..{}\}'".format(orange[0], orange[1])
+            cmd.extend(['-ort', ort+orange])
         if mask:
             cmd.extend(['-mask', mask])
         if blur:
@@ -491,7 +495,8 @@ class Interface(object):
         if norm:
             cmd.append('-norm')
         cmd = list2cmdline(cmd)
-        call(shlex.split(cmd))
+        print(cmd)
+        # call(shlex.split(cmd))
 
     @staticmethod
     def afni_3dROIstats(output_path, input_path, mask_path):
