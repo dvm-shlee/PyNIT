@@ -495,8 +495,8 @@ class Interface(object):
         if norm:
             cmd.append('-norm')
         cmd = list2cmdline(cmd)
-        print(cmd)
-        # call(shlex.split(cmd))
+        # print(cmd)
+        call(shlex.split(cmd))
 
     @staticmethod
     def afni_3dROIstats(output_path, input_path, mask_path):
