@@ -1295,10 +1295,11 @@ class Preprocess(object):
                 for i, finfo in progressbar(epi, desc='Files', leave=False):
                     print(" +Filename: {}".format(finfo.Filename))
                     # Check dimension
-                    total, err = methods.shell(methods.shlex.split('3dinfo -nv {}'.format(finfo.Filename)))
+                    total, err = methods.shell('3dinfo -nv {}'.format(finfo.Abspath))
                     if err:
                         methods.raiseerror(NameError, 'Cannot load: {0}'.format(finfo.Filename))
-                    total = int(total[0])
+                    total = int(total)
+                    print(total)
                     if total <= winsize:
                         methods.raiseerror(KeyError,
                                            'Please use proper windows size: [less than {}]'.format(str(total)))

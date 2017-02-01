@@ -435,7 +435,7 @@ class Interface(object):
             if 'quiet' in kwargs.keys():
                 cmd.append("-quiet")
         cmd.append("'{}'".format(input_path))
-        print(cmd)
+        # print(cmd)
         cmd = list2cmdline(cmd)
         call(shlex.split(cmd))
 
@@ -491,7 +491,6 @@ class Interface(object):
         if norm:
             cmd.append('-norm')
         cmd = list2cmdline(cmd)
-        print(cmd)
         call(shlex.split(cmd))
 
     @staticmethod

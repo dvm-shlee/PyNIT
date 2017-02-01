@@ -109,7 +109,7 @@ def down_reslice(imageobj, ac_slice, ac_loc, slice_thickness, total_slice, axis=
         idx.append(ac_slice + int(i * scale))
     imageobj._dataobj = data[:, :, idx]
     affine, origin = affns.to_matvec(imageobj.affine[:, :])
-    affine = np.diag(affine)
+    affine = np.array(np.diag(affine))
     affine[axis] = slice_thickness
     affine_mat = affns.from_matvec(np.diag(affine), origin)
     imageobj._affine = affine_mat
