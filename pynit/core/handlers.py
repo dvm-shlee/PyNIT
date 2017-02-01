@@ -2584,7 +2584,7 @@ class Preprocess(object):
                         regressor = None
                     print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dTproject', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
-                                     ort=regressor, mask=mask, oragne=orange, norm=norm, blur=blur, band=band, dt=dt)
+                                     ort=regressor, mask=mask, orange=orange, norm=norm, blur=blur, band=band, dt=dt)
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
@@ -2597,7 +2597,7 @@ class Preprocess(object):
                             regressor = None
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dTproject', os.path.join(step01, subj, sess, finfo.Filename),
-                                         finfo.Abspath, ort=regressor, oragne=orange, mask=mask, norm=norm,
+                                         finfo.Abspath, ort=regressor, orange=orange, mask=mask, norm=norm,
                                          blur=blur, band=band, dt=dt)
         self._prjobj.reset(True)
         self._prjobj.apply()
