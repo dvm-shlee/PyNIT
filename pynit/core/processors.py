@@ -480,7 +480,7 @@ class Interface(object):
             if orange:
                 if isinstance(orange, list):
                     if len(orange) == 2:
-                        orange = "'\{{}..{}\}'".format(orange[0], orange[1])
+                        orange = "'\\{{}..{}\\}'".format(orange[0], orange[1])
             cmd.extend(['-ort', ort+orange])
         if mask:
             cmd.extend(['-mask', mask])
