@@ -2579,7 +2579,9 @@ class Preprocess(object):
                 funcs = self._prjobj(dataclass, func, subj)
                 for i, finfo in funcs:
                     if ort:
-                        regressor = self._prjobj(mdataclass, ort, subj, ext='.1D', ignore='.aff12').df.Abspath[i]
+                        regressor = self._prjobj(mdataclass, ort, subj, ext='.1D',
+                                                 file_tag=methods.splitnifti(finfo.Filename),
+                                                 ignore='.aff12').df.Abspath[0]
                     else:
                         regressor = None
                     print(" +Filename: {}".format(finfo.Filename))
@@ -2592,7 +2594,9 @@ class Preprocess(object):
                     funcs = self._prjobj(dataclass, func, subj, sess)
                     for i, finfo in funcs:
                         if ort:
-                            regressor = self._prjobj(mdataclass, ort, subj, sess, ext='.1D', ignore='.aff12').df.Abspath[i]
+                            regressor = self._prjobj(mdataclass, ort, subj, sess, ext='.1D',
+                                                     file_tag=methods.splitnifti(finfo.Filename),
+                                                     ignore='.aff12').df.Abspath[0]
                         else:
                             regressor = None
                         print("  +Filename: {}".format(finfo.Filename))
