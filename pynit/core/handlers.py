@@ -1903,6 +1903,7 @@ class Preprocess(object):
                     if padded:
                         exec('ss_epi.crop({}=[1, {}])'.format(axis[zaxis], ss_epi.shape[zaxis]-1))
                     ss_epi.save_as(os.path.join(step01, subj, filename), quiet=True)
+                    del ss_epi
                     os.remove(fpath)
                 for i, finfo in t2:
                     print(" +Filename of anat: {}".format(finfo.Filename))
@@ -1914,6 +1915,7 @@ class Preprocess(object):
                     if padded:
                         exec('ss_t2.crop({}=[1, {}])'.format(axis[zaxis], ss_t2.shape[zaxis] - 1))
                     ss_t2.save_as(os.path.join(step02, subj, filename), quiet=True)
+                    del ss_t2
                     os.remove(fpath)
             else:
                 for sess in self.sessions:
