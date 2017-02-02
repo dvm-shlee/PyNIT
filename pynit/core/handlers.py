@@ -1938,7 +1938,7 @@ class Preprocess(object):
                     for i, finfo in t2:
                         print("  +Filename of anat: {}".format(finfo.Filename))
                         filename = finfo.Filename
-                        tpath = os.path.join(step01, subj, sess)
+                        tpath = os.path.join(step02, subj, sess)
                         fpath = os.path.join(tpath, finfo.Filename)
                         self._prjobj.run('afni_3dcalc', fpath, 'a*step(b)',
                                          finfo.Abspath, t2mask)
