@@ -87,7 +87,7 @@ class Analysis(object):
                     contra = kwargs[arg]
                 if arg == 'bilateral':
                     bilateral = kwargs[arg]
-                if arg == 'merge':
+                if arg == 'merged':
                     merged = kwargs[arg]
         # Initiate dataframe
 
