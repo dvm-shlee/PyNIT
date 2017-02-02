@@ -1896,25 +1896,23 @@ class Preprocess(object):
                 for i, finfo in epi:
                     print(" +Filename of meanfunc: {}".format(finfo.Filename))
                     filename = finfo.Filename
-                    fpath = os.path.join(step01, subj, '_{}'.format(filename))
+                    fpath = os.path.join(step01, subj, filename)
                     self._prjobj.run('afni_3dcalc', fpath, 'a*step(b)',
                                      finfo.Abspath, epimask)
                     ss_epi = methods.load(fpath)
                     if padded:
                         exec('ss_epi.crop({}=[1, {}])'.format(axis[zaxis], ss_epi.shape[zaxis]-1))
-                    ss_epi.save_as(os.path.join(step01, subj, filename), quiet=True)
-                    rmtree(fpath)
+                        ss_epi.save_as(os.path.join(step01, subj, filename), quiet=True)
                 for i, finfo in t2:
                     print(" +Filename of anat: {}".format(finfo.Filename))
                     filename = finfo.Filename
-                    fpath = os.path.join(step02, subj, '_{}'.format(filename))
+                    fpath = os.path.join(step02, subj, filename)
                     self._prjobj.run('afni_3dcalc', fpath, 'a*step(b)',
                                      finfo.Abspath, t2mask)
                     ss_t2 = methods.load(fpath)
                     if padded:
                         exec('ss_t2.crop({}=[1, {}])'.format(axis[zaxis], ss_t2.shape[zaxis] - 1))
-                    ss_t2.save_as(os.path.join(step02, subj, filename), quiet=True)
-                    rmtree(fpath)
+                        ss_t2.save_as(os.path.join(step02, subj, filename), quiet=True)
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
