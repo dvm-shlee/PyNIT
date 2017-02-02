@@ -1929,29 +1929,25 @@ class Preprocess(object):
                     for i, finfo in epi:
                         print("  +Filename of meanfunc: {}".format(finfo.Filename))
                         filename = finfo.Filename
-                        tpath = os.path.join(step01, subj, sess, '.temp')
-                        methods.mkdir(tpath)
+                        tpath = os.path.join(step01, subj, sess)
                         fpath = os.path.join(tpath, finfo.Filename)
                         self._prjobj.run('afni_3dcalc', fpath, 'a*step(b)',
                                          finfo.Abspath, epimask)
                         ss_epi = methods.load(fpath)
                         if padded:
                             exec('ss_epi.crop({}=[1, {}])'.format(axis[zaxis], ss_epi.shape[zaxis] - 1))
-                        ss_epi.save_as(os.path.join(step01, subj, sess, filename), quiet=True)
-                        rmtree(tpath)
+                            ss_epi.save_as(os.path.join(step01, subj, sess, filename), quiet=True)
                     for i, finfo in t2:
                         print("  +Filename of anat: {}".format(finfo.Filename))
                         filename = finfo.Filename
-                        tpath = os.path.join(step01, subj, sess, '.temp')
-                        methods.mkdir(tpath)
+                        tpath = os.path.join(step01, subj, sess)
                         fpath = os.path.join(tpath, finfo.Filename)
                         self._prjobj.run('afni_3dcalc', fpath, 'a*step(b)',
                                          finfo.Abspath, t2mask)
                         ss_t2 = methods.load(fpath)
                         if padded:
                             exec('ss_t2.crop({}=[1, {}])'.format(axis[zaxis], ss_t2.shape[zaxis] - 1))
-                        ss_t2.save_as(os.path.join(step02, subj, sess, filename), quiet=True)
-                        rmtree(tpath)
+                            ss_t2.save_as(os.path.join(step02, subj, sess, filename), quiet=True)
         self._prjobj.reset(True)
         self._prjobj.apply()
         return {'meanfunc': step01, 'anat': step02}
