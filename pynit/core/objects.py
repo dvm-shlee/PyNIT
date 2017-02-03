@@ -273,6 +273,7 @@ class Template(object):
 
 class Atlas(object):
     def __init__(self, path=None):
+        self.path = path
         self._label = None
         if type(path) is ImageObj:
             self._image = path

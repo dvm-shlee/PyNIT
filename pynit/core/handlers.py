@@ -1806,7 +1806,7 @@ class Preprocess(object):
                                 print('  ::Skipped')
             self._prjobj.reset(True)
             self._prjobj.apply()
-            return {'func': step04}
+            return {'func': step04, 'mparam': step01}
         else:
             self._prjobj.reset(True)
             self._prjobj.apply()
