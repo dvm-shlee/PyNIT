@@ -481,7 +481,9 @@ class Interface(object):
                 if isinstance(orange, list):
                     if len(orange) == 2:
                         orange = "'{"+"{}..{}".format(orange[0], orange[1])+"}'"
-            cmd.extend(['-ort', ort+orange])
+                        cmd.extend(['-ort', ort+orange])
+            else:
+                cmd.extend(['-ort', ort])
         if mask:
             cmd.extend(['-mask', mask])
         if blur:
