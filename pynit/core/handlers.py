@@ -2639,8 +2639,8 @@ class Preprocess(object):
                 methods.mkdir(os.path.join(step02, 'AllSubjects'))
                 # Grab the warping map and transform matrix
                 mats, warps, warped = methods.get_warp_matrix(self, warped_anat, subj, inverse=False)
-                temp_path = os.path.join(step01, subj, "base")
-                tempobj.save_as(temp_path, quiet=True)
+                # temp_path = os.path.join(step01, subj, "base")
+                # tempobj.save_as(temp_path, quiet=True)
                 funcs = self._prjobj(dataclass, func, subj)
                 print(" +Filename of fixed image: {}".format(warped.Filename))
                 for i, finfo in funcs:
@@ -2648,18 +2648,13 @@ class Preprocess(object):
                     output_path = os.path.join(step01, subj, finfo.Filename)
                     self._prjobj.run('ants_WarpTimeSeriresImageMultiTransform', output_path,
                                      finfo.Abspath, warped.Abspath, warps, mats, **in_kwargs)
-                # subjatlas = methods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
-                subjatlas = methods.load_temp(output_path, '{}_atlas.nii'.format(temp_path))
-                # subjatlas.show()
+                subjatlas = methods.load_temp(output_path, tempobj.atlas_path)
                 fig = subjatlas.show(**kwargs)
                 if type(fig) is tuple:
                     fig = fig[0]
                 fig.suptitle('Check atlas registration of {}'.format(subj), fontsize=12, color='yellow')
                 fig.savefig(os.path.join(step02, 'AllSubjects', '{}.png'.format('-'.join([subj, 'checkatlas']))),
                             facecolor=fig.get_facecolor())
-                os.remove('{}_atlas.nii'.format(temp_path))
-                os.remove('{}_atlas.label'.format(temp_path))
-                os.remove('{}_template.nii'.format(temp_path))
             else:
                 methods.mkdir(os.path.join(step02, subj))
                 for sess in self.sessions:
@@ -2667,8 +2662,8 @@ class Preprocess(object):
                     print(" :Session: {}".format(sess))
                     # Grab the warping map and transform matrix
                     mats, warps, warped = methods.get_warp_matrix(self, warped_anat, subj, sess, inverse=False)
-                    temp_path = os.path.join(step01, subj, sess, "base")
-                    tempobj.save_as(temp_path, quiet=True)
+                    # temp_path = os.path.join(step01, subj, sess, "base")
+                    # tempobj.save_as(temp_path, quiet=True)
                     funcs = self._prjobj(dataclass, func, subj, sess)
                     print(" +Filename of fixed image: {}".format(warped.Filename))
                     for i, finfo in funcs:
@@ -2676,8 +2671,7 @@ class Preprocess(object):
                         output_path = os.path.join(step01, subj, sess, finfo.Filename)
                         self._prjobj.run('ants_WarpTimeSeriesImageMultiTransform', output_path,
                                          finfo.Abspath, warped.Abspath, warps, mats, **in_kwargs)
-                    # subjatlas = methods.load_temp(warped.Abspath, '{}_atlas.nii'.format(temp_path))
-                    subjatlas = methods.load_temp(output_path, '{}_atlas.nii'.format(temp_path))
+                    subjatlas = methods.load_temp(output_path, tempobj.atlas_path)
                     fig = subjatlas.show(**kwargs)
                     if type(fig) is tuple:
                         fig = fig[0]
@@ -2685,9 +2679,6 @@ class Preprocess(object):
                     fig.savefig(os.path.join(step02, subj, 'AllSessions',
                                              '{}.png'.format('-'.join([subj, sess, 'checkatlas']))),
                                 facecolor=fig.get_facecolor())
-                    os.remove('{}_atlas.nii'.format(temp_path))
-                    os.remove('{}_atlas.label'.format(temp_path))
-                    os.remove('{}_template.nii'.format(temp_path))
         self._prjobj.reset(True)
         self._prjobj.apply()
         return {'func': step01, 'checkreg': step02}
