@@ -2648,7 +2648,7 @@ class Preprocess(object):
                     output_path = os.path.join(step01, subj, finfo.Filename)
                     self._prjobj.run('ants_WarpTimeSeriresImageMultiTransform', output_path,
                                      finfo.Abspath, warped.Abspath, warps, mats, **in_kwargs)
-                subjatlas = methods.load_temp(output_path, tempobj.atlas_path)
+                subjatlas = methods.load_temp(output_path, tempobj._atlas.path)
                 fig = subjatlas.show(**kwargs)
                 if type(fig) is tuple:
                     fig = fig[0]
@@ -2671,7 +2671,7 @@ class Preprocess(object):
                         output_path = os.path.join(step01, subj, sess, finfo.Filename)
                         self._prjobj.run('ants_WarpTimeSeriesImageMultiTransform', output_path,
                                          finfo.Abspath, warped.Abspath, warps, mats, **in_kwargs)
-                    subjatlas = methods.load_temp(output_path, tempobj.atlas_path)
+                    subjatlas = methods.load_temp(output_path, tempobj._atlas.path)
                     fig = subjatlas.show(**kwargs)
                     if type(fig) is tuple:
                         fig = fig[0]
