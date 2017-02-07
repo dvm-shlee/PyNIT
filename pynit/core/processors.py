@@ -112,7 +112,7 @@ class Analysis(object):
                 list_of_rois = ['bilateral_' + roi[0] for roi in tempobj.label.itervalues()][1:]
             else:
                 list_of_rois = [roi[0] for roi in tempobj.label.itervalues()][1:]
-            nii = nib.Nifti1Image(new_atlas, tempobj.affine)
+            nii = nib.Nifti1Image(new_atlas, tempobj.atlas.affine)
             mask_file = TempFile(nii, filename='mask')
             df = Interface.afni_3dROIstats(None, input_file, mask_file)
             df.columns = list_of_rois
