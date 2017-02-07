@@ -84,7 +84,7 @@ class Project(object):
 
         try:
             self.scan_prj()
-            self._apply()
+            self.apply()
         except:
             methods.raiseerror(messages.Errors.ProjectScanFailure, 'Error is occurred during a scanning.')
 
@@ -123,8 +123,8 @@ class Project(object):
     def dataclass(self, idx):
         if idx in range(3):
             self.__dc_idx = idx
-            self._reset()
-            self._apply()
+            self.reset()
+            self.apply()
         else:
             methods.raiseerror(messages.Errors.InputDataclassError, 'Wrong dataclass index.')
 
@@ -207,8 +207,8 @@ class Project(object):
         else:
             methods.raiseerror(messages.Errors.InputTypeError,
                                'Please use correct input type.')
-        self._reset()
-        self._apply()
+        self.reset()
+        self.apply()
 
     @property
     def ref_exts(self, type='all'):
@@ -241,7 +241,7 @@ class Project(object):
             methods.raiseerror(messages.Errors.InputTypeError,
                                "only one of the value in ['all'.'img'.'txt'] is available for type.")
 
-    def _reset(self, rescan=False):
+    def reset(self, rescan=False):
         """ Reset DataFrame
 
         Parameters
@@ -441,7 +441,7 @@ class Project(object):
                 methods.raiseerror(messages.Errors.InputValueError,
                                          'Wrong filter input:{residuals}'.format(residuals=residuals))
 
-    def _apply(self):
+    def apply(self):
         """ Applying all filters to current dataframe
 
         Returns
@@ -450,16 +450,6 @@ class Project(object):
         """
         self.__df = self.applying_filters(self.__df)
         self.__update()
-
-    def refresh(self):
-        """ Reload and Refresh project object
-
-        Returns
-        -------
-        None
-        """
-        self._reset(True)
-        self._apply()
 
     def applying_filters(self, df):
         """ Applying current filters to the given dataframe
@@ -604,10 +594,10 @@ class Project(object):
         """Return DataFrame followed applying filters
         """
         self.dataclass = dc_id
-        self._reset()
+        self.reset()
         prj = copy.copy(self)
         prj.set_filters(*args, **kwargs)
-        prj._apply()
+        prj.apply()
         return prj
 
     def __repr__(self):
@@ -1436,8 +1426,8 @@ class Preprocess(object):
                         print("  +Filename: {}".format(finfo.Filename))
                         output_path = os.path.join(step01, subj, sess, finfo.Filename)
                         self._prjobj.run('afni_3dcalc', output_path, 'atanh(a)', finfo.Abspath)
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'Zmap': step01}
 
     def group_average(self, func, subjects, sessions=None, group='groupA', **kwargs):
@@ -1505,8 +1495,8 @@ class Preprocess(object):
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, sess, finfo.Filename),
                                          finfo.Abspath)
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         step02 = self.init_step('MeanImageCalculation-BOLD')
         step03 = self.init_step('MeanImageCalculation-CBV')
         print("MeanImageCalculation-BOLD&CBV")
@@ -1546,8 +1536,8 @@ class Preprocess(object):
                                                                            start=int(shape[-1] * 2 / 3),
                                                                            # start=int(shape[-1]-21),
                                                                            end=shape[-1] - 1))
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'CBVinduction': step01, 'meanBOLD': step02, 'meanCBV': step03}
 
     def mean_calculation(self, func, dtype='func', **kwargs):
@@ -1581,8 +1571,8 @@ class Preprocess(object):
                     finfo = self._prjobj(dataclass, func, subj, sess, **kwargs).df.loc[0]
                     print("  +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, sess, finfo.Filename), finfo.Abspath)
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         step02 = self.init_step('MeanImageCalculation-{}'.format(dtype))
         print("MeanImageCalculation-{}".format(func))
         for subj in self.subjects:
@@ -1603,8 +1593,8 @@ class Preprocess(object):
                     print(" +Filename: {}".format(funcs.Filename))
                     self._prjobj.run('afni_3dTstat', os.path.join(step02, subj, sess, funcs.Filename),
                                      funcs.Abspath)
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'firstfunc': step01, 'meanfunc': step02}
 
     def slicetiming_correction(self, func, tr=None, tpattern='altplus', dtype='func', **kwargs):
@@ -1649,8 +1639,8 @@ class Preprocess(object):
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dTshift', os.path.join(step01, subj, sess, finfo.Filename),
                                          finfo.Abspath, tr=tr, tpattern=tpattern)
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'func': step01}
 
     def motion_correction(self, func, base=None, baseidx=0, meancbv=None, dtype='func', **kwargs):
@@ -1710,8 +1700,8 @@ class Preprocess(object):
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dvolreg', os.path.join(step01, subj, sess, finfo.Filename),
                                          finfo.Abspath, base_slice=meanimg)
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         if meancbv:
             # Calculate mean image for each 3D+time data
             s1_dataclass, s1_func = methods.check_dataclass(step01)
@@ -1738,8 +1728,8 @@ class Preprocess(object):
                                              finfo.Abspath, mean=True)
             # Realigning each run of CBV images
             s2_dataclass, s2_func = methods.check_dataclass(step02)
-            self._prjobj._reset(True)
-            self._prjobj._apply()
+            self._prjobj.reset(True)
+            self._prjobj.apply()
             print('IntersubjectRealign-{}'.format(func))
             step03 = self.init_step('InterSubjectRealign-{}'.format(dtype))
             for subj in self.subjects:
@@ -1775,8 +1765,8 @@ class Preprocess(object):
                                              matrix_save=methods.splitnifti(output_path) + '.aff12.1D')
             # Realigning each run of CBV images
             s3_dataclass, s3_func = methods.check_dataclass(step03)
-            self._prjobj._reset(True)
-            self._prjobj._apply()
+            self._prjobj.reset(True)
+            self._prjobj.apply()
             print('InterSubj-ApplyTranform-{}'.format(func))
             step04 = self.init_step('InterSubj-ApplyTransform-{}'.format(dtype))
             for subj in self.subjects:
@@ -1814,12 +1804,12 @@ class Preprocess(object):
                                                     matrix_apply=methods.splitnifti(param.Abspath[i]) + '.aff12.1D')
                             except:
                                 print('  ::Skipped')
-            self._prjobj._reset(True)
-            self._prjobj._apply()
+            self._prjobj.reset(True)
+            self._prjobj.apply()
             return {'func': step04, 'mparam': step01}
         else:
-            self._prjobj._reset(True)
-            self._prjobj._apply()
+            self._prjobj.reset(True)
+            self._prjobj.apply()
             return {'func': step01}
 
     def maskdrawing_preparation(self, meanfunc, anat, padding=False, zaxis=2):
@@ -1879,13 +1869,13 @@ class Preprocess(object):
                         if padding:
                             t2img.padding(low=1, high=1, axis=zaxis)
                         t2img.save_as(os.path.join(step02, subj, sess, finfo.Filename), quiet=True)
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'meanfunc': step01, 'anat': step02}
 
     def compute_skullstripping(self, meanfunc, anat, padded=False, zaxis=2):
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         axis = {0: 'x', 1: 'y', 2: 'z'}
         f_dataclass, meanfunc = methods.check_dataclass(meanfunc)
         a_dataclass, anat = methods.check_dataclass(anat)
@@ -1956,8 +1946,8 @@ class Preprocess(object):
                         if padded:
                             exec('ss_t2.crop({}=[1, {}])'.format(axis[zaxis], ss_t2.shape[zaxis] - 1))
                             ss_t2.save_as(os.path.join(step02, subj, sess, filename), quiet=True)
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'meanfunc': step01, 'anat': step02}
 
     def timecrop(self, func, crop_loc, dtype='func'):
@@ -2004,8 +1994,8 @@ class Preprocess(object):
                             output_path += '.gz'
                         self._prjobj.run('afni_3dcalc', output_path, 'a',
                                          "{}'[{}..{}]'".format(finfo.Abspath, crop_loc[0], crop_loc[1]))
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'func': step01}
 
     def coregistration(self, meanfunc, anat, dtype='func', **kwargs):
@@ -2058,8 +2048,8 @@ class Preprocess(object):
                         print("  +Filename of anat: {}".format(finfo.Filename))
                         self._prjobj.run('ants_BiasFieldCorrection', os.path.join(step02, subj, sess, finfo.Filename),
                                          finfo.Abspath, algorithm='n4')
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         print('Coregistration-{} to {}'.format(meanfunc, anat))
         step03 = self.init_step('Coregistration-{}2{}'.format(dtype, anat.split('-')[-1]))
         num_step = os.path.basename(step03).split('_')[0]
@@ -2113,8 +2103,8 @@ class Preprocess(object):
                         fig2.savefig(os.path.join(step04, subj, 'AllSessions',
                                                   '{}.png'.format('-'.join([sess, 'anat2func']))),
                                      facecolor=fig2.get_facecolor())
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'meanfunc': step01, 'anat':step02, 'realigned_func': step03, 'checkreg': step04}
 
     def apply_brainmask(self, func, mask, padded=False, zaxis=2, dtype='func'):
@@ -2169,8 +2159,8 @@ class Preprocess(object):
                         self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, sess, finfo.Filename), 'a*step(b)',
                                          finfo.Abspath, str(temp_epimask))
                     temp_epimask.close()
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'func': step01}
 
     def apply_transformation(self, func, realigned_func, dtype='func'):
@@ -2216,8 +2206,8 @@ class Preprocess(object):
                         moved_img = os.path.join(step01, subj, sess, finfo.Filename)
                         self._prjobj.run('afni_3dAllineate', moved_img, finfo.Abspath, master=ref.df.Abspath.loc[0],
                                          matrix_apply=param.df.Abspath.loc[0])
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'func': step01}
 
     def global_regression(self, func, dtype='func', detrend=-1):
@@ -2261,8 +2251,8 @@ class Preprocess(object):
                         self._prjobj.run('afni_3dmaskave', regressor, finfo.Abspath, finfo.Abspath)
                         self._prjobj.run('afni_3dDetrend', os.path.join(step01, subj, sess, finfo.Filename),
                                          finfo.Abspath, vector=regressor, polort=str(detrend))
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'func': step01}
 
     def motion_parameter_regression(self, func, motioncorrected_func, dtype='func', detrend=-1):
@@ -2307,8 +2297,8 @@ class Preprocess(object):
                                                  file_tag=os.path.splitext(finfo.Filename)[0]).df.Abspath[i]
                         self._prjobj.run('afni_3dDetrend', os.path.join(step01, subj, sess, finfo.Filename),
                                          finfo.Abspath, vector=regressor, polort=str(detrend))
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'func': step01}
 
     def cbv_calculation(self, func, meanBOLD, mean_range=10, dtype='func', **kwargs):
@@ -2361,8 +2351,8 @@ class Preprocess(object):
                         # self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, sess, finfo.Filename),
                         #                  '(b-a)/(c-b)*100', finfo.Abspath, str(spre), szero.Abspath)
                         spre.close()
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'cbv': step01}
 
     def check_cbv_correction(self, func, meanBOLD, meanCBV, mean_range=20, echotime=0.008, dtype='func', **kwargs):
@@ -2435,8 +2425,8 @@ class Preprocess(object):
                         # self._prjobj.run('afni_3dcalc', os.path.join(step01, subj, sess, finfo.Filename),
                         #                  '(b-a)/(c-b)*100', finfo.Abspath, str(spre), szero.Abspath)
                         spre.close()
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'cbv': step01}
 
     def spatial_smoothing(self, func, mask=False, FWHM=False, quiet=False, dtype='func'):
@@ -2486,8 +2476,8 @@ class Preprocess(object):
                         print(" +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dBlurInMask', os.path.join(step01, subj, sess, finfo.Filename),
                                          finfo.Abspath, mask=mask, FWHM=FWHM, quiet=quiet)
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'func': step01}
 
     def signal_processing(self, func, dt=1, norm=False, despike=False, detrend=False,
@@ -2550,11 +2540,11 @@ class Preprocess(object):
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dBandpass', os.path.join(step01, subj, sess, finfo.Filename), finfo.Abspath,
                                          norm=norm, despike=despike, detrend=detrend, blur=blur, band=band, dt=dt)
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'func': step01}
 
-    def signal_processing2(self, func, dt=1, mask=None, ort=None, orange=None, pca=None, norm=False, blur=False, band=False,
+    def signal_processing2(self, func, dt=1, mask=None, ort=None, orange=None, norm=False, blur=False, band=False,
                            dtype='func'):
         """ New method for signal processing and spatial smoothing of individual functional image
 
@@ -2594,7 +2584,7 @@ class Preprocess(object):
                         regressor = None
                     print(" +Filename: {}".format(finfo.Filename))
                     self._prjobj.run('afni_3dTproject', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
-                                     ort=regressor, pca=pca, mask=mask, orange=orange, norm=norm, blur=blur, band=band, dt=dt)
+                                     ort=regressor, mask=mask, orange=orange, norm=norm, blur=blur, band=band, dt=dt)
             else:
                 for sess in self.sessions:
                     print(" :Session: {}".format(sess))
@@ -2609,10 +2599,10 @@ class Preprocess(object):
                             regressor = None
                         print("  +Filename: {}".format(finfo.Filename))
                         self._prjobj.run('afni_3dTproject', os.path.join(step01, subj, sess, finfo.Filename),
-                                         finfo.Abspath, ort=regressor, pca=pca, orange=orange, mask=mask, norm=norm,
+                                         finfo.Abspath, ort=regressor, orange=orange, mask=mask, norm=norm,
                                          blur=blur, band=band, dt=dt)
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'func': step01}
 
     def warp_func(self, func, warped_anat, tempobj, atlas=False, dtype='func', **kwargs):
@@ -2689,8 +2679,8 @@ class Preprocess(object):
                     fig.savefig(os.path.join(step02, subj, 'AllSessions',
                                              '{}.png'.format('-'.join([subj, sess, 'checkatlas']))),
                                 facecolor=fig.get_facecolor())
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'func': step01, 'checkreg': step02}
 
     def linear_spatial_normalization(self, anat, tempobj, dtype='anat', **kwargs):
@@ -2771,8 +2761,8 @@ class Preprocess(object):
                             os.path.join(step02, subj, 'AllSessions',
                                          '{}.png'.format('-'.join([subj, sess, 'temp2anat']))),
                             facecolor=fig2.get_facecolor())
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'norm_anat': step01, 'checkreg': step02}
 
     def apply_spatial_normalization(self, func, norm_anat, tempobj, dtype='func', **kwargs):
@@ -2859,8 +2849,8 @@ class Preprocess(object):
                         os.remove('{}_template.nii'.format(temp_path))
                     except:
                         pass
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'func': step01}
 
     def warp_anat_to_template(self, anat, tempobj, dtype='anat', ttype='s', **kwargs): # TODO: This code not work if the template image resolution is different with T2 image
@@ -2942,8 +2932,8 @@ class Preprocess(object):
                         fig2.savefig(
                             os.path.join(step02, subj, 'AllSessions', '{}.png'.format('-'.join([subj, 'temp2anat']))),
                             facecolor=fig2.get_facecolor())
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'warped_anat': step01, 'checkreg': step02}
 
     def warp_atlas_to_anat(self, anat, warped_anat, tempobj, dtype='anat', **kwargs):
@@ -3018,8 +3008,8 @@ class Preprocess(object):
                         fig.savefig(os.path.join(step02, subj, 'AllSessions',
                                                  '{}.png'.format('-'.join([sess, 'checkatlas']))),
                                     facecolor=fig.get_facecolor())
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'atlas': step01, 'checkreg': step02}
 
     def get_timetrace(self, func, atlas, dtype='func', file_tag=None, ignore=None, subjects=None, **kwargs):
@@ -3093,8 +3083,8 @@ class Preprocess(object):
                         df = Analysis.get_timetrace(methods.load(finfo.Abspath), tempobj, afni=True, **kwargs)
                         df.to_excel(os.path.join(step01, subj, sess, "{}.xlsx".format(
                             os.path.splitext(finfo.Filename)[0])))
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'timecourse': step01}
 
     def get_correlation_matrix(self, func, atlas, dtype='func', file_tag=None, ignore=None, subjects=None, **kwargs):
@@ -3180,8 +3170,8 @@ class Preprocess(object):
                             os.path.join(step02, subj, sess, "{}.xlsx".format(os.path.splitext(finfo.Filename)[0])))
                         np.arctanh(df.corr()).to_excel(
                             os.path.join(step03, subj, sess, "{}.xlsx".format(os.path.splitext(finfo.Filename)[0])))
-        self._prjobj._reset(True)
-        self._prjobj._apply()
+        self._prjobj.reset(True)
+        self._prjobj.apply()
         return {'timecourse': step01, 'cc_matrix': step02}
 
     def final_step(self, title):
