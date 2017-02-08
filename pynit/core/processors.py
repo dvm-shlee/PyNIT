@@ -3,7 +3,7 @@ from shutil import rmtree
 from subprocess import list2cmdline, check_output, call
 import shlex
 import os
-from methods import np, read_table
+from methods import np, read_table, objects
 import copy
 
 import methods
@@ -108,11 +108,12 @@ class Analysis(object):
             # mask_file.close()
         else:
             if merged:
-                tempobj.atlas._dataobj += tempobj.atlas._dataobj[::-1, :, :]
+                new_atlas = tempobj.atlas._dataobj + tempobj.atlas._dataobj[::-1, :, :]
                 list_of_rois = ['bilateral_' + roi[0] for roi in tempobj.label.itervalues()][1:]
             else:
                 list_of_rois = [roi[0] for roi in tempobj.label.itervalues()][1:]
-            mask_file = TempFile(tempobj.atlas, filename='mask')
+            nii = objects.ImageObj(new_atlas, tempobj.atlas.affine)
+            mask_file = TempFile(nii, filename='mask')
             df = Interface.afni_3dROIstats(None, input_file, mask_file)
             df.columns = list_of_rois
             mask_file.close()
