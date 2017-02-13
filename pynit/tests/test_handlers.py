@@ -64,7 +64,7 @@ class StepTest(TestCase):
         command_3 = '3dcalc -prefix {output} -expr "a*2" -a {temp_02} > {mparam}'
         self.step.set_command(command_3)
 
-        self.assertEqual(self.step.get_executefunc('test', test=True), None, 'Error on step function generation')
+        self.assertEqual(self.step.get_executefunc('test', verbose=True), None, 'Error on step function generation')
 
     def tearDown(self):
         rmtree('test_prj/Processing/TestProcess', ignore_errors=True)

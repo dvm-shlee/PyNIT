@@ -716,15 +716,15 @@ class Process(object):
             cmd04 = "3dTstat -prefix {cbv_output} -mean {temp_01}" + options[1]
             step.set_command(cmd04)
             print(step._commands)
-            print(step.get_executefunc('test', test=True))
-            # output_path = step.run('MeanImgCalc', surfix)
+            print(step.get_executefunc('test', verbose=True))
+            output_path = step.run('MeanImgCalc', surfix)
         else:
             cmd02 = "3dTstat -prefix {output} -mean {temp_01}"
             step.set_command(cmd02)
             print(step._commands)
-            step.get_executefunc('test', test=True)
-            # output_path = step.run('MeanImgCalc', surfix)
-        # return dict(meanfunc=output_path)
+            step.get_executefunc('test')
+            output_path = step.run('MeanImgCalc', surfix)
+        return dict(meanfunc=output_path)
 
     def afni_SliceTimingCorrection(self, input_path, tr=None, tpattern=None, surfix='func'):
         """ Corrects for slice time differences when individual 2D slices are recorded over a 3D image
@@ -754,9 +754,9 @@ class Process(object):
         input_str = " {func}"
         cmd = cmd+options+input_str
         step.set_command(cmd)
-        step.get_executefunc('test', test=True)
-        # output_path = step.run('SliceTmCorrect', surfix)
-        # return dict(func=output_path)
+        step.get_executefunc('test', verbose=True)
+        output_path = step.run('SliceTmCorrect', surfix)
+        return dict(func=output_path)
 
     def afni_MotionCorrection(self, input_path, surfix='func'):
         """
@@ -964,7 +964,6 @@ class Step(object):
         str_format = []
         # print(objs)
         for obj in objs:
-            # if obj == 'output':
             if obj == 'output':
                 str_format.append("{0}={0}".format(obj))
                 # str_format.append("output={0}".format(obj))
@@ -1041,7 +1040,7 @@ class Step(object):
             pass
         return ', '.join(output_filters)
 
-    def get_executefunc(self, name, test=False):
+    def get_executefunc(self, name, verbose=False):
         """ Step function generator
 
         Parameters
@@ -1084,7 +1083,7 @@ class Step(object):
                 if stdout:
                     body += ['\t\t\t{0}, err = methods.shell({1})'.format(stdout, cmd)]
                 else:
-                    body += ['\t\t\toutputs.append(methods.shell({0}))'.format(cmd)]
+                    body += ['\t\t\ttemp_outputs.append(methods.shell({0}))'.format(cmd)]
             body += ['\t\toutputs.append(temp_outputs)']
             if self._tempfiles:
                 temp = ['\t\ttemppath = mkdtemp()',
@@ -1104,7 +1103,7 @@ class Step(object):
         footer = ['\treturn outputs\n']
         output = header + filters + body + footer
         output = '\n'.join(output)
-        if test:
+        if verbose:
             print(output)
             return None
         else:
@@ -1174,7 +1173,7 @@ class Step(object):
                 if isinstance(outputs[0], list):
                     all_outputs = []
                     for output in outputs:
-                        all_outputs.append(['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in output])
+                        all_outputs.extend(['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in output])
                     outputs = all_outputs[:]
                 else:
                     outputs = ['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in outputs]

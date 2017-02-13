@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 __author__ = 'SungHo Lee (shlee@unc.edu)'
-__version_info__ = ('2015', '09', '16')
+# __version_info__ = ('2015', '09', '16')
+# __version_info__ = ('2017', '02', '09')
 
 import os, argparse, glob
 
@@ -14,6 +15,8 @@ def check_subject(subject_path):
     cur_path = os.getcwd()
     path = os.path.join(cur_path, subject_path)
     scan_list = []
+    study_name = None
+    location = None
     for comp in os.listdir(path):
         if os.path.isdir(os.path.join(path, comp)):
             try:
@@ -41,6 +44,14 @@ def check_subject(subject_path):
         scan_path = os.path.join(path, str(scan))
         if 'fid' in os.listdir(scan_path):
             with open(os.path.join(scan_path, 'acqp')) as acqp_file:
+                n_slices = None
+                protocol_name = None
+                te = None
+                tr = None
+                dim = None
+                matrix = None
+                frame = None
+
                 for line in acqp_file:
                     #if "##$ACQ_slice_thick=" in line:
                         #slice_thick = line[19:]
@@ -63,9 +74,22 @@ def check_subject(subject_path):
                             n_slices = ''
                     elif "##$PVM_NRepetitions=" in line:
                         frame = line[20:].strip()
+
             print('[ %s ] %s (%s acqusition): < %s %s %s > TE: %s ms, TR: %s ms' % (scan, protocol_name,
                                                                               dim, matrix, n_slices,
                                                                               frame, te, tr))
+            pdata_path = os.path.join(scan_path, 'pdata')
+            recos = [str(reco) for reco in os.listdir(pdata_path) if os.path.isdir(os.path.join(pdata_path, reco))]
+            for reco in recos:
+                with open(os.path.join(scan_path, 'pdata', reco, 'reco')) as reco_file:
+                    map_mode = None
+                    map_range = None
+                    for line in reco_file:
+                        if "##$RECO_map_mode=" in line:
+                            map_mode = line[17:].strip()
+                        elif "##$RECO_map_range=" in line:
+                            map_range = reco_file.next().strip().split(' ')
+                print('\tpdata: {}, Recon-mode: {}, Range: {}'.format(reco, map_mode, map_range))
         else:
             pass
 

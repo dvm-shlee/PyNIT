@@ -1,0 +1,238 @@
+#!/usr/bin/env python
+
+__author__ = 'SungHo Lee (shlee@unc.edu)'
+__version_info__ = ('2017', '02', '13')
+__version__ = '-'.join(__version_info__) + 'DEV00'
+
+import os, re, argparse
+import numpy as np
+import copy
+from skimage.feature import register_translation
+from scipy.ndimage import fourier_shift
+import nibabel as nib
+
+parser = argparse.ArgumentParser(prog='Brkfid2Nii', description="Convert Bruker raw 'fid' to Nifti formated image")
+parser.add_argument("path", help="Folder location for the Bruker raw data", type=str)
+parser.add_argument("filename", help="Filename w/o extension to export NifTi image", type=str)
+parser.add_argument("-V", "--version", action="version", version="%(prog)s ("+__version__+")")
+args = parser.parse_args()
+
+class BrukerRawData(object):
+    def __init__(self, path):
+        # parameter files
+        with open(os.path.join(path, 'acqp')) as f:
+            acqp = f.readlines()[:]
+        with open(os.path.join(path, 'method')) as f:
+            method = f.readlines()[:]
+        self._acqp = self.parsing(acqp, 'acqp')
+        self._method = self.parsing(method, 'method')
+
+        # generate complex FID
+        fid = np.fromfile(os.path.join(path, 'fid'), dtype=np.int32)
+        self._fid = fid[1::2] + 1j * fid[0::2]
+        self._kspace = self.gen_kspace(self._fid)
+        self._img = self.fft_image(self._kspace)
+
+    @property
+    def acqp(self):
+        return self._acqp
+
+    @property
+    def method(self):
+        return self._method
+
+    @property
+    def fid(self):
+        return self._fid
+
+    @property
+    def img(self):
+        return self._img
+
+    @property
+    def kspace(self):
+        return self._kspace
+
+    def check_dt(self, value):
+        p_int = r'^-?[0-9]+$'
+        p_float = r'^-?(\d+\.?)?\d+([eE][-+]?\d+)?$'
+        p_string = r'^\<(.*)\>$'
+        value = value.strip(' ')
+        if re.match(p_float, value):
+            if re.match(p_int, value):
+                value = int(value)
+            else:
+                value = float(value)
+        else:
+            try:
+                value = int(value)
+                print('Hey! :{}'.format(value))
+            except:
+                if re.match(p_string, value):
+                    value = re.sub(p_string, r'\1', value).strip(" ")
+        return value
+
+    def check_array(self, n_value, values):
+        p_groups = r'\(([^)]*)\)'
+        if re.match(p_groups, values):
+            values = re.findall(p_groups, values)
+            values = [map(self.check_dt, value.split(', ')) for value in values]
+        else:
+            values = map(self.check_dt, values.split())
+        return values
+
+    def parsing(self, profiles, key):
+        p_sprofile = r'^\#\#\$(.*)\=([^(].*[^)])'
+        p_vprofile = r'^\#\#\$(.*)\=\((.*)\)'
+        p_vis = r'^\$\$.*'
+        p_string = r'^\<(.*)\>$'
+        output_obj = dict()
+        for i, line in enumerate(profiles):
+            if re.search(p_sprofile, line):
+                key = re.sub(p_sprofile, r'\1', line).strip()
+                value = re.sub(p_sprofile, r'\2', line).strip()
+                value = self.check_dt(value)
+                output_obj[key] = value
+            elif re.search(p_vprofile, line):
+                key = re.sub(p_vprofile, r'\1', line).strip()
+                n_value = re.sub(p_vprofile, r'\2', line).strip()
+                n_value = map(int, map(str.strip, n_value.split(',')))
+                if len(n_value) == 1:
+                    n_value = n_value[0]
+                values = list()
+                for next_line in profiles[i + 1:]:
+                    if re.search(p_sprofile, next_line):
+                        break
+                    elif re.search(p_vprofile, next_line):
+                        break
+                    elif re.search(p_vis, next_line):
+                        break
+                    else:
+                        values.append(next_line.strip())
+                values = ' '.join(values)
+                if isinstance(n_value, list):
+                    try:
+                        values = np.array(self.check_array(n_value, values)).reshape(n_value)
+                    except:
+                        values = self.check_dt(values)
+                    output_obj[key] = values
+                else:
+                    if re.match(p_string, values):
+                        output_obj[key] = re.sub(p_string, r'\1', values)
+                    else:
+                        if n_value == 1:
+                            values = self.check_dt(values)
+                        else:
+                            try:
+                                values = self.check_array(n_value, values)
+                            except:
+                                print('{}({})={}'.format(key, n_value, values))
+                        output_obj[key] = values
+            else:
+                pass
+        return output_obj
+
+    def gen_kspace(self, fid):
+        # Parsing profiles
+        nx, ny = self.method['PVM_EncMatrix']
+        no_objects = self.acqp['NI']
+        no_echos = self.acqp['ACQ_n_echo_images']
+        nz = no_objects / no_echos
+        no_repetitions = self.acqp['NR']
+        nc = self.method['PVM_EncNReceivers']
+
+        # Calculate zeropad
+        zerofill_r = self.method['PVM_EncZfRead']
+        pft_factor = self.method['PVM_EncPftAccel1']
+        totalx = np.ceil(nx * zerofill_r)
+        totaly = np.ceil(ny * pft_factor)
+        zeropad_x = totalx - nx
+        zeropad_y = int(totaly - ny)
+
+        # Zeropadding
+        kspace = fid.reshape(-1, no_repetitions, no_echos, nz, nc, ny, nx)
+        npad = [(0, 0)] * 6 + [(int(np.floor(zeropad_x / 2)), int(np.ceil(zeropad_x / 2)))]
+
+        kspace = np.pad(kspace, pad_width=npad, mode='constant', constant_values=0)
+        npad = kspace[:, :, :, :, :, ny - zeropad_y:, :][:, :, :, :, :, ::-1, :]
+        kspace = np.concatenate((npad, kspace), axis=-2)
+        kspace = np.squeeze(kspace)
+
+        # Flip even phase encoding rows
+        kspace = np.squeeze(kspace)
+        shape = copy.deepcopy(kspace.shape)
+
+        kspace = kspace.reshape(-1, int(totaly), int(totalx))
+
+        kspace[:, 1::2, :] = kspace[:, 1::2, ::-1]
+        odd = copy.deepcopy(kspace)[:10, ::2, :].mean(axis=0)
+        eve = copy.deepcopy(kspace)[:10, 1::2, :].mean(axis=0)
+
+        shift, error, diffphase = register_translation(odd, eve, 1000)
+        del (odd, eve)
+
+        eve = copy.deepcopy(kspace)[:, 1::2, :]
+        eve = np.apply_along_axis(fourier_shift, -1, np.fft.fftn(eve), shift[1] / 2)
+        eve = np.fft.ifftn(eve)
+        odd = copy.deepcopy(kspace)[:, ::2, :]
+        odd = np.apply_along_axis(fourier_shift, -1, np.fft.fftn(odd), -shift[1] / 2)
+        odd = np.fft.ifftn(odd)
+        kspace[:, ::2, :] = odd
+        kspace[:, 1::2, :] = eve
+
+        # TODO: Geometry, for further reconstruction options
+        read_offset_mm = self.acqp['ACQ_read_offset']
+        phase1_offset_mm = self.acqp['ACQ_phase1_offset']
+        phase2_offset_mm = self.acqp['ACQ_phase2_offset']
+        slice_offset_mm = self.acqp['ACQ_slice_offset']
+
+        return kspace.reshape(shape)
+
+    def fft_image(self, k, dtype='uint32'):
+        img = np.fft.fftshift(np.fft.fft2(k))
+        img = abs(img).astype(dtype)
+
+        obj_order = copy.deepcopy(self.acqp['ACQ_obj_order'])
+        temp = dict()
+        for i, idx in enumerate(obj_order):
+            temp[idx] = i
+        obj_order[1::2] = temp.values()[::2]
+        obj_order[::2] = temp.values()[1::2]
+        img = np.transpose(img)
+        print(img.shape)
+
+        if len(img.shape) == 3:
+            img = img[::-1, :, obj_order]
+        elif len(img.shape) == 4:
+            print(obj_order)
+            img = img[::-1, :, obj_order, :]
+            time = int(img.shape[-1] / 2)
+            img = np.concatenate((img[:, :, :, time:], img[:, :, :, :time]), 3)
+        return img
+
+    def get_dim_size(self, dim):
+        m_ACQ_dim = self.acqp['ACQ_dim']
+        m_PVM_matrix = self.method['PVM_Matrix']
+        m_PVM_AntiAlias = self.method['PVM_AntiAlias']
+        m_ACQ_size = self.acqp['ACQ_size']
+
+        if (dim >= m_ACQ_dim or dim < 0):
+            return 0
+        if (m_PVM_matrix and m_PVM_AntiAlias):
+            return m_PVM_matrix[dim] * m_PVM_AntiAlias[dim]
+        if (dim == 0):
+            return m_ACQ_size[0] / 2
+        return m_ACQ_size[dim]
+
+    def get_nifti(self):
+        dx, dy = self.method['PVM_SpatResol']
+        dz = self.acqp['ACQ_slice_thick']
+        affine = np.diag([dx, dy, dz, 1])
+        return nib.Nifti1Image(self.img, affine)
+
+    def __repr__(self):
+        return 'BrukerRawData'
+
+img = BrukerRawData(args.path)
+nii = img.get_nifti()
+nii.to_filename(args.filename + '.nii.gz')
