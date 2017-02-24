@@ -52,6 +52,14 @@ class Errors(object):
         """InitiationFailure"""
         pass
 
+    class MissingPipeline(EnvironmentError):
+        """MissingPipeline"""
+        pass
+
+    class NoFilteredOutput(EnvironmentError):
+        """NoFilteredOutput"""
+        pass
+
 class InputFileError(Exception):
     pass
 

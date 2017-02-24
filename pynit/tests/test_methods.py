@@ -9,5 +9,5 @@ class TestMethods(TestCase):
         self.proc = Process(self.prj, 'TestProcess')
 
     def tearDown(self):
-        rmtree('test_prj/Processing/TestProcess')
-        rmtree('test_prj/Results/TestProcess', ignore_errors=True)
+        rmtree('test_prj/Processing')
+        rmtree('test_prj/Results', ignore_errors=True)

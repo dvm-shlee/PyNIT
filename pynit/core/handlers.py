@@ -11,6 +11,7 @@ from shutil import rmtree
 try:
     if len([key for key in sys.modules.keys() if key == 'ipykernel']):
         from tqdm import tqdm_notebook as progressbar
+        from ipywidgets import widgets
     else:
         from tqdm import tqdm as progressbar
 except:
@@ -239,9 +240,13 @@ class Project(object):
             return list(itertools.chain.from_iterable(output))
         else:
             methods.raiseerror(messages.Errors.InputTypeError,
-                               "only one of the value in ['all'.'img'.'txt'] is available for type.")
+                               "only one of the value in ['all'.'img'.'txt'] is available for type.\n")
 
-    def reset(self, rescan=False):
+    def reload(self):
+        self.reset(True)
+        self.apply()
+
+    def reset(self, rescan=False, verbose=False):
         """ Reset DataFrame
 
         Parameters
@@ -254,16 +259,14 @@ class Project(object):
         """
 
         if rescan:
-            for i in range(3):
-                self.__dc_idx = i
+            for i in range(2):
+                self.__dc_idx = i+1
                 self.scan_prj()
                 if self.__empty_project:
-                    print("Dataclass '{}' is Empty".format(self.ds_type[self.__dc_idx]))
+                    if verbose:
+                        print("Dataclass '{}' is Empty".format(self.ds_type[self.__dc_idx]))
             self.__dc_idx = 0
-            prj_file = os.path.join(self.__path, self.ds_type[self.__dc_idx], '.class_dataframe')
-            with open(prj_file, 'r') as f:
-                self.__df = pickle.load(f)
-
+            self.scan_prj()
         else:
             prj_file = os.path.join(self.__path, self.ds_type[self.__dc_idx], '.class_dataframe')
             try:
@@ -321,9 +324,9 @@ class Project(object):
             if len(self.__df):
                 self.__df = self.__df[methods.reorder_columns(self.__dc_idx, self.single_session)]
             self.__empty_project = False
+            self.__update()
         else:
             self.__empty_project = True
-        self.__update()
         self.save_df(self.__dc_idx)
 
     def set_filters(self, *args, **kwargs):
@@ -347,6 +350,7 @@ class Project(object):
 
         """
         self.reset_filters(self.ext)
+        pipe_filter = None
         if kwargs:
             for key in kwargs.keys():
                 if key == 'dataclass':
@@ -438,8 +442,21 @@ class Project(object):
                 else:
                     self.__filters[3] = None
             if len(residuals):
-                methods.raiseerror(messages.Errors.InputValueError,
-                                         'Wrong filter input:{residuals}'.format(residuals=residuals))
+                if self.dataclass == self.ds_type[1]:
+                    if len(pipe_filter) == 1:
+                        dc_path = os.path.join(self.path, self.dataclass, pipe_filter[0])
+                        processed = os.listdir(dc_path)
+                        if len([step for step in processed if step in residuals]):
+                            methods.raiseerror(messages.Errors.NoFilteredOutput,
+                                               'Cannot find any results from [{residuals}]\n'
+                                               '\t\t\tPlease take a look if you had applied correct input'
+                                               ''.format(residuals=residuals))
+                    else:
+                        methods.raiseerror(messages.Errors.NoFilteredOutput,
+                                           'Uncertain exception occured, please report to Author (shlee@unc.edu)')
+                else:
+                    methods.raiseerror(messages.Errors.NoFilteredOutput,
+                                       'Wrong filter input:{residuals}'.format(residuals=residuals))
 
     def apply(self):
         """ Applying all filters to current dataframe
@@ -677,7 +694,7 @@ class Process(object):
         else:
             return input_path
 
-    def afni_MeanImgCalc(self, input_path, cbv=False, surfix='func'):
+    def afni_MeanImgCalc(self, func, cbv=False, surfix='func'):
         """ Mean image calculation for functional image
 
         Major purpose of this preprocessing step is to prepare base-images
@@ -685,7 +702,7 @@ class Process(object):
 
         Parameters
         ----------
-        input_path : str
+        func : str
             datatype of absolute_path
         cbv : boolean
             True if MION contrast agent is infused
@@ -696,18 +713,18 @@ class Process(object):
         -------
         output_path : dict
         """
-        input_path = self.check_input(input_path)
+        func = self.check_input(func)
         step = Step(self)
-        step.set_input(name='func', input_path=input_path, static=True)
+        step.set_input(name='func', input_path=func, static=True)
         step.set_outparam(name='mparam', ext='.1D')
         cmd01 = "3dvolreg -prefix {temp_01} -1Dfile {mparam} -Fourier -verbose -base 0 {func}"
         step.set_command(cmd01)
         if cbv:
             cmd02 = "3dinfo -nv {func}"
             step.set_staticinput('bold', 'int(int(ttime)/3)')
-            step.set_staticinput('bold_output', 'methods.splitnifti(output)+"_bold.nii.gz"')
+            step.set_staticinput('bold_output', 'methods.splitnifti(output)+"_BOLD.nii.gz"')
             step.set_staticinput('cbv', 'int(int(ttime)*2/3)')
-            step.set_staticinput('cbv_output', 'methods.splitnifti(output)+"_cbv.nii.gz"')
+            step.set_staticinput('cbv_output', 'methods.splitnifti(output)+"_CBV.nii.gz"')
             step.set_command(cmd02, stdout='ttime')
             options = ['"[0..{bold}]"',
                        '"[{cbv}..$]"']
@@ -715,23 +732,21 @@ class Process(object):
             step.set_command(cmd03)
             cmd04 = "3dTstat -prefix {cbv_output} -mean {temp_01}" + options[1]
             step.set_command(cmd04)
-            print(step._commands)
-            print(step.get_executefunc('test', verbose=True))
-            output_path = step.run('MeanImgCalc', surfix)
+            # step.get_executefunc('test', verbose=True)
+            output_path = step.run('MeanImgCalc-CBV', surfix)
         else:
             cmd02 = "3dTstat -prefix {output} -mean {temp_01}"
             step.set_command(cmd02)
-            print(step._commands)
-            step.get_executefunc('test')
-            output_path = step.run('MeanImgCalc', surfix)
+            # step.get_executefunc('test', verbose=True)
+            output_path = step.run('MeanImgCalc-BOLD', surfix)
         return dict(meanfunc=output_path)
 
-    def afni_SliceTimingCorrection(self, input_path, tr=None, tpattern=None, surfix='func'):
+    def afni_SliceTimingCorrection(self, func, tr=None, tpattern=None, surfix='func'):
         """ Corrects for slice time differences when individual 2D slices are recorded over a 3D image
 
         Parameters
         ----------
-        input_path : str
+        func : str
         tr : int
         tpattern : str
         surfix : str
@@ -740,10 +755,10 @@ class Process(object):
         -------
         output_path : dict
         """
-        input_path = self.check_input(input_path)
+        func = self.check_input(func)
         options = str()
         step = Step(self)
-        step.set_input(name='func', input_path=input_path, static=False)
+        step.set_input(name='func', input_path=func, static=False)
         cmd = "3dTshift -prefix {output}"
         if tr:
             options += " -tr {0}".format(tr)
@@ -754,28 +769,264 @@ class Process(object):
         input_str = " {func}"
         cmd = cmd+options+input_str
         step.set_command(cmd)
-        step.get_executefunc('test', verbose=True)
+        # step.get_executefunc('test', verbose=True)
         output_path = step.run('SliceTmCorrect', surfix)
         return dict(func=output_path)
 
-    def afni_MotionCorrection(self, input_path, surfix='func'):
+    def afni_MotionCorrection(self, func, surfix='func'):
         """
 
         Parameters
         ----------
-        input_path
+        func
 
         Returns
         -------
 
         """
-        input_path = self.check_input(input_path)
+        func = self.check_input(func)
         step = Step(self)
-        step.set_input(name='func', input_path=input_path, static=False)
+
+        step.set_input(name='func', input_path=func, static=False)
+        try:
+            mimg_path = self.steps[0]
+            if '-CBV-' in mimg_path:
+                mimg_filters = {'file_tag': '_CBV'}
+                step.set_input(name='base', input_path=mimg_path, filters=mimg_filters, static=True, side=True)
+            else:
+                step.set_input(name='base', input_path=mimg_path, static=True, side=True)
+        except:
+            methods.raiseerror(messages.Errors.MissingPipeline,
+                               'Initial Mean image calculation step has not been executed!')
         step.set_outparam(name='mparam', ext='.1D')
-        cmd = "3dvolreg -prefix {temp_01} -1Dfile {mparam} -Fourier -verbose -base 0 {func}"
-        step.set_command(cmd)
+        step.set_outparam('transmat', ext='.aff12.1D')
+        cmd01 = "3dvolreg -prefix {temp_01} -1Dfile {mparam} -Fourier -verbose -base 0 {func}"
+        step.set_command(cmd01)
+        cmd02 = "3dTstat -mean -prefix {temp_02} {temp_01}"
+        step.set_command(cmd02)
+        cmd03 = "3dAllineate -prefix {temp_03} -warp sho -base {base} -1Dmatrix_save {transmat} {temp_02}"
+        step.set_command(cmd03)
+        cmd04 = '3dAllineate -prefix {output} -1Dmatrix_apply {transmat} -warp sho {temp_01}'
+        step.set_command(cmd04)
+        # step.get_executefunc('test', verbose=True)
         output_path = step.run('MotionCorrection', surfix)
+        return dict(func=output_path)
+
+    def afni_MaskPrep(self, anat):
+        """
+        Parameters
+        ----------
+        anat
+
+        Returns
+        -------
+        """
+        anat = self.check_input(anat)
+        step = Step(self)
+        try:
+            step.set_input(name='anat', input_path=anat, static=True)
+        except:
+            methods.raiseerror(messages.Errors.MissingPipeline,
+                               'No anatomy file!')
+        cmd01 = '3dcalc -prefix {output} -expr "a" -a {anat}'
+        step.set_command(cmd01)
+        anat_path = step.run('MaskPrep', 'anat')
+        step = Step(self)
+        try:
+            mimg_path = self.steps[0]
+            if '-CBV-' in mimg_path:
+                mimg_filters = {'file_tag': '_BOLD'}
+                step.set_input(name='func', input_path=mimg_path, filters=mimg_filters, static=True)
+            else:
+                step.set_input(name='func', input_path=mimg_path, static=True)
+        except:
+            methods.raiseerror(messages.Errors.MissingPipeline,
+                               'Initial Mean image calculation step has not been executed!')
+        cmd02 = '3dcalc -prefix {output} -expr "a" -a {func}'
+        step.set_command(cmd02, idx=0)
+        func_path = step.run('MaskPrep', 'meanfunc')
+        return dict(anat=anat_path, func=func_path)
+
+    def afni_SkullStrip(self, anat, func):
+        """
+        Parameters
+        ----------
+        func
+        anat
+
+        Returns
+        -------
+        """
+        anat = self.check_input(anat)
+        func = self.check_input(func)
+        step = Step(self)
+        mask_filters = {'file_tag': '_mask'}
+        step.set_input(name='anat', input_path=anat, static=True)
+        step.set_input(name='anat_mask', input_path=anat, filters=mask_filters, static=True, side=True)
+        cmd01 = '3dcalc -prefix {output} -expr "a*step(b)" -a {anat} -b {anat_mask}'
+        step.set_command(cmd01)
+        anat_path = step.run('SkullStrip', 'anat')
+        step = Step(self)
+        step.set_input(name='func', input_path=func, static=True)
+        step.set_input(name='func_mask', input_path=func, filters=mask_filters, static=True, side=True)
+        cmd02 = '3dcalc -prefic {output} -expr "a*step(b)" -a {func} -b {func_mask}'
+        step.set_command(cmd02, idx=0)
+        func_path = step.run('SkullStrip', 'meanfunc')
+        return dict(anat=anat_path, func=func_path)
+
+    def afni_Coreg(self, anat, meanfunc, surfix='func'):
+        """
+        Parameters
+        ----------
+        meanfunc
+        anat
+
+        Returns
+        -------
+        """
+        anat = self.check_input(anat)
+        meanfunc = self.check_input(meanfunc)
+        step = Step(self)
+        step.set_input(name='anat', input_path=anat, static=True, side=True)
+        step.set_input(name='func', input_path=meanfunc, static=True)
+        step.set_outparam(name='transmat', ext='.aff12.1D')
+        cmd01 = "N4BiasFieldCorrection -i {anat} -o {temp_01}"
+        step.set_command(cmd01)
+        cmd02 = "N4BiasFieldCorrection -i {func} -o {temp_02}"
+        step.set_command(cmd02)
+        cmd03 = "3dAllineate -prefix {output} -onepass -EPI -base {temp_01} -cmass+xy " \
+                "-1Dmatrix_save {transmat} {temp_02}"
+        step.set_command(cmd03)
+        output_path = step.run('Coregistration', surfix)
+        return dict(func=output_path)
+
+    def afni_SkullStripAll(self, func, meanfunc, surfix='func'):
+        """
+        Parameters
+        ----------
+        func
+        meanfunc
+
+        Returns
+        -------
+        """
+        meanfunc = self.check_input(meanfunc)
+        func = self.check_input(func)
+        step = Step(self)
+        mask_filters = {'file_tag':'_mask'}
+        step.set_input(name='mask', input_path=meanfunc, filters=mask_filters, static=True, side=True)
+        step.set_input(name='func', input_path=func)
+        cmd = '3dcalc -prefix {output} -expr "a*step(b)" -a {func} -b {mask}'
+        step.set_command(cmd)
+        # step.get_executefunc('test', verbose=True)
+        output_path = step.run('Apply_SkullStrip', surfix)
+        return dict(func=output_path)
+
+    def afni_ApplyCoregAll(self, func, coregfunc, surfix='func'):
+        """
+
+        Parameters
+        ----------
+        func
+        coregfunc
+        surfix
+
+        Returns
+        -------
+
+        """
+        coregfunc = self.check_input(coregfunc)
+        func = self.check_input(func)
+        step = Step(self)
+        tform_filters = {'ext':'.aff12.1D'}
+        step.set_input(name='tform', input_path=coregfunc, filters=tform_filters, static=True, side=True)
+        step.set_input(name='coreg', input_path=coregfunc, static=True, side=True)
+        step.set_input(name='func', input_path=func)
+        cmd = '3dAllineate -prefix {output} -master {coreg} -1Dmatrix_apply {tform} {func}'
+        step.set_command(cmd)
+        # step.get_executefunc('test', verbose=True)
+        output_path = step.run('Apply_Coreg', surfix)
+        return dict(func=output_path)
+
+    def afni_SpatialNorm(self, anat, tmpobj, surfix='anat'):
+        """
+
+        Parameters
+        ----------
+        anat
+        tmpobj
+        surfix
+
+        Returns
+        -------
+
+        """
+        anat = self.check_input(anat)
+        step = Step(self)
+        step.set_input(name='anat', input_path=anat, static=True)
+        step.set_staticinput(name='tmpobj', value=tmpobj.template_path)
+        step.set_outparam(name='transmat', ext='.aff12.1D')
+        cmd = '3dAllineate -prefix {output} -twopass -cmass+xy -zclip -conv 0.01 -base {tmpobj} ' \
+              '-cost crM -check nmi -warp shr -1Dmatrix_save {transmat} {anat}'
+        step.set_command(cmd)
+        # step.get_executefunc('test', verbose=True)
+        output_path = step.run('SpatialNorm', surfix)
+        return dict(normanat=output_path)
+
+    def afni_ApplySpatialNorm(self, func, normanat, surfix='func'):
+        """
+
+        Parameters
+        ----------
+        func
+        normanat
+        surfix
+
+        Returns
+        -------
+
+        """
+        func = self.check_input(func)
+        normanat = self.check_input(normanat)
+        step = Step(self)
+        step.set_input(name='func', input_path=func)
+        step.set_input(name='normanat', input_path=normanat, static=True, side=True)
+        transmat_filter = {'ext':'.aff12.1D'}
+        step.set_input(name='transmat', input_path=normanat, filters=transmat_filter, static=True, side=True)
+        cmd = '3dAllineate -prefix {output} -master {normanat} -warp shr -1Dmatrix_apply {transmat} {func}'
+        step.set_command(cmd)
+        # step.get_executefunc('test', verbose=True)
+        output_path = step.run('ApplySpatialNorm', surfix)
+        return dict(normfunc=output_path)
+
+    def afni_SpatialSmoothing(self, func, fwhm=0.5, mask=None, surfix='func'):
+        """
+
+        Parameters
+        ----------
+        anat
+        tmpobj
+        surfix
+
+        Returns
+        -------
+
+        """
+        func = self.check_input(func)
+        step = Step(self)
+        step.set_input(name='func', input_path=func)
+        if not fwhm:
+            methods.raiseerror(messages.Errors.InputValueError, 'the FWHM value have to specified')
+        else:
+            step.set_staticinput('fwhm', fwhm)
+        cmd = '3dBlurInMask -prefix {output} -FWHM {fwhm}'
+        if mask:
+            step.set_staticinput('mask', mask)
+            cmd += ' -mask {mask}'
+        cmd += ' -quiet {func}'
+        step.set_command(cmd)
+        # step.get_executefunc('test', verbose=True)
+        output_path = step.run('SpatialSmoothing', surfix)
         return dict(func=output_path)
 
     @property
@@ -796,7 +1047,18 @@ class Process(object):
 
     @property
     def executed(self):
-        return sorted(self._history.keys())
+        exists = [d for d in os.listdir(self.path) if os.path.isdir(os.path.join(self.path, d))]
+        for step in self._history.keys():
+            if step not in exists:
+                del self._history[step]
+        n_hist = len(self._history.keys())
+        output = zip(range(n_hist), sorted(self._history.keys()))
+        return dict(output)
+
+
+    @property
+    def steps(self):
+        return [self._history[step] for step in self.executed.values()]
 
     def reset(self):
         """ reset subject and session information
@@ -849,6 +1111,14 @@ class Process(object):
         else:
             methods.raiseerror(messages.Errors.InitiationFailure, 'Error on initiating step')
 
+    # def init_report(self, title): #TODO: method for preparing reports
+    #     path = os.path.join(self._prjobj.path, self._prjobj.ds_type[2],
+    #                         self.processing, title)
+    #     methods.mkdir(os.path.join(self._prjobj.path, self._prjobj.ds_type[2],
+    #                                self.processing), path)
+    #     self._prjobj.scan_prj()
+    #     return path
+
     def save_history(self):
         history = os.path.join(self._path, '.proc_hisroty')
         with open(history, 'w') as f:
@@ -857,27 +1127,41 @@ class Process(object):
 
 
 class Step(object):
-    """ Basic processing step template
+    """ Template for a processing step
+
+    This class simply allows you to design processing steps, that needs to combine multiple command line tools in
+    several fMRI imaging package such as AFNI, ANTs, and FSL.
+    The fundamental mechanism is that by applying given inputs, outputs, and command, this class generating
+    customized function and executed it.
+
+    - data structure -
+    'dataset'   : the template that storing the structure of an input source
+    'oppset'    : the template that storing the structure of an output parameter, such as motion parameter
+                and transformation profiles.
+    'cmdset'    : the template that storing the structure of executing commands including variables
+
     """
-    oppset = namedtuple('Output', ['name', 'ext']) # output_param handler
-    dataset = namedtuple('Dataset', ['name', 'input_path', 'static'])  # projectobj handler
-    cmdset = namedtuple('Command', ['name', 'command', 'option'])  # commandobj handler
+    dataset = namedtuple('Dataset', ['name', 'input_path', 'static'])       # dataset template
+    oppset = namedtuple('OutputParam', ['name', 'prefix', 'ext'])           # output_param template
+    cmdset = namedtuple('Command', ['name', 'command', 'option'])           # command template
+    mthset = namedtuple('Method', ['name', 'args', 'kwargs'])               # method template
 
     def __init__(self, procobj):
-        self._procobj = procobj
-        self._processing = procobj.processing
-        self._tempfiles = []
-        self._mainset = None
-        self._sidesets = []
-        self._staticinput = {}
-        self._outparam = {}
-        self._subjects = procobj.subjects[:]
+        self._procobj = procobj                         # load Process object
+        self._processing = procobj.processing           # read Process name
+        self._tempfiles = []                            # temp file handler
+        self._mainset = None                            # main input handler
+        self._sidesets = []                             # side inputs handler
+        self._staticinput = {}                          # static input handler
+        self._outparam = {}                             # output_param handler
+        self._subjects = procobj.subjects[:]            # load all subject list from process object
+        self._outputs = {}                              # output handler
         try:
-            self._sessions = procobj.sessions[:]
+            self._sessions = procobj.sessions[:]        # check single session or not
         except:
             self._sessions = None
-        self._commands = []
-        self._filters = {'main':[], 'sides':{}}
+        self._commands = []                             # executing commands handler
+        self._filters = {'main':[], 'sides':{}}         # handler for project obj filtering
 
     def set_input(self, name, input_path, filters=None, static=False, side=False):
         """ Import input dataset
@@ -906,34 +1190,62 @@ class Step(object):
             self._mainset = self.dataset(name=name, input_path=input_path, static=static)
             self._filters['main'] = self.get_filtercode(str(dc), ipath, filters)
 
-    def set_outparam(self, name, ext):
+    def set_staticinput(self, name, value):
+        """ Import static file
         """
+        if isinstance(value, str):
+            value = '"{}"'.format(value)
+        self._staticinput[name] = value
+
+    def set_outparam(self, name, ext, prefix=None):
+        """ Set parameter output files on out_param handler
 
         Parameters
         ----------
-        name
-        output_ext
-
+        name : str
+            variables for parameter output file
+        output_ext : str
+            for setting extension of the file
         Returns
         -------
         None
         """
-        self._outparam[name] = (self.oppset(name=name, ext=ext))
+        self._outparam[name] = (self.oppset(name=name, prefix=prefix, ext=ext))
 
-    def set_staticinput(self, name, value):
-        """ Import static file
-        """
-        self._staticinput[name] = value
-
-    def set_command(self, command, verbose=False, idx=None, stdout=None )  :
-        """
+    def set_execmethod(self, command, var=None, idx=None):
+        """ Set structured command on command handler
 
         Parameters
         ----------
         command : str
+            structured command with input and output variables
         verbose : boolean
+
         idx : int
+            Index for replacing the commands on handler
+
+        Returns
+        -------
+
+        """
+        if idx:
+            self._commands[idx] = (command, [var])
+        else:
+            self._commands.append((command, [var]))
+
+    def set_command(self, command, verbose=False, idx=None, stdout=None ):
+        """ Set structured command on command handler
+
+        Parameters
+        ----------
+        command : str
+            structured command with input and output variables
+        verbose : boolean
+
+        idx : int
+            Index for replacing the commands on handler
         stdout : str or None
+            if True, the input string can be used the variable for stand output results of a command
 
         Returns
         -------
@@ -954,19 +1266,14 @@ class Step(object):
         residuals = [obj for obj in residuals if obj not in self._staticinput.keys()]
         residuals = [obj for obj in residuals if obj not in self._outparam.keys()]
 
-        # Get list of extra inputs
-        lacks = [obj for obj in totalobjs if obj not in objs]
-
         # Check accuracy
         if len(residuals):
-            methods.raiseerror(ValueError, 'Too many inputs{0}'.format(str(residuals)))
+            methods.raiseerror(ValueError, 'Too many inputs :{0}'.format(str(residuals)))
         output = "'{0}'.format(".format(command)
         str_format = []
-        # print(objs)
         for obj in objs:
             if obj == 'output':
                 str_format.append("{0}={0}".format(obj))
-                # str_format.append("output={0}".format(obj))
             else:
                 if 'temp' in obj:
                     str_format.append("{0}=os.path.join(temppath, '{0}.nii')".format(obj))
@@ -974,7 +1281,12 @@ class Step(object):
                 elif obj in self._staticinput.keys():
                     str_format.append("{0}={1}".format(obj, self._staticinput[obj]))
                 elif obj in self._outparam.keys():
-                    str_format.append("{0}=methods.splitnifti(output)+'{1}'".format(obj, self._outparam[obj].ext))
+                    if self._outparam[obj].prefix:
+                        str_format.append("{0}='{1}_'+ methods.splitnifti(output)+'{2}'".format(obj,
+                                                                                                self._outparam[obj].prefix,
+                                                                                                self._outparam[obj].ext))
+                    else:
+                        str_format.append("{0}=methods.splitnifti(output)+'{1}'".format(obj, self._outparam[obj].ext))
                 else:
                     if total[obj]:
                         str_format.append("{0}={1}.Abspath".format(obj, obj))
@@ -991,7 +1303,7 @@ class Step(object):
             return output
 
     def get_inputcode(self):
-        """ Generate datasets to execute step
+        """ Put the set inputs values on the lists as a building block of customized function
 
         Returns
         -------
@@ -1022,13 +1334,17 @@ class Step(object):
         return inputcode
 
     def get_filtercode(self, dataclass, input_path, filters):
-        """ Generate list of items for filtering based on input
+        """ Generate list of filtering based keywords based on set input values
 
         Returns
         -------
         foldercode : str
         """
-        output_filters = [dataclass, '"{0}"'.format(input_path)]
+        if dataclass == '0':
+            print(input_path)
+            output_filters = [dataclass, '"{0}"'.format(input_path)]
+        else:
+            output_filters = [dataclass, '"{0}"'.format(self._processing), '"{0}"'.format(input_path)]
         if self._sessions:
             output_filters.extend(['subj', 'sess'])
         else:
@@ -1052,54 +1368,68 @@ class Step(object):
         -------
         output : str
         """
+        # Define inputs
         filters = ['\t{}'.format(input) for input in self.get_inputcode()]
-        if self._mainset.static:
+
+        # Depends on the main input type (static or multiple), different structure of function are generated
+        if self._mainset.static:    # if main input datasets only need to process first files for each subject
             body = ['\toutputs = []',
-                    '\toutput = os.path.join(output, {0}.Filename)'.format(self._mainset.name),
-                    '\tif os.path.isfile(output):',
-                    '\t\tself.logger.info("TheFile[{0}] is already exist.".format(output))',
+                    '\toutput = os.path.join(sub_path, {0}.Filename)'.format(self._mainset.name),
+                    '\tprefix = methods.splitnifti(os.path.basename(output))',
+                    '\tflist = [f for f in os.listdir(sub_path)]',
+                    '\tif len([f for f in flist if prefix in f]):',
+                    '\t\tself.logger.info("The File[{0}] is already exist.".format(output))',
                     '\telse:']
             for cmd, stdout in self._commands:
-                if stdout:
+                if isinstance(stdout, str):
                     body += ['\t\t{0}, err = methods.shell({1})'.format(stdout, cmd)]
+                elif isinstance(stdout, list):
+                    body += ['\t\t{0} = {1}'.format(stdout[0], cmd)]
                 else:
                     body += ['\t\toutputs.append(methods.shell({0}))'.format(cmd)]
             if self._tempfiles:
                 temp = ['\ttemppath = mkdtemp()',
                         '\tself.logger.info("TempFolder[{0}] is generated".format(temppath))']
-                close = ['\trmtree(temppath)']
+                close = ['\trmtree(temppath)',
+                         '\tself.logger.info("TempFolder[{0}] is closed".format(temppath))']
                 body = temp + body + close
             else:
                 pass
-        else:
+        else:   # if main input datasets need to be looped for each subject
             loop = ['\toutputs = []',
                     '\tfor i in progressbar(range(len({0})), desc="Files", leave=False):'.format(self._mainset.name)]
             body = ['\t\ttemp_outputs = []',
-                    '\t\toutput = os.path.join(output, {0}[i].Filename)'.format(self._mainset.name),
-                    '\t\tif os.path.isfile(output):',
-                    '\t\t\tself.logger.info("TheFile[{0}] is already exist.".format(output))',
+                    '\t\toutput = os.path.join(sub_path, {0}[i].Filename)'.format(self._mainset.name),
+                    '\t\tprefix = methods.splitnifti(os.path.basename(output))',
+                    '\t\tflist = [f for f in os.listdir(sub_path)]',
+                    '\t\tif len([f for f in flist if prefix in f]):',
+                    '\t\t\tself.logger.info("The File[{0}] is already exist.".format(output))',
                     '\t\telse:']
             for cmd, stdout in self._commands:
-                if stdout:
+                if isinstance(stdout, str):
                     body += ['\t\t\t{0}, err = methods.shell({1})'.format(stdout, cmd)]
+                elif isinstance(stdout, list):
+                    body += ['\t\t\t{0} = {1}'.format(stdout[0], cmd)]
                 else:
                     body += ['\t\t\ttemp_outputs.append(methods.shell({0}))'.format(cmd)]
             body += ['\t\toutputs.append(temp_outputs)']
             if self._tempfiles:
                 temp = ['\t\ttemppath = mkdtemp()',
                         '\t\tself.logger.info("TempFolder[{0}] is generated".format(temppath))']
-                close = ['\t\trmtree(temppath)']
+                close = ['\t\trmtree(temppath)',
+                         '\t\tself.logger.info("TempFolder[{0}] is closed".format(temppath))']
                 body = loop + temp + body + close
             else:
                 body = loop + body
+
         if self._sessions: # Check the project is multi-session
-            header = ['def {0}(self, output, subj, sess):'.format(name),
-                      '\toutput = os.path.join(output, subj, sess)',
-                      '\tmethods.mkdir(output)']
+            header = ['def {0}(self, output_path, subj, sess):'.format(name),
+                      '\tsub_path = os.path.join(output_path, subj, sess)',
+                      '\tmethods.mkdir(sub_path)']
         else:
-            header = ['def {0}(self, output, subj):'.format(name),
-                      '\toutput = os.path.join(output, subj)',
-                      '\tmethods.mkdir(output)']
+            header = ['def {0}(self, output_path, subj):'.format(name),
+                      '\tsub_path = os.path.join(output_path, subj)',
+                      '\tmethods.mkdir(sub_path)']
         footer = ['\treturn outputs\n']
         output = header + filters + body + footer
         output = '\n'.join(output)
@@ -1108,24 +1438,6 @@ class Step(object):
             return None
         else:
             return output
-
-    def worker(self, args):
-        """
-
-        Parameters
-        ----------
-        args : list
-            Arguments for step execution
-
-        Returns : str
-            output
-        -------
-        """
-        funccode = self.get_executefunc('stepexec')
-        output = None
-        exec(funccode)
-        exec('output = stepexec(*args)')
-        return output
 
     def run(self, step_name, surfix):
         """ Generate loop commands for step
@@ -1139,6 +1451,7 @@ class Step(object):
         -------
         None
         """
+        self._procobj._prjobj.reload()
         if self._procobj._parallel:
             thread = multiprocessing.cpu_count()
         else:
@@ -1152,7 +1465,7 @@ class Step(object):
                 iteritem = [(self._procobj, output_path, subj, sess) for sess in self._sessions]
                 for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Sessions',
                                           leave=False, total=len(iteritem)):
-                    try:
+                    if len(outputs):
                         if isinstance(outputs[0], list):
                             all_outputs = []
                             for output in outputs:
@@ -1162,31 +1475,86 @@ class Step(object):
                             outputs = ['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in outputs if outputs]
                         with open(os.path.join(output_path, 'stephistory.log'), 'a') as f:
                             f.write('\n\n'.join(outputs))
-                    except Exception as e:
-                        print(e)
+                    else:
+                        pass
         else:
             dirs = [os.path.join(output_path, subj) for subj in self._subjects]
             methods.mkdir(dirs)
             iteritem = [(self._procobj, output_path, subj) for subj in self._subjects]
             for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Subjects',
                                       total=len(iteritem)):
-                if isinstance(outputs[0], list):
-                    all_outputs = []
-                    for output in outputs:
-                        all_outputs.extend(['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in output])
-                    outputs = all_outputs[:]
+                if len(outputs):
+                    if isinstance(outputs[0], list):
+                        all_outputs = []
+                        for output in outputs:
+                            all_outputs.extend(['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in output])
+                        outputs = all_outputs[:]
+                    else:
+                        outputs = ['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in outputs]
+                    with open(os.path.join(output_path, 'stephistory.log'), 'a') as f:
+                        f.write('\n\n'.join(outputs))
                 else:
-                    outputs = ['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in outputs]
-                with open(os.path.join(output_path, 'stephistory.log'), 'a') as f:
-                    f.write('\n\n'.join(outputs))
+                    pass
         self._procobj._history[os.path.basename(output_path)] = output_path
         self._procobj.save_history()
+        self._procobj._prjobj.reload()
         return output_path
 
+    def worker(self, args):
+        """ The worker for parallel computing
 
-class Pipelines(object):
+        Parameters
+        ----------
+        args : list
+            Arguments for step execution
+
+        Returns : str
+            output
+        -------
+        """
+        funccode = self.get_executefunc('stepexec')
+        output = None
+        exec(funccode)    # load step function on memory
+        try:
+            exec('output = stepexec(*args)')    # execute function
+        except Exception as e:
+            print(e)
+        # except IndexError as e:
+        #     methods.raiseerror(ImportError,
+        #                        '[{}] Parsing input dataset Failed, Please check you put the correct inputs'.format(e))
+        return output
+
+
+class Pipelines(object): #TODO: make pipeline for evoked-fMRI preprocessing
+    """ Pipeline handler
+
+    this class is major class of PyNIT (for most of general users)
+    Initiate Pipeline with ptoject path - (not project object)
+
+    avail atributes return currently available pipelines that stored in Reference object
+
+    Once you initiate this class, you can select the pipeline what you want to execute by
+    'pipe.start(idx)' of 'pipe.start('name of pipeline')
+    then you can execute the
+
+    """
+    def __init__(self, prj_path, parallel=True, logging=True):
+        self._prjobj = Project(prj_path)
+        self._avail = self._prjobj.ref.avail
+        self._proc = None
+
+    @property
+    def avail(self):
+        return self._avail
+
+    def start(self, pipeline):
+        pass
+
+    def close(self):
+        pass
+
+class Maskdrawing(object):
     pass
-
 
 # Below classes will be deprecated soon
 class Preprocess(object):

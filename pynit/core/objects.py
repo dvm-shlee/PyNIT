@@ -26,6 +26,11 @@ class Reference(object):
            }
     data_structure = {'NIRAL': ['Data', 'Processing', 'Results'],
                       }
+    pipelines = {'evoked-fMRI_preprocess': dict(dim=['2D']),
+                 # 'evoked-fMRI_analysis',
+                 # 'rsfMRI_preprocess',
+                 # 'rsfMRI_analysis',
+                 }
 
     def __init__(self, *args):
         try:
@@ -42,7 +47,8 @@ class Reference(object):
         img = 'Image format:\t{}'.format(self.img.keys())
         txt = 'Text format:\t{}'.format(self.txt.keys())
         ds = 'Data structure:\t{}'.format(self.data_structure.keys())
-        output = '{}\n{}\n{}\n{}\n{}'.format(title,'-'*len(title), img, txt, ds)
+        pipe = 'Available pipelines:\t{}'.format(self.pipelines)
+        output = '{}\n{}\n{}\n{}\n{}\n{}'.format(title,'-'*len(title), img, txt, ds, pipe)
         return output
 
     @property
@@ -56,6 +62,11 @@ class Reference(object):
     @property
     def ref_ds(self):
         return self.data_structure[self._ds[0]]
+
+    @property
+    def avail(self):
+        n_pipe = len(self.pipelines.keys())
+        return dict(zip(range(n_pipe), self.pipelines.keys()))
 
     def set_img_format(self, img_format):
         if img_format in self.img.keys():
@@ -347,38 +358,3 @@ class Atlas(object):
             else:
                 labels = '{}[{:>3}] {:>40}\n'.format(labels, idx, self.label[idx][0])
         return labels
-
-
-# class GroupImages(object):
-#     """ Group handler for multiple but same sized of Image objects
-#     """
-#     def __init__(self):
-#         self._container = dict()
-#         self._panel = pd.Panel()
-#
-#     def __setitem__(self, key, value):
-#         if self._container:
-#             natives = [obj for obj in self._container.values()]
-#             if not isinstance(natives[0], value):
-#                 raise error.ObjectMismatch
-#             else:
-#                 if isinstance(value, ImageObj):
-#                     if value.shape != natives[0].shape:
-#                         raise error.ObjectMismatch
-#                 else:
-#                     pass
-#         self._container[key] = value
-#
-#     def __getitem__(self, key):
-#         return self._container[key]
-#
-#     @property
-#     def timetraces(self):
-#         return self._panel
-#
-#     def collect_timetrace(self, tempobj, **kwargs):
-#         dfs = dict()
-#         for sub, imageobj in self._container.iteritems():
-#             dfs[sub] = Analysis.get_timetrace(imageobj, tempobj, **kwargs)
-#         self._panel = pd.Panel(dfs)
-

@@ -528,7 +528,7 @@ def raiseerror(exception, message):
     try:
         raise exception(message)
     except Exception as e:
-        sys.stderr.write("ERROR({0}): {1}".format(e.__doc__, e.message))
+        sys.stderr.write("ERROR({0}): {1}\n".format(e.__doc__, e.message))
         messages.warnings.simplefilter("ignore")
         sys.exit()
 
@@ -755,7 +755,6 @@ def check_arguments(args, residuals, lists):
                 residuals.remove(comp)
     return list(set(filter)), list(set(residuals))
 
-
 def get_step_name(procobj, step):
     processing_path = os.path.join(procobj._prjobj.path, procobj._prjobj.ds_type[1], procobj.processing)
     executed_steps = [f for f in os.listdir(processing_path) if os.path.isdir(os.path.join(processing_path, f))]
@@ -772,7 +771,7 @@ def get_step_name(procobj, step):
         else:
             return "_".join([str(len(executed_steps) + 1).zfill(3), step])
     else:
-        print('First step for the pipeline{pipeline} is initiated'.format(pipeline=procobj.processing))
+        print('First step for the pipeline [{pipeline}] is initiated'.format(pipeline=procobj.processing))
         return "_".join([str(1).zfill(3), step])
 
 
