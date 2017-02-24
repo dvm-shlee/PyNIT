@@ -1,0 +1,551 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>pynit.core.visualizers &mdash; PyNIT dev01 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="PyNIT dev01 documentation" href="../../../index.html"/>
+        <link rel="up" title="pynit" href="../../pynit.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> PyNIT
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <!-- Local TOC -->
+                <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../../index.html">PyNIT</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      
+          <li><a href="../../pynit.html">pynit</a> &raquo;</li>
+      
+    <li>pynit.core.visualizers</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for pynit.core.visualizers</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Import external packages</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">scipy.ndimage</span> <span class="k">as</span> <span class="nn">ndimage</span>
+<span class="kn">from</span> <span class="nn">skimage</span> <span class="k">import</span> <span class="n">feature</span>
+<span class="c1"># Import internal packages</span>
+<span class="kn">from</span> <span class="nn">.methods</span> <span class="k">import</span> <span class="n">np</span>
+<span class="kn">from</span> <span class="nn">.processors</span> <span class="k">import</span> <span class="n">Analysis</span>
+<span class="kn">import</span> <span class="nn">messages</span>
+<span class="kn">import</span> <span class="nn">methods</span>
+<span class="c1"># Import matplotlib for visualization</span>
+<span class="kn">import</span> <span class="nn">matplotlib</span> <span class="k">as</span> <span class="nn">mpl</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">matplotlib</span> <span class="k">import</span> <span class="n">colors</span>
+<span class="kn">import</span> <span class="nn">seaborn</span> <span class="k">as</span> <span class="nn">sns</span>
+<span class="c1"># Import interactive plot in jupyter notebook</span>
+<span class="k">if</span> <span class="nb">len</span><span class="p">([</span><span class="n">key</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s1">&#39;ipykernel&#39;</span><span class="p">]):</span>
+    <span class="kn">from</span> <span class="nn">ipywidgets</span> <span class="k">import</span> <span class="n">interact</span><span class="p">,</span> <span class="n">fixed</span>
+    <span class="kn">from</span> <span class="nn">IPython.display</span> <span class="k">import</span> <span class="n">Image</span><span class="p">,</span> <span class="n">display</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">pass</span>
+
+<span class="c1"># The commented codes below are used for save figure later (mayby?)</span>
+<span class="c1"># import matplotlib.patches as mpatches</span>
+<span class="c1"># from matplotlib.backends.backend_agg import FigureCanvasAgg</span>
+<span class="c1"># Set figure style here</span>
+<span class="n">mpl</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">&#39;figure.dpi&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">120</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s1">&#39;ggplot&#39;</span><span class="p">)</span>
+
+<span class="c1"># R-Python interface for advanced plotting (This is deactivated becuase of compatibility issues</span>
+<span class="c1"># import rpy2.robjects as robj</span>
+<span class="c1"># from rpy2.robjects.packages import importr</span>
+<span class="c1"># from rpy2.robjects import pandas2ri</span>
+<span class="c1"># pandas2ri.activate()</span>
+
+<span class="c1"># TODO: Simple Video generation or showing over the slice or time</span>
+
+
+<div class="viewcode-block" id="Viewer"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.visualizers.Viewer">[docs]</a><span class="k">class</span> <span class="nc">Viewer</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Viewer.slice"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.visualizers.Viewer.slice">[docs]</a>    <span class="k">def</span> <span class="nf">slice</span><span class="p">(</span><span class="n">imageobj</span><span class="p">,</span> <span class="n">slice_num</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Image single slice viewer</span>
+
+<span class="sd">        :param img: obj</span>
+<span class="sd">            ImageObject to see the slice</span>
+<span class="sd">        :param slice_num: int</span>
+<span class="sd">            slice</span>
+<span class="sd">        :param norm: boolean</span>
+<span class="sd">            norm</span>
+<span class="sd">        :param kwargs: key, value args</span>
+<span class="sd">            options</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Parsing the axis information from kwargs</span>
+        <span class="n">axis</span> <span class="o">=</span> <span class="mi">2</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;axis&#39;</span><span class="p">:</span>
+                    <span class="n">axis</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]</span>
+        <span class="c1"># Load image data array and swap to given axis</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">imageobj</span><span class="o">.</span><span class="n">dataobj</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">swapaxes</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="c1"># Parsing the resolution info</span>
+        <span class="n">resol</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">imageobj</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;pixdim&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">])</span>
+        <span class="c1"># Swap the affine matrix</span>
+        <span class="n">resol</span><span class="p">[</span><span class="n">axis</span><span class="p">],</span> <span class="n">resol</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">resol</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">resol</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span>
+        <span class="c1"># Parsing arguments</span>
+        <span class="n">slice_num</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">check_slice</span><span class="p">(</span><span class="n">imageobj</span><span class="p">,</span> <span class="n">slice_num</span><span class="p">,</span> <span class="n">axis</span><span class="p">)</span>
+        <span class="c1"># Image normalization if norm is True</span>
+        <span class="k">if</span> <span class="n">norm</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">apply_p2_98</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">pass</span>
+        <span class="c1"># Check invert states using given kwargs and apply</span>
+        <span class="n">invert</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">check_invert</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">apply_invert</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="o">*</span><span class="n">invert</span><span class="p">)</span>
+
+        <span class="c1"># Internal show slice function for interact python</span>
+        <span class="k">def</span> <span class="nf">imshow</span><span class="p">(</span><span class="n">slice_num</span><span class="p">,</span> <span class="n">frame</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+            <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="n">axes</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">slice_num</span><span class="p">)]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="s1">&#39;lower&#39;</span><span class="p">,</span> <span class="n">interpolation</span><span class="o">=</span><span class="s1">&#39;nearest&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+                <span class="n">axes</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">data</span><span class="p">[:,</span> <span class="p">:,</span> <span class="nb">int</span><span class="p">(</span><span class="n">slice_num</span><span class="p">),</span> <span class="n">frame</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="s1">&#39;lower&#39;</span><span class="p">,</span> <span class="n">interpolation</span><span class="o">=</span><span class="s1">&#39;nearest&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">messages</span><span class="o">.</span><span class="n">ImageDimentionMismatched</span>
+            <span class="n">axes</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">set_viewaxes</span><span class="p">(</span><span class="n">axes</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">resol</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">resol</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="n">axes</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">resol</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">resol</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">pass</span>
+        <span class="c1"># Check image dimension, only 3D and 4D is available</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="n">interact</span><span class="p">(</span><span class="n">imshow</span><span class="p">,</span> <span class="n">slice_num</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">imageobj</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">frame</span><span class="o">=</span><span class="n">fixed</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;interact&#39;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">interact</span><span class="p">(</span><span class="n">imshow</span><span class="p">,</span> <span class="n">slice_num</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">imageobj</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span> <span class="n">frame</span><span class="o">=</span><span class="n">fixed</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">interact</span><span class="p">(</span><span class="n">imshow</span><span class="p">,</span> <span class="n">slice_num</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">imageobj</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">frame</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">imageobj</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">messages</span><span class="o">.</span><span class="n">ImageDimentionMismatched</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">convert_to_3d</span><span class="p">(</span><span class="n">imageobj</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;notinteract&#39;</span><span class="p">)</span>
+            <span class="n">axes</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">slice_num</span><span class="p">)]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="s1">&#39;lower&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+            <span class="n">axes</span><span class="o">.</span><span class="n">set_axis_off</span><span class="p">()</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Viewer.orthogonal"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.visualizers.Viewer.orthogonal">[docs]</a>    <span class="k">def</span> <span class="nf">orthogonal</span><span class="p">(</span><span class="n">imageobj</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Viewer.check_reg"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.visualizers.Viewer.check_reg">[docs]</a>    <span class="k">def</span> <span class="nf">check_reg</span><span class="p">(</span><span class="n">fixed_img</span><span class="p">,</span> <span class="n">moved_img</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">moved_img</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">resol</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">moved_img</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;pixdim&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">])</span>
+        <span class="c1"># Convert 4D image to 3D or raise error</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">convert_to_3d</span><span class="p">(</span><span class="n">moved_img</span><span class="p">)</span>
+        <span class="c1"># Check normalization</span>
+        <span class="k">if</span> <span class="n">norm</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">apply_p2_98</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="c1"># Set slice axis for mosaic grid</span>
+        <span class="n">slice_axis</span><span class="p">,</span> <span class="n">cmap</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">check_sliceaxis_cmap</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">cmap</span> <span class="o">=</span> <span class="s1">&#39;YlOrRd&#39;</span>
+        <span class="c1"># Set grid shape</span>
+        <span class="n">data</span><span class="p">,</span> <span class="n">slice_grid</span><span class="p">,</span> <span class="n">size</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">set_mosaic_fig</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">resol</span><span class="p">,</span> <span class="n">slice_axis</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
+        <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">Viewer</span><span class="o">.</span><span class="n">mosaic</span><span class="p">(</span><span class="n">fixed_img</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;bone&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="c1"># Applying inversion</span>
+        <span class="n">invert</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">check_invert</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">apply_invert</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="o">*</span><span class="n">invert</span><span class="p">)</span>
+        <span class="c1"># Plot image</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">slice_grid</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">slice_grid</span><span class="p">[</span><span class="mi">2</span><span class="p">]):</span>
+            <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="o">.</span><span class="n">flat</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">edge</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">]</span>
+            <span class="n">edge</span> <span class="o">=</span> <span class="n">feature</span><span class="o">.</span><span class="n">canny</span><span class="p">(</span><span class="n">edge</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="n">sigma</span><span class="p">)</span>  <span class="c1"># edge detection for second image</span>
+            <span class="c1"># edge = ndimage.gaussian_filter(edge, 3)</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">edge</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+            <span class="n">sx</span> <span class="o">=</span> <span class="n">ndimage</span><span class="o">.</span><span class="n">sobel</span><span class="p">(</span><span class="n">edge</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;constant&#39;</span><span class="p">)</span>
+            <span class="n">sy</span> <span class="o">=</span> <span class="n">ndimage</span><span class="o">.</span><span class="n">sobel</span><span class="p">(</span><span class="n">edge</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;constant&#39;</span><span class="p">)</span>
+            <span class="n">sob</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hypot</span><span class="p">(</span><span class="n">sx</span><span class="p">,</span> <span class="n">sy</span><span class="p">)</span>
+            <span class="n">mask</span><span class="p">[</span><span class="n">sob</span> <span class="o">==</span> <span class="kc">False</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+            <span class="n">m_norm</span> <span class="o">=</span> <span class="n">colors</span><span class="o">.</span><span class="n">Normalize</span><span class="p">(</span><span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mf">1.5</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">slice_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">mask</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="s1">&#39;lower&#39;</span><span class="p">,</span> <span class="n">interpolation</span><span class="o">=</span><span class="s1">&#39;nearest&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="n">m_norm</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">dim</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dim</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="s1">&#39;lower&#39;</span><span class="p">,</span> <span class="n">interpolation</span><span class="o">=</span><span class="s1">&#39;nearest&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">fig</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Viewer.mosaic"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.visualizers.Viewer.mosaic">[docs]</a>    <span class="k">def</span> <span class="nf">mosaic</span><span class="p">(</span><span class="n">imageobj</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;function for generating mosaic figure</span>
+
+<span class="sd">        :param img: nibabel object</span>
+<span class="sd">        :param scale</span>
+<span class="sd">        :param norm</span>
+<span class="sd">        :param kwargs</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">imageobj</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">resol</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">imageobj</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;pixdim&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">])</span>
+        <span class="c1"># Convert 4D image to 3D or raise error</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">convert_to_3d</span><span class="p">(</span><span class="n">imageobj</span><span class="p">)</span>
+        <span class="c1"># Check normalization</span>
+        <span class="k">if</span> <span class="n">norm</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">apply_p2_98</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="c1"># Set slice axis for mosaic grid</span>
+        <span class="n">slice_axis</span><span class="p">,</span> <span class="n">cmap</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">check_sliceaxis_cmap</span><span class="p">(</span><span class="n">imageobj</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="c1"># Set grid shape</span>
+        <span class="n">data</span><span class="p">,</span> <span class="n">slice_grid</span><span class="p">,</span> <span class="n">size</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">set_mosaic_fig</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">resol</span><span class="p">,</span> <span class="n">slice_axis</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
+        <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">slice_grid</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">slice_grid</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="n">size</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">size</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="c1"># Applying inversion</span>
+        <span class="n">invert</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">check_invert</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">apply_invert</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="o">*</span><span class="n">invert</span><span class="p">)</span>
+        <span class="c1"># Plot image</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">slice_grid</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">slice_grid</span><span class="p">[</span><span class="mi">2</span><span class="p">]):</span>
+            <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="o">.</span><span class="n">flat</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">slice_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">data</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="s1">&#39;lower&#39;</span><span class="p">,</span> <span class="n">interpolation</span><span class="o">=</span><span class="s1">&#39;nearest&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">dim</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dim</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="s1">&#39;lower&#39;</span><span class="p">,</span> <span class="n">interpolation</span><span class="o">=</span><span class="s1">&#39;nearest&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">patch</span><span class="o">.</span><span class="n">set_facecolor</span><span class="p">(</span><span class="s1">&#39;black&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">resol</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">/</span><span class="n">resol</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">ax</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">resol</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">/</span><span class="n">resol</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_axis_off</span><span class="p">()</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">set_facecolor</span><span class="p">(</span><span class="s1">&#39;black&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">subplots_adjust</span><span class="p">(</span><span class="n">hspace</span><span class="o">=.</span><span class="mi">002</span><span class="p">,</span> <span class="n">wspace</span><span class="o">=.</span><span class="mi">002</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Viewer.check_mask"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.visualizers.Viewer.check_mask">[docs]</a>    <span class="k">def</span> <span class="nf">check_mask</span><span class="p">(</span><span class="n">imageobj</span><span class="p">,</span> <span class="n">maskobj</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c1"># Parsing the information</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">maskobj</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">resol</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">maskobj</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;pixdim&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">])</span>
+        <span class="n">num_roi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">maskobj</span><span class="o">.</span><span class="n">dataobj</span><span class="p">)</span>
+        <span class="c1"># Set slice axis for mosaic grid</span>
+        <span class="n">slice_axis</span><span class="p">,</span> <span class="n">cmap</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">check_sliceaxis_cmap</span><span class="p">(</span><span class="n">maskobj</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="c1"># Set grid shape</span>
+        <span class="n">data</span><span class="p">,</span> <span class="n">slice_grid</span><span class="p">,</span> <span class="n">size</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">set_mosaic_fig</span><span class="p">(</span><span class="n">maskobj</span><span class="o">.</span><span class="n">dataobj</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">resol</span><span class="p">,</span> <span class="n">slice_axis</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
+        <span class="c1"># Applying inversion</span>
+        <span class="n">invert</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">check_invert</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">apply_invert</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="o">*</span><span class="n">invert</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">Viewer</span><span class="o">.</span><span class="n">mosaic</span><span class="p">(</span><span class="n">imageobj</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">messages</span><span class="o">.</span><span class="n">InputObjectError</span>
+        <span class="c1"># Make transparent</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">data</span><span class="p">[</span><span class="n">data</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+        <span class="c1"># Plot image</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">slice_grid</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">slice_grid</span><span class="p">[</span><span class="mi">2</span><span class="p">]):</span>
+            <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="o">.</span><span class="n">flat</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">data</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="s1">&#39;lower&#39;</span><span class="p">,</span> <span class="n">interpolation</span><span class="o">=</span><span class="s1">&#39;nearest&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;PuRd_r&#39;</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_axis_off</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">fig</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Viewer.atlas"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.visualizers.Viewer.atlas">[docs]</a>    <span class="k">def</span> <span class="nf">atlas</span><span class="p">(</span><span class="n">tempobj</span><span class="p">,</span> <span class="n">atlasobj</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c1"># Check argument for legend generation</span>
+        <span class="n">legend</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">bilateral</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">contra</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;legend&#39;</span><span class="p">:</span>
+                    <span class="n">legend</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;contra&#39;</span><span class="p">:</span>
+                    <span class="n">contra</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;bilateral&#39;</span><span class="p">:</span>
+                    <span class="n">bilateral</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]</span>
+        <span class="c1"># Parsing the information</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">atlas</span> <span class="o">=</span> <span class="n">atlasobj</span><span class="o">.</span><span class="n">image</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="n">atlasobj</span><span class="o">.</span><span class="n">label</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">messages</span><span class="o">.</span><span class="n">InputObjectError</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">atlas</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">resol</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">atlas</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s1">&#39;pixdim&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">])</span>
+        <span class="c1"># Set slice axis for mosaic grid</span>
+        <span class="n">slice_axis</span><span class="p">,</span> <span class="n">cmap</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">check_sliceaxis_cmap</span><span class="p">(</span><span class="n">atlas</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="c1"># Set grid shape</span>
+        <span class="n">data</span><span class="p">,</span> <span class="n">slice_grid</span><span class="p">,</span> <span class="n">size</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">set_mosaic_fig</span><span class="p">(</span><span class="n">atlas</span><span class="o">.</span><span class="n">dataobj</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">resol</span><span class="p">,</span> <span class="n">slice_axis</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
+        <span class="c1"># Applying inversion</span>
+        <span class="n">invert</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">check_invert</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">apply_invert</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="o">*</span><span class="n">invert</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">Viewer</span><span class="o">.</span><span class="n">mosaic</span><span class="p">(</span><span class="n">tempobj</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">messages</span><span class="o">.</span><span class="n">InputObjectError</span>
+        <span class="c1"># Check side to present, default is usually right side</span>
+        <span class="k">if</span> <span class="n">contra</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
+        <span class="k">if</span> <span class="n">bilateral</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">+=</span> <span class="n">data</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
+        <span class="c1"># Make transparent</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">data</span><span class="p">[</span><span class="n">data</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+        <span class="n">number_of_rois</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">label</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">colors_for_rois</span> <span class="o">=</span> <span class="p">[</span><span class="n">label</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">label</span><span class="o">.</span><span class="n">keys</span><span class="p">()]</span>
+        <span class="n">bounds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">number_of_rois</span><span class="p">,</span> <span class="n">number_of_rois</span><span class="p">)</span>
+        <span class="n">norm</span> <span class="o">=</span> <span class="n">colors</span><span class="o">.</span><span class="n">BoundaryNorm</span><span class="p">(</span><span class="n">boundaries</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span> <span class="n">ncolors</span><span class="o">=</span><span class="n">number_of_rois</span><span class="p">)</span>
+        <span class="n">cmap</span> <span class="o">=</span> <span class="n">colors</span><span class="o">.</span><span class="n">ListedColormap</span><span class="p">(</span><span class="n">colors_for_rois</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="s1">&#39;indexed&#39;</span><span class="p">)</span>
+        <span class="c1"># Plot image</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">slice_grid</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">slice_grid</span><span class="p">[</span><span class="mi">2</span><span class="p">]):</span>
+            <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="o">.</span><span class="n">flat</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">data</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="s1">&#39;lower&#39;</span><span class="p">,</span> <span class="n">interpolation</span><span class="o">=</span><span class="s1">&#39;nearest&#39;</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_axis_off</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">legend</span><span class="p">:</span>
+            <span class="n">ncols</span> <span class="o">=</span> <span class="mi">2</span>
+            <span class="n">nrows</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="mf">1.</span> <span class="o">*</span> <span class="p">(</span><span class="n">number_of_rois</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">ncols</span><span class="p">))</span>
+            <span class="n">height</span> <span class="o">=</span> <span class="n">nrows</span> <span class="o">*</span> <span class="n">scale</span> <span class="o">*</span> <span class="mf">0.04</span>
+            <span class="n">width</span> <span class="o">=</span> <span class="n">ncols</span> <span class="o">*</span> <span class="n">scale</span> <span class="o">*</span> <span class="mf">0.5</span>
+            <span class="n">fig_leg</span><span class="p">,</span> <span class="n">axes_leg</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">))</span>
+            <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">get_dpi</span><span class="p">()</span> <span class="o">*</span> <span class="n">fig</span><span class="o">.</span><span class="n">get_size_inches</span><span class="p">()</span>
+            <span class="c1"># row height</span>
+            <span class="n">h</span> <span class="o">=</span> <span class="n">Y</span> <span class="o">/</span> <span class="p">(</span><span class="n">nrows</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="c1"># col width</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="n">X</span> <span class="o">/</span> <span class="n">ncols</span>
+            <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">label</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">idx</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">pass</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">col</span> <span class="o">=</span> <span class="p">(</span><span class="n">idx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span><span class="o">%</span> <span class="n">ncols</span>
+                    <span class="n">row</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="n">idx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">ncols</span><span class="p">)</span>
+                    <span class="n">y</span> <span class="o">=</span> <span class="n">Y</span> <span class="o">-</span> <span class="p">(</span><span class="n">row</span> <span class="o">*</span> <span class="n">h</span><span class="p">)</span> <span class="o">-</span> <span class="n">h</span>
+                    <span class="n">xi_line</span> <span class="o">=</span> <span class="n">w</span> <span class="o">*</span> <span class="p">(</span><span class="n">col</span> <span class="o">+</span> <span class="mf">0.05</span><span class="p">)</span>
+                    <span class="n">xf_line</span> <span class="o">=</span> <span class="n">w</span> <span class="o">*</span> <span class="p">(</span><span class="n">col</span> <span class="o">+</span> <span class="mf">0.15</span><span class="p">)</span>
+                    <span class="n">xi_text</span> <span class="o">=</span> <span class="n">w</span> <span class="o">*</span> <span class="p">(</span><span class="n">col</span> <span class="o">+</span> <span class="mf">0.2</span><span class="p">)</span>
+                    <span class="n">axes_leg</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">xi_text</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">label</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">fontsize</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span> <span class="o">*</span> <span class="n">scale</span><span class="p">),</span>
+                                  <span class="n">horizontalalignment</span><span class="o">=</span><span class="s1">&#39;left&#39;</span><span class="p">,</span>
+                                  <span class="n">verticalalignment</span><span class="o">=</span><span class="s1">&#39;center&#39;</span><span class="p">)</span>
+                    <span class="n">axes_leg</span><span class="o">.</span><span class="n">hlines</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">xi_line</span><span class="p">,</span> <span class="n">xf_line</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;black&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="p">(</span><span class="n">h</span> <span class="o">*</span> <span class="mf">0.2</span><span class="p">))</span>
+                    <span class="n">axes_leg</span><span class="o">.</span><span class="n">hlines</span><span class="p">(</span><span class="n">y</span> <span class="o">+</span> <span class="n">h</span> <span class="o">*</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">xi_line</span><span class="p">,</span> <span class="n">xf_line</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">label</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="n">linewidth</span><span class="o">=</span><span class="p">(</span><span class="n">h</span> <span class="o">*</span> <span class="mf">0.2</span><span class="p">))</span>
+            <span class="n">axes_leg</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span>
+            <span class="n">axes_leg</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+            <span class="n">axes_leg</span><span class="o">.</span><span class="n">set_axis_off</span><span class="p">()</span>
+            <span class="n">fig</span><span class="o">.</span><span class="n">subplots_adjust</span><span class="p">(</span><span class="n">left</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">top</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">hspace</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">wspace</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">fig_leg</span><span class="o">.</span><span class="n">set_facecolor</span><span class="p">(</span><span class="s1">&#39;black&#39;</span><span class="p">)</span>
+            <span class="n">fig_leg</span><span class="o">.</span><span class="n">set_frameon</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">fig</span><span class="p">,</span> <span class="n">fig_leg</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">fig</span></div></div>
+
+
+<div class="viewcode-block" id="Plot"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.visualizers.Plot">[docs]</a><span class="k">class</span> <span class="nc">Plot</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Plot.tsplot"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.visualizers.Plot.tsplot">[docs]</a>    <span class="k">def</span> <span class="nf">tsplot</span><span class="p">(</span><span class="n">dataframe</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">err_style</span><span class="o">=</span><span class="s1">&#39;ci_band&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">figsize</span> <span class="o">=</span> <span class="p">(</span><span class="mi">6</span> <span class="o">*</span> <span class="n">scale</span><span class="p">,</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">scale</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">arg</span> <span class="ow">is</span> <span class="s1">&#39;figsize&#39;</span><span class="p">:</span>
+                <span class="n">figsize</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">norm</span><span class="p">:</span>
+            <span class="n">dataframe</span> <span class="o">=</span> <span class="n">Analysis</span><span class="o">.</span><span class="n">linear_norm</span><span class="p">(</span><span class="n">dataframe</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="n">figsize</span><span class="p">)</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">sns</span><span class="o">.</span><span class="n">tsplot</span><span class="p">(</span><span class="n">dataframe</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">err_style</span><span class="o">=</span><span class="n">err_style</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Plot.heatmap"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.visualizers.Plot.heatmap">[docs]</a>    <span class="k">def</span> <span class="nf">heatmap</span><span class="p">(</span><span class="n">dataframe</span><span class="p">,</span> <span class="n">half</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=-</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;RdBu_r&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">figsize</span> <span class="o">=</span> <span class="p">(</span><span class="mi">6</span> <span class="o">*</span> <span class="n">scale</span><span class="p">,</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">scale</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">arg</span> <span class="ow">is</span> <span class="s1">&#39;figsize&#39;</span><span class="p">:</span>
+                <span class="n">figsize</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">half</span><span class="p">:</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">dataframe</span><span class="o">.</span><span class="n">corr</span><span class="p">())</span>
+            <span class="n">mask</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">triu_indices_from</span><span class="p">(</span><span class="n">mask</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="n">figsize</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">sns</span><span class="o">.</span><span class="n">axes_style</span><span class="p">(</span><span class="s2">&quot;white&quot;</span><span class="p">):</span>
+            <span class="n">ax</span> <span class="o">=</span> <span class="n">sns</span><span class="o">.</span><span class="n">heatmap</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arctanh</span><span class="p">(</span><span class="n">dataframe</span><span class="o">.</span><span class="n">corr</span><span class="p">()),</span> <span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">,</span>
+                             <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span> <span class="n">square</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">(</span><span class="n">ax</span><span class="o">.</span><span class="n">xaxis</span><span class="o">.</span><span class="n">get_majorticklabels</span><span class="p">(),</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">45</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">(</span><span class="n">ax</span><span class="o">.</span><span class="n">yaxis</span><span class="o">.</span><span class="n">get_majorticklabels</span><span class="p">(),</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">45</span><span class="p">)</span></div></div>
+
+<span class="c1"># The class below is deactivated because of compatibility issues</span>
+<span class="c1"># class RPlot(object):</span>
+    <span class="c1"># @staticmethod</span>
+    <span class="c1"># def rcorrplot(dataframe, filename=None, scale=1, mixed=None, **kwargs):</span>
+    <span class="c1">#     # get R objects</span>
+    <span class="c1">#     corrplot = importr(&#39;corrplot&#39;)</span>
+    <span class="c1">#     grdevices = importr(&#39;grDevices&#39;)</span>
+    <span class="c1">#     as_matrix = robj.globalenv.get(&quot;as.matrix&quot;)</span>
+    <span class="c1">#     # Parsing arguments</span>
+    <span class="c1">#     if not filename:</span>
+    <span class="c1">#         filename = u&#39;.cache/_corrplot.png&#39;</span>
+    <span class="c1">#         SystemMethods.mkdir(&#39;.cache&#39;)</span>
+    <span class="c1">#     size = np.array([512, 512])*scale</span>
+    <span class="c1">#     # generate figure</span>
+    <span class="c1">#     grdevices.png(file=filename, width=size[0], height=size[1])</span>
+    <span class="c1">#     M = as_matrix(dataframe.corr())</span>
+    <span class="c1">#     if mixed:</span>
+    <span class="c1">#         corrplot.corrplot_mixed(M, iscorr=False, **kwargs)</span>
+    <span class="c1">#     else:</span>
+    <span class="c1">#         corrplot.corrplot(M, **kwargs)</span>
+    <span class="c1">#     grdevices.dev_off()</span>
+    <span class="c1">#     display(Image(filename=filename))</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2017, SungHo Lee.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'dev01',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+      <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

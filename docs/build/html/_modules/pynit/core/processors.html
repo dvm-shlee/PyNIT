@@ -1,0 +1,929 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>pynit.core.processors &mdash; PyNIT dev01 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="PyNIT dev01 documentation" href="../../../index.html"/>
+        <link rel="up" title="pynit" href="../../pynit.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> PyNIT
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <!-- Local TOC -->
+                <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../../index.html">PyNIT</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      
+          <li><a href="../../pynit.html">pynit</a> &raquo;</li>
+      
+    <li>pynit.core.processors</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for pynit.core.processors</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">string</span> <span class="k">import</span> <span class="n">ascii_lowercase</span> <span class="k">as</span> <span class="n">lc</span>
+<span class="kn">from</span> <span class="nn">shutil</span> <span class="k">import</span> <span class="n">rmtree</span>
+<span class="kn">from</span> <span class="nn">subprocess</span> <span class="k">import</span> <span class="n">list2cmdline</span><span class="p">,</span> <span class="n">check_output</span><span class="p">,</span> <span class="n">call</span>
+<span class="kn">import</span> <span class="nn">shlex</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">methods</span> <span class="k">import</span> <span class="n">np</span><span class="p">,</span> <span class="n">read_table</span><span class="p">,</span> <span class="n">objects</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+
+<span class="kn">import</span> <span class="nn">methods</span>
+<span class="kn">import</span> <span class="nn">messages</span>
+
+<span class="kn">from</span> <span class="nn">StringIO</span> <span class="k">import</span> <span class="n">StringIO</span>
+
+
+<div class="viewcode-block" id="Analysis"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Analysis">[docs]</a><span class="k">class</span> <span class="nc">Analysis</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Analysis tools for PyNIT objects</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__avail</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="k">if</span> <span class="s1">&#39;__&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">f</span> <span class="ow">and</span> <span class="s1">&#39;avail&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">f</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">avail</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__avail</span>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Analysis.linear_norm"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Analysis.linear_norm">[docs]</a>    <span class="k">def</span> <span class="nf">linear_norm</span><span class="p">(</span><span class="n">imgobj</span><span class="p">,</span> <span class="n">new_min</span><span class="p">,</span> <span class="n">new_max</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Linear normalization of the grayscale digital image</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">imgobj</span><span class="o">.</span><span class="n">dataobj</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">(</span><span class="n">data</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">data</span><span class="p">))</span> <span class="o">*</span> <span class="p">(</span><span class="n">new_max</span> <span class="o">-</span> <span class="n">new_min</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">data</span><span class="p">))</span> <span class="o">-</span> <span class="n">new_min</span>
+        <span class="n">imgobj</span><span class="o">.</span><span class="n">_dataobj</span> <span class="o">=</span> <span class="n">data</span>
+        <span class="k">return</span> <span class="n">imgobj</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Analysis.mask_average"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Analysis.mask_average">[docs]</a>    <span class="k">def</span> <span class="nf">mask_average</span><span class="p">(</span><span class="n">imageobj</span><span class="p">,</span> <span class="n">maskobj</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Mask average timeseries</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">contra</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">merged</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">afni</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Check kwargs</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;contra&#39;</span><span class="p">:</span>
+                    <span class="n">contra</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;merge&#39;</span><span class="p">:</span>
+                    <span class="n">merged</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;afni&#39;</span><span class="p">:</span>
+                    <span class="n">afni</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]</span>
+        <span class="n">newshape</span> <span class="o">=</span> <span class="n">reduce</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">*</span> <span class="n">y</span><span class="p">,</span> <span class="n">imageobj</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">3</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">afni</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">contra</span><span class="p">:</span>
+                <span class="n">maskobj</span><span class="o">.</span><span class="n">_dataobj</span> <span class="o">=</span> <span class="n">maskobj</span><span class="o">.</span><span class="n">_dataobj</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
+            <span class="k">if</span> <span class="n">merged</span><span class="p">:</span>
+                <span class="n">maskobj</span><span class="o">.</span><span class="n">_dataobj</span> <span class="o">+=</span> <span class="n">maskobj</span><span class="o">.</span><span class="n">_dataobj</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
+            <span class="n">input_file</span> <span class="o">=</span> <span class="n">TempFile</span><span class="p">(</span><span class="n">imageobj</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="s1">&#39;input&#39;</span><span class="p">)</span>
+            <span class="n">mask_file</span> <span class="o">=</span> <span class="n">TempFile</span><span class="p">(</span><span class="n">maskobj</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="s1">&#39;mask&#39;</span><span class="p">)</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">Interface</span><span class="o">.</span><span class="n">afni_3dmaskave</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">input_file</span><span class="p">,</span> <span class="n">mask_file</span><span class="p">)</span>
+            <span class="n">input_file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="n">mask_file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">methods</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">imageobj</span><span class="o">.</span><span class="n">dataobj</span><span class="p">)</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">maskobj</span><span class="o">.</span><span class="n">dataobj</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">contra</span><span class="p">:</span>
+                <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
+            <span class="k">if</span> <span class="n">merged</span><span class="p">:</span>
+                <span class="n">mask</span> <span class="o">+=</span> <span class="n">mask</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">newshape</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">newshape</span><span class="p">)</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">masked_where</span><span class="p">(</span><span class="n">mask</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">methods</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Analysis.get_timetrace"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Analysis.get_timetrace">[docs]</a>    <span class="k">def</span> <span class="nf">get_timetrace</span><span class="p">(</span><span class="n">imageobj</span><span class="p">,</span> <span class="n">tempobj</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Parsing timetrace from imageobj, with multiple rois</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">contra</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">bilateral</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">merged</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Check kwargs</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;contra&#39;</span><span class="p">:</span>
+                    <span class="n">contra</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;bilateral&#39;</span><span class="p">:</span>
+                    <span class="n">bilateral</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;merged&#39;</span><span class="p">:</span>
+                    <span class="n">merged</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]</span>
+        <span class="c1"># Initiate dataframe</span>
+
+        <span class="n">input_file</span> <span class="o">=</span> <span class="n">TempFile</span><span class="p">(</span><span class="n">imageobj</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="s1">&#39;input&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">contra</span><span class="p">:</span>
+            <span class="n">mask_file</span> <span class="o">=</span> <span class="n">TempFile</span><span class="p">(</span><span class="n">tempobj</span><span class="o">.</span><span class="n">atlas</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="s1">&#39;mask&#39;</span><span class="p">,</span> <span class="n">flip</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bilateral</span><span class="p">:</span>
+            <span class="n">list_of_rois</span> <span class="o">=</span> <span class="p">[</span><span class="n">roi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">roi</span> <span class="ow">in</span> <span class="n">tempobj</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">itervalues</span><span class="p">()][</span><span class="mi">1</span><span class="p">:]</span>
+            <span class="n">mask_file</span> <span class="o">=</span> <span class="n">TempFile</span><span class="p">(</span><span class="n">tempobj</span><span class="o">.</span><span class="n">atlas</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="s1">&#39;mask&#39;</span><span class="p">)</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">Interface</span><span class="o">.</span><span class="n">afni_3dROIstats</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">input_file</span><span class="p">,</span> <span class="n">mask_file</span><span class="p">)</span>
+            <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">list_of_rois</span>
+
+            <span class="n">list_of_rois</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;contra_&#39;</span><span class="o">+</span><span class="n">roi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">roi</span> <span class="ow">in</span> <span class="n">tempobj</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">itervalues</span><span class="p">()][</span><span class="mi">1</span><span class="p">:]</span>
+            <span class="n">mask2_file</span> <span class="o">=</span> <span class="n">TempFile</span><span class="p">(</span><span class="n">tempobj</span><span class="o">.</span><span class="n">atlas</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="s1">&#39;mask2&#39;</span><span class="p">,</span> <span class="n">flip</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">cont_df</span> <span class="o">=</span> <span class="n">Interface</span><span class="o">.</span><span class="n">afni_3dROIstats</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">input_file</span><span class="p">,</span> <span class="n">mask2_file</span><span class="p">)</span>
+            <span class="n">cont_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">list_of_rois</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cont_df</span><span class="p">)</span>
+            <span class="c1"># mask_file.close()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">merged</span><span class="p">:</span>
+                <span class="n">new_atlas</span> <span class="o">=</span> <span class="n">tempobj</span><span class="o">.</span><span class="n">atlas</span><span class="o">.</span><span class="n">_dataobj</span> <span class="o">+</span> <span class="n">tempobj</span><span class="o">.</span><span class="n">atlas</span><span class="o">.</span><span class="n">_dataobj</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
+                <span class="n">list_of_rois</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;bilateral_&#39;</span> <span class="o">+</span> <span class="n">roi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">roi</span> <span class="ow">in</span> <span class="n">tempobj</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">itervalues</span><span class="p">()][</span><span class="mi">1</span><span class="p">:]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">list_of_rois</span> <span class="o">=</span> <span class="p">[</span><span class="n">roi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">roi</span> <span class="ow">in</span> <span class="n">tempobj</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">itervalues</span><span class="p">()][</span><span class="mi">1</span><span class="p">:]</span>
+            <span class="n">nii</span> <span class="o">=</span> <span class="n">objects</span><span class="o">.</span><span class="n">ImageObj</span><span class="p">(</span><span class="n">new_atlas</span><span class="p">,</span> <span class="n">tempobj</span><span class="o">.</span><span class="n">atlas</span><span class="o">.</span><span class="n">affine</span><span class="p">)</span>
+            <span class="n">mask_file</span> <span class="o">=</span> <span class="n">TempFile</span><span class="p">(</span><span class="n">nii</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="s1">&#39;mask&#39;</span><span class="p">)</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">Interface</span><span class="o">.</span><span class="n">afni_3dROIstats</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">input_file</span><span class="p">,</span> <span class="n">mask_file</span><span class="p">)</span>
+            <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">list_of_rois</span>
+            <span class="n">mask_file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="c1"># Check each labels</span>
+        <span class="n">input_file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">df</span></div>
+
+    <span class="c1"># @staticmethod</span>
+    <span class="c1"># def get_timetrace(imageobj, tempobj, **kwargs):</span>
+    <span class="c1">#     &quot;&quot;&quot; Parsing timetrace from imageobj, with multiple rois</span>
+    <span class="c1">#     &quot;&quot;&quot;</span>
+    <span class="c1">#     contra = None</span>
+    <span class="c1">#     bilateral = None</span>
+    <span class="c1">#     merged = None</span>
+    <span class="c1">#     afni = None</span>
+    <span class="c1">#     quiet = None</span>
+    <span class="c1">#     # Check kwargs</span>
+    <span class="c1">#     if kwargs:</span>
+    <span class="c1">#         for arg in kwargs.keys():</span>
+    <span class="c1">#             if arg == &#39;contra&#39;:</span>
+    <span class="c1">#                 contra = kwargs[arg]</span>
+    <span class="c1">#             if arg == &#39;bilateral&#39;:</span>
+    <span class="c1">#                 bilateral = kwargs[arg]</span>
+    <span class="c1">#             if arg == &#39;merge&#39;:</span>
+    <span class="c1">#                 merged = kwargs[arg]</span>
+    <span class="c1">#             if arg == &#39;afni&#39;:</span>
+    <span class="c1">#                 afni = kwargs[arg]</span>
+    <span class="c1">#             if arg == &#39;quiet&#39;:</span>
+    <span class="c1">#                 quiet = kwargs[arg]</span>
+    <span class="c1">#     # Initiate dataframe</span>
+    <span class="c1">#     df = methods.DataFrame()</span>
+    <span class="c1">#     # Check each labels</span>
+    <span class="c1">#     for idx in tempobj.label.keys():</span>
+    <span class="c1">#         if idx:</span>
+    <span class="c1">#             roi, maskobj = tempobj[idx]</span>
+    <span class="c1">#             if merged:</span>
+    <span class="c1">#                 col = Analysis.mask_average(imageobj, maskobj, merge=True, afni=afni)</span>
+    <span class="c1">#                 roi = &#39;Bilateral_{}&#39;.format(roi)</span>
+    <span class="c1">#             else:</span>
+    <span class="c1">#                 if contra:</span>
+    <span class="c1">#                     col = Analysis.mask_average(imageobj, maskobj, contra=True, afni=afni)</span>
+    <span class="c1">#                 else:</span>
+    <span class="c1">#                     col = Analysis.mask_average(imageobj, maskobj, afni=afni)</span>
+    <span class="c1">#             df[roi] = col</span>
+    <span class="c1">#             if not quiet:</span>
+    <span class="c1">#                 print(&quot;  * Time trace is extracted using the mask &#39;{}&#39;&quot;.format(roi))</span>
+    <span class="c1">#     if bilateral:</span>
+    <span class="c1">#         for idx in tempobj.label.keys():</span>
+    <span class="c1">#             if idx:</span>
+    <span class="c1">#                 roi, maskobj = tempobj[idx]</span>
+    <span class="c1">#                 if merged:</span>
+    <span class="c1">#                     pass</span>
+    <span class="c1">#                 else:</span>
+    <span class="c1">#                     if contra:</span>
+    <span class="c1">#                         col = Analysis.mask_average(imageobj, maskobj, afni=afni)</span>
+    <span class="c1">#                     else:</span>
+    <span class="c1">#                         col = Analysis.mask_average(imageobj, maskobj, contra=True, afni=afni)</span>
+    <span class="c1">#                     df[&quot;Cont_{}&quot;.format(roi)] = col</span>
+    <span class="c1">#                     if not quiet:</span>
+    <span class="c1">#                         print(&quot;  * Time trace is extracted using the mask &#39;Cont_{}&#39;&quot;.format(roi))</span>
+    <span class="c1">#     return df</span>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Analysis.cal_mean"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Analysis.cal_mean">[docs]</a>    <span class="k">def</span> <span class="nf">cal_mean</span><span class="p">(</span><span class="n">imgobj</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Calculate average</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">start</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">end</span><span class="p">:</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">imgobj</span><span class="o">.</span><span class="n">dataobj</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="Interface"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Interface">[docs]</a><span class="k">class</span> <span class="nc">Interface</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Class for wrapping the commands to run external image processing software packages</span>
+<span class="sd">    including AFNI, ANTs, FSL</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__avail</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="k">if</span> <span class="s1">&#39;__&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">f</span> <span class="ow">and</span> <span class="s1">&#39;avail&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">f</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">avail</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__avail</span>
+
+    <span class="c1"># Afni commands</span>
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Interface.afni_3dTshift"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Interface.afni_3dTshift">[docs]</a>    <span class="k">def</span> <span class="nf">afni_3dTshift</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="n">tr</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tpattern</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Handler for 3dTshift (Slice timing correction tool of AFNI package)</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        output_path : str</span>
+<span class="sd">            explanation</span>
+<span class="sd">        input_path : str</span>
+<span class="sd">        tr : int</span>
+<span class="sd">        tpattern : str</span>
+<span class="sd">            &#39;altplus&#39;</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        bool</span>
+<span class="sd">            True if successful, False otherwise</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;3dTshift&#39;</span><span class="p">,</span> <span class="s1">&#39;-prefix&#39;</span><span class="p">,</span> <span class="n">output_path</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">tr</span><span class="p">:</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">&#39;-TR&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">tr</span><span class="p">)])</span>
+        <span class="k">if</span> <span class="n">tpattern</span><span class="p">:</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">&#39;-tpattern&#39;</span><span class="p">,</span> <span class="n">tpattern</span><span class="p">])</span>
+        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">input_path</span><span class="p">)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">list2cmdline</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="n">call</span><span class="p">(</span><span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Interface.afni_3dvolreg"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Interface.afni_3dvolreg">[docs]</a>    <span class="k">def</span> <span class="nf">afni_3dvolreg</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="n">base_slice</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Wrapper for 3dvolreg (Motion correction tool of AFNI package)</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        output_path : str</span>
+<span class="sd">            explanation</span>
+<span class="sd">        input_path : str</span>
+<span class="sd">        base_slice : str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">motion_parameter</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">splitnifti</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;.1D&#39;</span>
+        <span class="n">template_file</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">splitnifti</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;3dvolreg&#39;</span><span class="p">,</span> <span class="s1">&#39;-prefix&#39;</span><span class="p">,</span> <span class="n">output_path</span><span class="p">,</span> <span class="s1">&#39;-1Dfile&#39;</span><span class="p">,</span> <span class="n">motion_parameter</span><span class="p">,</span> <span class="s1">&#39;-1Dmatrix_save&#39;</span><span class="p">,</span> <span class="n">template_file</span><span class="p">,</span>
+               <span class="s1">&#39;-Fourier&#39;</span><span class="p">,</span> <span class="s1">&#39;-verbose&#39;</span><span class="p">,</span> <span class="s1">&#39;-base&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">base_slice</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">int</span><span class="p">:</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">base_slice</span><span class="p">)))</span>
+        <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">base_slice</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">str</span><span class="p">:</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">base_slice</span><span class="p">))</span>
+        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">input_path</span><span class="p">)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">list2cmdline</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="n">call</span><span class="p">(</span><span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Interface.afni_3dAllineate"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Interface.afni_3dAllineate">[docs]</a>    <span class="k">def</span> <span class="nf">afni_3dAllineate</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;3dAllineate&#39;</span><span class="p">,</span> <span class="s1">&#39;-prefix&#39;</span><span class="p">,</span> <span class="n">output_path</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;param_save&#39;</span><span class="p">:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-1D</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;param_apply&#39;</span><span class="p">:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-1D</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;matrix_save&#39;</span><span class="p">:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-1D</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;matrix_apply&#39;</span><span class="p">:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-1D</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;master&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;base&#39;</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="n">messages</span><span class="o">.</span><span class="n">ArgumentsOverlapped</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;base&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;master&#39;</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="n">messages</span><span class="o">.</span><span class="n">ArgumentsOverlapped</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;warp&#39;</span><span class="p">:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;cost&#39;</span><span class="p">:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;float&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]:</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;interp&#39;</span><span class="p">:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;final&#39;</span><span class="p">:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">])</span>
+                <span class="c1"># Technical option</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;nmatch&#39;</span><span class="p">:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;nopad&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]:</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;zclip&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]:</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;conv&#39;</span><span class="p">:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;verb&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]:</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;quiet&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]:</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;usetemp&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]:</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;nousetemp&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]:</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;check&#39;</span><span class="p">:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">])</span>
+                <span class="c1"># PARAMETERS THAT AFFECT THE COST OPTIMIZATION STRATEGY</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;onepass&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]:</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;twopass&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]:</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;twoblur&#39;</span><span class="p">:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;twofirst&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]:</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;twobest&#39;</span><span class="p">:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;fineblur&#39;</span><span class="p">:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;cmass&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;cmass&#39;</span><span class="p">])</span> <span class="ow">is</span> <span class="nb">str</span><span class="p">():</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;cmass&#39;</span><span class="p">]))</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;nocmass&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]:</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;autoweight&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]:</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;automask&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]:</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;autobox&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]:</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;nomask&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]:</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">arg</span> <span class="o">==</span> <span class="s1">&#39;EPI&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">arg</span><span class="p">]:</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">input_path</span><span class="p">)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">list2cmdline</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="n">call</span><span class="p">(</span><span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Interface.afni_3dTcorr1D"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Interface.afni_3dTcorr1D">[docs]</a>    <span class="k">def</span> <span class="nf">afni_3dTcorr1D</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="n">mask</span><span class="p">):</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;3dTcorr1D&#39;</span><span class="p">,</span> <span class="s1">&#39;-prefix&#39;</span><span class="p">,</span> <span class="n">output_path</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="n">mask</span><span class="p">]</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">list2cmdline</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="n">call</span><span class="p">(</span><span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Interface.afni_3dcalc"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Interface.afni_3dcalc">[docs]</a>    <span class="k">def</span> <span class="nf">afni_3dcalc</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">expr</span><span class="p">,</span> <span class="o">*</span><span class="n">inputs</span><span class="p">):</span>
+        <span class="c1"># AFNI image calculation (3dcalc)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;3dcalc&#39;</span><span class="p">,</span> <span class="s1">&#39;-prefix&#39;</span><span class="p">,</span> <span class="n">output_path</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">inputs</span><span class="p">:</span>
+            <span class="n">atoz</span> <span class="o">=</span> <span class="n">lc</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="n">inputs</span><span class="p">)]</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="n">atoz</span><span class="p">,</span> <span class="n">inputs</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">abc</span><span class="p">,</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-&#39;</span> <span class="o">+</span> <span class="n">abc</span><span class="p">)</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">&quot;input data are not defined.&quot;</span><span class="p">)</span>
+        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-expr&#39;</span><span class="p">)</span>
+        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&#39;</span><span class="si">{}</span><span class="s2">&#39;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">expr</span><span class="p">))</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">list2cmdline</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="n">call</span><span class="p">(</span><span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Interface.afni_3dMean"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Interface.afni_3dMean">[docs]</a>    <span class="k">def</span> <span class="nf">afni_3dMean</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="o">*</span><span class="n">inputs</span><span class="p">):</span>
+        <span class="c1"># AFNI 3dMean objects.Image calculator</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;3dMean&#39;</span><span class="p">,</span> <span class="s1">&#39;-prefix&#39;</span><span class="p">,</span> <span class="n">output_path</span><span class="p">]</span>
+        <span class="n">cmd</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">list2cmdline</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="n">call</span><span class="p">(</span><span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Interface.afni_3dTstat"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Interface.afni_3dTstat">[docs]</a>    <span class="k">def</span> <span class="nf">afni_3dTstat</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c1"># AFNI 3dTstat</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;3dTstat&#39;</span><span class="p">,</span> <span class="s1">&#39;-prefix&#39;</span><span class="p">,</span> <span class="n">output_path</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">kwarg</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">kwarg</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="s1">&#39;mean&#39;</span> <span class="ow">in</span> <span class="n">kwarg</span><span class="p">:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-mean&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="s1">&#39;median&#39;</span> <span class="ow">in</span> <span class="n">kwarg</span><span class="p">:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-median&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="s1">&#39;nzmedian&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-nzmedian&#39;</span><span class="p">)</span>
+        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">input_path</span><span class="p">)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">list2cmdline</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="n">call</span><span class="p">(</span><span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Interface.afni_3dBlurInMask"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Interface.afni_3dBlurInMask">[docs]</a>    <span class="k">def</span> <span class="nf">afni_3dBlurInMask</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;3dBlurInMask&#39;</span><span class="p">,</span> <span class="s1">&#39;-prefix&#39;</span><span class="p">]</span>
+        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&#39;</span><span class="si">{}</span><span class="s2">&#39;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">output_path</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;FWHM&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;-FWHM&quot;</span><span class="p">)</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;FWHM&#39;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="s1">&#39;mask&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;mask&#39;</span><span class="p">]:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;-mask&quot;</span><span class="p">)</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;mask&#39;</span><span class="p">])</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">pass</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;-automask&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s1">&#39;quiet&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;-quiet&quot;</span><span class="p">)</span>
+        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&#39;</span><span class="si">{}</span><span class="s2">&#39;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">input_path</span><span class="p">))</span>
+        <span class="c1"># print(cmd)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">list2cmdline</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="n">call</span><span class="p">(</span><span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Interface.afni_3dBandpass"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Interface.afni_3dBandpass">[docs]</a>    <span class="k">def</span> <span class="nf">afni_3dBandpass</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">detrend</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">despike</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">blur</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                        <span class="n">band</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="s1">&#39;1&#39;</span><span class="p">):</span>
+        <span class="c1"># AFNI signal processing for resting state (3dBandpass)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;3dBandpass&#39;</span><span class="p">,</span> <span class="s1">&#39;-input&#39;</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="s1">&#39;-prefix&#39;</span><span class="p">,</span> <span class="n">output_path</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s1">&#39;dt&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">str</span><span class="p">:</span>
+                <span class="n">dt</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">&#39;-dt&#39;</span><span class="p">,</span> <span class="n">dt</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">norm</span><span class="p">:</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-norm&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">despike</span><span class="p">:</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-despike&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">detrend</span><span class="p">:</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-nodetrend&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">mask</span><span class="p">:</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">&#39;-mask&#39;</span><span class="p">,</span> <span class="n">mask</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">blur</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">blur</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">str</span><span class="p">:</span>
+                <span class="n">blur</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">blur</span><span class="p">)</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">&#39;-blur&#39;</span><span class="p">,</span> <span class="n">blur</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">band</span><span class="p">:</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-band&#39;</span><span class="p">)</span>
+            <span class="n">band</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">band</span><span class="p">)</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">band</span><span class="p">)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">list2cmdline</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="n">call</span><span class="p">(</span><span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Interface.afni_3dTproject"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Interface.afni_3dTproject">[docs]</a>    <span class="k">def</span> <span class="nf">afni_3dTproject</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="n">ort</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">orange</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pca</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">blur</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                        <span class="n">band</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="s1">&#39;1&#39;</span><span class="p">):</span>
+        <span class="c1"># AFNI signal processing for resting state (3dBandpass)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;3dTproject&#39;</span><span class="p">,</span> <span class="s1">&#39;-input&#39;</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="s1">&#39;-prefix&#39;</span><span class="p">,</span> <span class="n">output_path</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s1">&#39;dt&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">str</span><span class="p">:</span>
+                <span class="n">dt</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">&#39;-dt&#39;</span><span class="p">,</span> <span class="n">dt</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">ort</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">orange</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">orange</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">orange</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                        <span class="n">orange</span> <span class="o">=</span> <span class="s2">&quot;&#39;{&quot;</span><span class="o">+</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">..</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">orange</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">orange</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">+</span><span class="s2">&quot;}&#39;&quot;</span>
+                        <span class="n">cmd</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">&#39;-ort&#39;</span><span class="p">,</span> <span class="n">ort</span><span class="o">+</span><span class="n">orange</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">&#39;-ort&#39;</span><span class="p">,</span> <span class="n">ort</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">pca</span><span class="p">:</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">&#39;-ort&#39;</span><span class="p">,</span> <span class="n">pca</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">mask</span><span class="p">:</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">&#39;-mask&#39;</span><span class="p">,</span> <span class="n">mask</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">blur</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">blur</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">str</span><span class="p">:</span>
+                <span class="n">blur</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">blur</span><span class="p">)</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="s1">&#39;-blur&#39;</span><span class="p">,</span> <span class="n">blur</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">band</span><span class="p">:</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-passband&#39;</span><span class="p">)</span>
+            <span class="n">band</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">band</span><span class="p">)</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">band</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">norm</span><span class="p">:</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-norm&#39;</span><span class="p">)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">list2cmdline</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="c1"># print(cmd)</span>
+        <span class="n">call</span><span class="p">(</span><span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Interface.afni_3dROIstats"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Interface.afni_3dROIstats">[docs]</a>    <span class="k">def</span> <span class="nf">afni_3dROIstats</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="n">mask_path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; AFNI 3dROIstats command wrapper</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        output_path</span>
+<span class="sd">        input_path</span>
+<span class="sd">        mask_path</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;3dROIstats&#39;</span><span class="p">,</span> <span class="s1">&#39;-mask&#39;</span><span class="p">]</span>
+        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&#39;</span><span class="si">{}</span><span class="s2">&#39;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">mask_path</span><span class="p">))</span>
+        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&#39;</span><span class="si">{}</span><span class="s2">&#39;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">input_path</span><span class="p">))</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">list2cmdline</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="n">out</span><span class="p">,</span> <span class="n">err</span> <span class="o">=</span> <span class="n">methods</span><span class="o">.</span><span class="n">shell</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">output_path</span> <span class="o">==</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">read_table</span><span class="p">(</span><span class="n">StringIO</span><span class="p">(</span><span class="n">out</span><span class="p">))</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">2</span><span class="p">:]]</span>
+            <span class="k">return</span> <span class="n">df</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">out</span><span class="p">)</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Interface.afni_3dmaskave"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Interface.afni_3dmaskave">[docs]</a>    <span class="k">def</span> <span class="nf">afni_3dmaskave</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="n">mask_path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; AFNI 3dmaskave command wrapper</span>
+
+<span class="sd">        :return: list</span>
+<span class="sd">            Average timeseries data from given ROI</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;3dmaskave&#39;</span><span class="p">,</span> <span class="s1">&#39;-mask&#39;</span><span class="p">]</span>
+        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&#39;</span><span class="si">{}</span><span class="s2">&#39;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">mask_path</span><span class="p">))</span>
+        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-q&#39;</span><span class="p">)</span>
+        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&#39;</span><span class="si">{}</span><span class="s2">&#39;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">input_path</span><span class="p">))</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">list2cmdline</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">stdout</span> <span class="o">=</span> <span class="n">check_output</span><span class="p">(</span><span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Error: Empty mask.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">output_path</span><span class="p">:</span>
+                <span class="n">stdout</span> <span class="o">=</span> <span class="n">stdout</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">stdout</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">stdout</span><span class="p">)</span>
+                <span class="k">except</span><span class="p">:</span>
+                    <span class="n">stdout</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+                    <span class="n">stdout</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">stdout</span><span class="p">)</span>
+                <span class="k">finally</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">stdout</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">stdout</span><span class="p">)</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Interface.afni_3dDetrend"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Interface.afni_3dDetrend">[docs]</a>    <span class="k">def</span> <span class="nf">afni_3dDetrend</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; AFNI 3dDetrend command wrapper</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;3dDetrend&#39;</span><span class="p">,</span> <span class="s1">&#39;-prefix&#39;</span><span class="p">]</span>
+        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&#39;</span><span class="si">{}</span><span class="s2">&#39;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">output_path</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;vector&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;-vector&quot;</span><span class="p">)</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;vector&#39;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="s1">&#39;expr&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;-expr&quot;</span><span class="p">)</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;expr&#39;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="s1">&#39;polort&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;-polort&quot;</span><span class="p">)</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;polort&#39;</span><span class="p">]))</span>
+        <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&#39;</span><span class="si">{}</span><span class="s2">&#39;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">input_path</span><span class="p">))</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">list2cmdline</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="n">call</span><span class="p">(</span><span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Interface.afni_3dDeconvolve"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Interface.afni_3dDeconvolve">[docs]</a>    <span class="k">def</span> <span class="nf">afni_3dDeconvolve</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span> <span class="c1"># TODO: Not working for GLM analysis, need to fix</span>
+        <span class="sd">&quot;&quot;&quot; AFNI 3Ddeconvolve command wrapper</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;3dDeconvolve&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">input_path</span><span class="p">:</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-input&#39;</span><span class="p">)</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&#39;</span><span class="si">{}</span><span class="s2">&#39;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">input_path</span><span class="p">)))</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-num_stimts&#39;</span><span class="p">)</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;1&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">kwarg</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;-</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">kwarg</span><span class="p">))</span>
+                <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">kwarg</span><span class="p">])</span> <span class="ow">is</span> <span class="nb">list</span><span class="p">:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">kwarg</span><span class="p">])</span>
+                <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">kwarg</span><span class="p">])</span> <span class="ow">is</span> <span class="nb">str</span><span class="p">:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">kwarg</span><span class="p">])</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="n">kwarg</span><span class="p">]))</span>
+        <span class="k">if</span> <span class="n">output_path</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;.nii&#39;</span> <span class="ow">in</span> <span class="n">output_path</span><span class="p">:</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-tout&#39;</span><span class="p">)</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-bucket&#39;</span><span class="p">)</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">output_path</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="s1">&#39;.1D&#39;</span> <span class="ow">in</span> <span class="n">output_path</span><span class="p">:</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-x1D&#39;</span><span class="p">)</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">output_path</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">messages</span><span class="o">.</span><span class="n">CommandExecutionFailure</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;-x1D&#39;</span><span class="p">)</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;stdout:&#39;</span><span class="p">)</span>
+            <span class="n">cmd</span> <span class="o">=</span> <span class="n">list2cmdline</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+            <span class="n">stdout</span> <span class="o">=</span> <span class="n">check_output</span><span class="p">(</span><span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">stdout</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">list2cmdline</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="c1"># print(cmd)</span>
+        <span class="n">call</span><span class="p">(</span><span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span></div>
+
+    <span class="c1"># ANTs commands</span>
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Interface.ants_BiasFieldCorrection"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Interface.ants_BiasFieldCorrection">[docs]</a>    <span class="k">def</span> <span class="nf">ants_BiasFieldCorrection</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="n">algorithm</span><span class="o">=</span><span class="s1">&#39;n3&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Execute the BiasFieldCorrection in the ANTs package</span>
+
+<span class="sd">        :param output_path: absolute output path</span>
+<span class="sd">        :param input_path: absolute input path</span>
+<span class="sd">        :param algorithm: &#39;n3&#39; or &#39;n4&#39;</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">algorithm</span> <span class="o">==</span> <span class="s1">&#39;n3&#39;</span> <span class="ow">or</span> <span class="s1">&#39;N3&#39;</span><span class="p">:</span>
+            <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;N3BiasFieldCorrection&#39;</span><span class="p">,</span> <span class="s1">&#39;3&#39;</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="n">output_path</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">algorithm</span> <span class="o">==</span> <span class="s1">&#39;n4&#39;</span> <span class="ow">or</span> <span class="s1">&#39;N4&#39;</span><span class="p">:</span>
+            <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;N4BiasFieldCorrection&#39;</span><span class="p">,</span> <span class="s1">&#39;-i&#39;</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="n">output_path</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">BaseException</span><span class="p">(</span><span class="s2">&quot;One of &#39;n3&#39; or &#39;n4&#39; must be chosen for last argument&quot;</span><span class="p">)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">list2cmdline</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="n">call</span><span class="p">(</span><span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Interface.ants_RegistrationSyn"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Interface.ants_RegistrationSyn">[docs]</a>    <span class="k">def</span> <span class="nf">ants_RegistrationSyn</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="n">base_path</span><span class="p">,</span> <span class="n">quick</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ttype</span><span class="o">=</span><span class="s1">&#39;s&#39;</span><span class="p">,</span> <span class="n">thread</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="c1"># ANTs SyN registration</span>
+        <span class="n">output_path</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">{}</span><span class="s1">_&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">output_path</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span><span class="o">+</span><span class="s1">&#39;Warped.nii.gz&#39;</span><span class="p">):</span>
+            <span class="k">pass</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">quick</span><span class="p">:</span>
+                <span class="n">script</span> <span class="o">=</span> <span class="s1">&#39;antsRegistrationSyN.sh&#39;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">script</span> <span class="o">=</span> <span class="s1">&#39;antsRegistrationSyNQuick.sh&#39;</span>
+
+            <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="n">script</span><span class="p">,</span> <span class="s1">&#39;-t&#39;</span><span class="p">,</span> <span class="n">ttype</span><span class="p">,</span> <span class="s1">&#39;-f&#39;</span><span class="p">,</span> <span class="n">base_path</span><span class="p">,</span> <span class="s1">&#39;-m&#39;</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="n">output_path</span><span class="p">,</span> <span class="s1">&#39;-n&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">thread</span><span class="p">)]</span>
+            <span class="n">cmd</span> <span class="o">=</span> <span class="n">list2cmdline</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+            <span class="n">call</span><span class="p">(</span><span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Interface.ants_WarpImageMultiTransform"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Interface.ants_WarpImageMultiTransform">[docs]</a>    <span class="k">def</span> <span class="nf">ants_WarpImageMultiTransform</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="n">base_path</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c1"># ANTs applying transform</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;WarpImageMultiTransform&#39;</span><span class="p">,</span> <span class="s1">&#39;3&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">input_path</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">output_path</span><span class="p">),</span> <span class="s1">&#39;-R&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">base_path</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="s1">&#39;atlas&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;atlas&#39;</span><span class="p">]:</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;--use-NN&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;--use-BSpline&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">list2cmdline</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="n">call</span><span class="p">(</span><span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span></div>
+        <span class="c1"># print(cmd)</span>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Interface.ants_WarpTimeSeriesImageMultiTransform"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.Interface.ants_WarpTimeSeriesImageMultiTransform">[docs]</a>    <span class="k">def</span> <span class="nf">ants_WarpTimeSeriesImageMultiTransform</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">input_path</span><span class="p">,</span> <span class="n">base_path</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c1"># ANTs applying transform</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;WarpTimeSeriesImageMultiTransform&#39;</span><span class="p">,</span> <span class="s1">&#39;4&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">input_path</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">output_path</span><span class="p">),</span> <span class="s1">&#39;-R&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">base_path</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="s1">&#39;atlas&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;atlas&#39;</span><span class="p">]:</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;--use-NN&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;--use-BSpline&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
+            <span class="n">cmd</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">list2cmdline</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="n">call</span><span class="p">(</span><span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span></div></div>
+        <span class="c1"># print(cmd)</span>
+
+
+<div class="viewcode-block" id="TempFile"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.TempFile">[docs]</a><span class="k">class</span> <span class="nc">TempFile</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Object for temporary file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="s1">&#39;image_cache&#39;</span><span class="p">,</span> <span class="n">atlas</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">flip</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">atlas</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_image</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_atlas</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">flip</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_atlas</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="n">invertx</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_atlas</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="s1">&#39;./.atlas_tmp&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_listdir</span> <span class="o">=</span> <span class="p">[</span> <span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="s1">&#39;./.atlas_tmp&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="s1">&#39;.nii&#39;</span> <span class="ow">in</span> <span class="n">f</span> <span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_image</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">flip</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_image</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="n">invertx</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Flipped!&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_fname</span> <span class="o">=</span> <span class="n">filename</span>
+            <span class="n">methods</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="s1">&#39;./.tmp&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_image</span><span class="o">.</span><span class="n">save_as</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s1">&#39;./.tmp&#39;</span><span class="p">,</span> <span class="n">filename</span><span class="p">),</span> <span class="n">quiet</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_atlas</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_image</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">IndexError</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_atlas</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s1">&#39;.atlas_tmp&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_listdir</span><span class="p">[</span><span class="n">idx</span><span class="p">]))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_image</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s1">&#39;.tmp&#39;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">.nii&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_fname</span><span class="p">)))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_atlas</span><span class="p">:</span>
+                <span class="n">output</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">roi</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_listdir</span><span class="p">):</span>
+                    <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{:&gt;3}</span><span class="s1">  </span><span class="si">{:&gt;100}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s1">&#39;.atlas_tmp&#39;</span><span class="p">,</span> <span class="n">roi</span><span class="p">))))</span>
+                <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">))</span>
+
+<div class="viewcode-block" id="TempFile.close"><a class="viewcode-back" href="../../../pynit.core.html#pynit.core.processors.TempFile.close">[docs]</a>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_image</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s1">&#39;.tmp&#39;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">.nii&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_fname</span><span class="p">)))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_atlas</span><span class="p">:</span>
+            <span class="n">rmtree</span><span class="p">(</span><span class="s1">&#39;.atlas_tmp&#39;</span><span class="p">,</span> <span class="n">ignore_errors</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_atlas</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_image</span> <span class="o">=</span> <span class="kc">None</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2017, SungHo Lee.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'dev01',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+      <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

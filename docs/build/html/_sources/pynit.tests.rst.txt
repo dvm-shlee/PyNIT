@@ -1,0 +1,30 @@
+pynit.tests package
+===================
+
+Submodules
+----------
+
+pynit.tests.test_handlers module
+--------------------------------
+
+.. automodule:: pynit.tests.test_handlers
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+pynit.tests.test_methods module
+-------------------------------
+
+.. automodule:: pynit.tests.test_methods
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+Module contents
+---------------
+
+.. automodule:: pynit.tests
+    :members:
+    :undoc-members:
+    :show-inheritance:
