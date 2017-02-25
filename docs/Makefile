@@ -22,8 +22,9 @@ help:
 
 gh-pages:
 	tar czf ../../html.tgz build/html/.
-	cd ..
 	git checkout gh-pages
+	cd ../.
+	rm -rf *
 	tar xzf ../html.tgz
 	git add .
 	git commit -a -m "publish the docs"
