@@ -10,8 +10,7 @@ Welcome to PyNIT's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   intro
-   tutorial
+   tutorial.rst
 
 
 Indices and tables
