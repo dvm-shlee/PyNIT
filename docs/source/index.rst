@@ -10,6 +10,8 @@ Welcome to PyNIT's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   intro
+   tutorial
 
 
 Indices and tables
@@ -18,10 +20,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
-
-
-This is Something
-=================
-
-This is Test
