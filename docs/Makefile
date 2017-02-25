@@ -19,13 +19,3 @@ help:
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
-
-gh-pages:
-	tar czf ../../html.tgz build/html/.
-	git checkout gh-pages
-	rm -rf ../*
-	tar xzf ../../html.tgz ../.
-	git add ../.
-	git commit -a -m "publish the docs"
-	git push origin gh-pages
-	git checkout master
