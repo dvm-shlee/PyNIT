@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Welcome to PyNIT’s documentation! &mdash; PyNIT dev01 documentation</title>
+  <title>PyNIT (Python NeuroImaging Toolkit) &mdash; PyNIT dev01 documentation</title>
   
 
   
@@ -116,7 +116,7 @@
   <ul class="wy-breadcrumbs">
     <li><a href="#">Docs</a> &raquo;</li>
       
-    <li>Welcome to PyNIT&#8217;s documentation!</li>
+    <li>PyNIT (Python NeuroImaging Toolkit)</li>
       <li class="wy-breadcrumbs-aside">
         
           
@@ -130,14 +130,37 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <div class="section" id="welcome-to-pynit-s-documentation">
-<h1>Welcome to PyNIT&#8217;s documentation!<a class="headerlink" href="#welcome-to-pynit-s-documentation" title="Permalink to this headline">¶</a></h1>
+  <div class="section" id="pynit-python-neuroimaging-toolkit">
+<h1>PyNIT (Python NeuroImaging Toolkit)<a class="headerlink" href="#pynit-python-neuroimaging-toolkit" title="Permalink to this headline">¶</a></h1>
 <div class="toctree-wrapper compound">
 <p class="caption"><span class="caption-text">Contents:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorials</a></li>
 </ul>
 </div>
+<p>PyNIT is a Python project that provides a useful tools for <em>in vivo</em>  animal neuroimaging analysis.</p>
+<p>The major function of this package is <strong>project handler</strong> (Project() class) which provides methods to parse and print out the information of structured neuroimage project folder based on [BIDS](<a class="reference external" href="http://bids.neuroimaging.io">http://bids.neuroimaging.io</a>) with filtering function and iterator to utilized the information. This class mainly utilizes [pandas](<a class="reference external" href="http://pandas.pydata.org">http://pandas.pydata.org</a>) DataFrame to make easy to handle the hierarchical structured neuroimaging data and database-like meta information includes subjects, sessions, filename, absolute path. This feature can be used for iterating the absolute path of the image files to load, apply preprocessing steps, and analyze multiple image data.</p>
+<p>The purpose of developing this package is to provide the handy environments for processing, manipulating, and visualizing neuroimage data for translational and preclinical neuroscientists who are familiar with python language and jupyter notebook environment. Also aimed to make all preprocessing reproducible, and also easy to archive the finished project with well-shaped data structure.</p>
+<p>While we are focusing on preclinical neuroimaging, we provide the Bruker raw data converter <strong>brk2nii</strong> in this package located at &#8216;pynit/bin&#8217; folder. The converter is optimized for Bruker 9.4T scanner, Paravision version 5.1 environments. If you have any problems to use this converter for the raw data from other version of Paravision, please provide us the sample rawfiles to test a code. Currently, DTI image cannot be converted with this converter. We will update this function soon.</p>
+<p>We also provide command-line <strong>checkscans</strong> tools that can print out the session information into terminal windows includes scan number, name of protocol, and brief information for acquisition parameters. Above commandline tools will be integrate into Django based project organizer to help researcher organize their scan data to BIDS standard using web-based user interface.</p>
+<p>## Guideline of Project folder structure</p>
+<ul class="simple">
+<li>Project folder has to have three data class as subfolders : Data, Processing, Results</li>
+<li>Non-processed dataset need to be organized based on BIDS guideline as linked above, and have to be placed at subfolder &#8216;Data&#8217;.</li>
+<li>After initiate project, &#8216;Processing&#8217; and &#8216;Results&#8217; folders will be generated.</li>
+<li>All preprocessed files derived from &#8216;Data&#8217; folder will be generated under &#8216;Processing&#8217; folder while results images from the preprocessing steps and excel files for the z-scored matrixes are generated under &#8216;Results&#8217; folder.</li>
+</ul>
+</div>
+<div class="section" id="additional-features">
+<h1>Additional features<a class="headerlink" href="#additional-features" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li>Preprocess() class is developed to apply [AFNI](<a class="reference external" href="https://afni.nimh.nih.gov">https://afni.nimh.nih.gov</a>) and [ANTs](<a class="reference external" href="http://stnava.github.io/ANTs/">http://stnava.github.io/ANTs/</a>) commandline tools for resting state fMRI. All steps will run though all subjects, session, and file you have. It need to be updated further. Current steps are optimized for functional MRI preprocessing pipeline of [Shihlab](<a class="reference external" href="http://shihlab.org)-located">http://shihlab.org)-located</a> at University of North Carolina at Chapel Hill to extract time course from ROIs, generating Z-scored correlation matrix. Example jupyter notebook with sample data will be provided soon.</li>
+<li>Template() class provides some handy opiton for merging multiple binary ROI into [ITK-snap](<a class="reference external" href="http://www.itksnap.org/pmwiki/pmwiki.php">http://www.itksnap.org/pmwiki/pmwiki.php</a>) segmentation file with labels, providing some useful methods to manipulate template image such as crop, flip, reslice, swap-axis, and plotting tempalate image with ROIs to generating figure for publication. This class mainly utilize [Nibabel](<a class="reference external" href="http://nipy.org/nibabel/">http://nipy.org/nibabel/</a>) package to load and write Nifti files and [Matplotlib](<a class="reference external" href="http://matplotlib.org">http://matplotlib.org</a>) to plot image on Jupyter notebook.</li>
+</ul>
+</div>
+<div class="section" id="license">
+<h1>License<a class="headerlink" href="#license" title="Permalink to this headline">¶</a></h1>
+<p>PyNIT is licensed under the term of the GNU GENERAL PUBLIC LICENSE Version 3</p>
 </div>
 <div class="section" id="indices-and-tables">
 <h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
