@@ -20,7 +20,7 @@ setup(name='PyNIT',
       packages=find_packages(),
       install_requires=['numpy', 'nibabel', 'pandas', 'IPython', 'ipywidgets',
                         'matplotlib', 'seaborn', 'tqdm',
-                        'scikit-image', 'xlrd', 'openpyxl']
+                        'scikit-image', 'xlrd', 'openpyxl'],
       classifier=[
             # How mature is this project? Common values are
             #  3 - Alpha
