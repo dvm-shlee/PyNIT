@@ -1,5 +1,5 @@
 gh-pages:
-	tar czf ../html.tgz docs/build/html/.
+	tar czf ../html.tgz -C docs/build/html .
 	git checkout gh-pages
 	rm -rf *
 	tar xzf ../html.tgz
