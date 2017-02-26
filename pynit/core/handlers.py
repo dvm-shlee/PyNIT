@@ -31,10 +31,18 @@ from multiprocessing.pool import ThreadPool
 
 
 class Project(object):
-    """Project Handler for fMRI datasets
+    """
+
     """
 
     def __init__(self, project_path, ds_ref='NIRAL', img_format='NifTi-1', **kwargs):
+        """ Load and initiate the project
+
+        :param project_path: Path of particular project
+        :param ds_ref:
+        :param img_format:
+        :param kwargs:
+        """
         """Load and initiate the project
 
         Parameters
