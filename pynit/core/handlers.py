@@ -541,6 +541,7 @@ class Project(object):
             self.__pipelines = None
             self.__steps = None
             self.__results = None
+            self.__empty_project = True
 
     def __call__(self, dc_id, *args, **kwargs):
         """Return DataFrame followed applying filters
