@@ -10,9 +10,8 @@ import nibabel as nib
 import numpy as np
 from skimage import exposure
 from nibabel import affines as affns
-from ..core import ImageObj, Template
-# import objects
-from ..core import messages
+import objects
+import messages
 import shlex
 from subprocess import PIPE, Popen
 
@@ -61,7 +60,7 @@ def load(filename):
     :return:
     """
     if '.nii' in filename:
-        img = ImageObj.load(filename)
+        img = objects.ImageObj.load(filename)
     elif '.mha' in filename:
         try:
             mha = sitk.ReadImage(filename)
@@ -71,7 +70,7 @@ def load(filename):
         resol = mha.GetSpacing()
         origin = mha.GetOrigin()
         affine = affns.from_matvec(np.diag(resol), origin)
-        img = ImageObj(data, affine)
+        img = objects.ImageObj(data, affine)
     else:
         raise messages.InputPathError
     return img
@@ -83,7 +82,7 @@ def load_temp(path=None, atlas=None):
     :param filename:
     :return:
     """
-    tempobj = Template(path, atlas)
+    tempobj = objects.Template(path, atlas)
     return tempobj
 
 
@@ -195,16 +194,16 @@ def parsing_atlas(path):
         label[0] = 'Clear Label', [.0, .0, .0]
 
         for idx, img in enumerate(list_of_rois):
-            imageobj = ImageObj.load(os.path.join   (path, img))
+            imageobj = objects.ImageObj.load(os.path.join   (path, img))
             affine.append(imageobj.affine)
             if not idx:
                 atlasdata = np.asarray(imageobj.dataobj)
             else:
                 atlasdata += np.asarray(imageobj.dataobj) * (idx + 1)
             label[idx+1] = splitnifti(img), rgbs[idx]
-        atlas = ImageObj(atlasdata, affine[0])
+        atlas = objects.ImageObj(atlasdata, affine[0])
     elif os.path.isfile(path):
-        atlas = ImageObj.load(path)
+        atlas = objects.ImageObj.load(path)
         if '.nii' in path:
             filepath = os.path.basename(splitnifti(path))
             dirname = os.path.dirname(path)
@@ -459,7 +458,7 @@ def gen_travel_seed(tractobj, start_point, end_point, filename=None):
         data[x, y, z + 1, i] = 1
         data[x + 1, y, z, i] = 1
         data[x + 1, y, z + 1, i] = 1
-    travelseed_obj = ImageObj(data, tractobj.affine)
+    travelseed_obj = objects.ImageObj(data, tractobj.affine)
     if filename:
         travelseed_obj.to_filename(filename)
     return travelseed_obj
@@ -617,13 +616,23 @@ def parsing(path, ds_type, idx):
         return df.sort_values('Abspath'), single_session, empty_prj
 
 def initial_filter(df, data_class, exts):
-    """Filtering out only selected file type in the project folder
+    """ Filtering out only selected file type in the project folder
 
-    :param df: pandas.DataFrame, Dataframe of project boject
-    :param data_class: list, Dataclass want to be filtered
-            e.g.) One of value in ['Data', 'Processing', 'Results'] for NIRAL method
-    :param exts: list, Extension want to be filtered
-    :return: pandas.DataFrame, Filtered dataframe
+    Parameters
+    ----------
+    df          : pandas.DataFrame
+        Dataframe of project boject
+    data_class  : list
+        Dataclass want to be filtered
+        e.g.) One of value in ['Data', 'Processing', 'Results'] for NIRAL method
+    ext         : list
+        Extension want to be filtered
+
+    Returns
+    -------
+    df          : pandas.DataFrame
+        Filtered dataframe
+
     """
     if data_class:
         if not type(data_class) is list:
@@ -639,11 +648,19 @@ def initial_filter(df, data_class, exts):
 
 
 def update_columns(idx, single_session):
-    """Update name of columns according to the set Dataclass
+    """ Update name of columns according to the set Dataclass
 
-    :param idx: int, Dataclass index
-    :param single_session: boolean, True if the project is single session
-    :return: dict, New list of columns
+    Parameters
+    ----------
+    idx             : int
+        Dataclass index
+    single_session  : boolean
+        True if the project is single session
+
+    Returns
+    -------
+    column          : dict
+        New list of columns
     """
     if idx == 0:
         if single_session:
@@ -661,11 +678,19 @@ def update_columns(idx, single_session):
 
 
 def reorder_columns(idx, single_session):
-    """Reorder the name of columns
+    """ Reorder the name of columns
 
-    :param idx: int, Dataclass index
-    :param single_session: boolean, True if the project is single session
-    :return: list or None, Reordered column
+    Parameters
+    ----------
+    idx             : int
+        Dataclass index
+    single_session  : boolean
+        True if the project is single session
+
+    Returns
+    -------
+    column          : list or None
+        Reordered column
     """
     if idx == 0:
         if single_session:
@@ -687,10 +712,15 @@ def reorder_columns(idx, single_session):
 
 
 def mk_main_folder(prj):
-    """Make processing and results folders
+    """ Make processing and results folders
 
-    :param prj: pynit.Project
-    :return: None
+    Parameters
+    ----------
+    prj         : pynit.Project
+
+    Returns
+    -------
+    None
     """
     mkdir(os.path.join(prj.path, prj.ds_type[0]),
                     os.path.join(prj.path, prj.ds_type[1]),
@@ -698,16 +728,24 @@ def mk_main_folder(prj):
 
 
 def check_arguments(args, residuals, lists):
-    """Parse the values in the list to be used as filter
+    """ Parse the values in the list to be used as filter
 
-    :param args: tuple, Input arguments for filtering
-    :param residuals: list, Residual values
-    :param lists: list, Attributes of project object
-    :return:
-        filter: list, Values need to be filtered
-        residuals: list, Residual values
+    Parameters
+    ----------
+    args        : tuple
+        Input arguments for filtering
+    residuals   : list
+        Residual values
+    lists       : list
+        Attributes of project object
+
+    Returns
+    -------
+    filter      : list
+        Values need to be filtered
+    residuals   : list
+        Residual values
     """
-
     filter = [arg for arg in args if arg in lists]
     residuals = list(residuals)
     if len(filter):
@@ -716,15 +754,7 @@ def check_arguments(args, residuals, lists):
                 residuals.remove(comp)
     return list(set(filter)), list(set(residuals))
 
-def get_step_name(procobj, step, results=False, verbose=None):
-    """Add index number into step name as prefix
-
-    :param procobj:
-    :param step:
-    :param results:
-    :param verbose:
-    :return:
-    """
+def get_step_name(procobj, step, results=False, verbose = None):
     if results:
         idx = 2
     else:
