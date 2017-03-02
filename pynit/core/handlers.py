@@ -601,9 +601,9 @@ class Process(object):
 
         # Prepare inputs
         prjobj.reset_filters()
-        try:
+        if prjobj(1, name).subjects:
             self._prjobj = prjobj(1, name)
-        except:
+        else:
             self._prjobj = prjobj
         self._processing = name
         path = os.path.join(self._prjobj.path, self._prjobj.ds_type[1])
@@ -1140,7 +1140,6 @@ class Process(object):
 
         :return: None
         """
-        print(self._prjobj.subjects)
         if self._prjobj.subjects:
             if self._subjects:
                 if self._subjects != self._prjobj.subjects:
