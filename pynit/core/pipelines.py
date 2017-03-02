@@ -50,11 +50,11 @@ class A_fMRI_preprocess(PipeTemplate):
         else:
             self.proc.afni_MeanImgCalc(self.func, surfix=self.surfix)
         # Mask preparation
-        self.proc.afni_MaskPrep(self.anat, self.tmpobj, surfix=self.surfix)
+        self.proc.afni_MaskPrep(self.anat, self.tmpobj)
 
     def pipe_02_Preprocessing_2d_evoked_data(self):
         # Skull stripping
-        self.proc.afni_SkullStrip(self.anat, self.proc.steps[0], surfix=self.surfix)
+        self.proc.afni_SkullStrip(self.anat, self.proc.steps[0])
         # Coregistration
         self.proc.afni_Coreg(self.proc.steps[3], self.proc.steps[4], surfix=self.surfix)
         # Slice timing correction
