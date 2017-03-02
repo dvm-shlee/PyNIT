@@ -601,7 +601,7 @@ class Process(object):
 
         # Prepare inputs
         prjobj.reset_filters()
-        if prjobj(1, name).subjects:
+        if prjobj(1).subjects:
             self._prjobj = prjobj(1, name)
         else:
             self._prjobj = prjobj
