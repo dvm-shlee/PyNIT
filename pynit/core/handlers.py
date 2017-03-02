@@ -1143,7 +1143,10 @@ class Process(object):
         if self._prjobj.subjects:
             if self._subjects:
                 if self._subjects != self._prjobj.subjects:
-                    self._subjects = sorted(self._prjobj(1, self.processing).subjects[:])
+                    try:
+                        self._subjects = sorted(self._prjobj(1, self.processing).subjects[:])
+                    except:
+                        self._subjects = sorted(self._prjobj.subjects[:])
                 else:
                     self._subjects = sorted(self._prjobj.subjects[:])
             else:
