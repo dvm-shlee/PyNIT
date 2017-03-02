@@ -6,17 +6,9 @@ import copy as ccopy
 import pickle
 import pandas as pd
 import itertools
-import messages
-import methods
-import tools
-import multiprocessing
-from multiprocessing.pool import ThreadPool
 from shutil import rmtree, copy
-from collections import namedtuple
-from .objects import Reference, ImageObj
-from .processors import Analysis, Interface, TempFile
-from .methods import np
-from .visualizers import Viewer
+from StringIO import StringIO
+
 try:
     if len([key for key in sys.modules.keys() if key == 'ipykernel']):
         from tqdm import tqdm_notebook as progressbar
@@ -29,11 +21,22 @@ try:
         jupyter_env = False
 except:
     pass
-# Hidden inside the string
-import pipelines
+
+from collections import namedtuple
+
+from .objects import Reference, ImageObj
+from .processors import Analysis, Interface, TempFile
+from .methods import np
+from .visualizers import Viewer
 from time import sleep
-from StringIO import StringIO
+import messages
+import methods
+import tools
+import pipelines
 from tempfile import mkdtemp
+
+import multiprocessing
+from multiprocessing.pool import ThreadPool
 
 
 class Project(object):
@@ -1041,11 +1044,14 @@ class Process(object):
                 step.set_variable(name='n_tr', value=cbv[1])
                 step.set_execmethod('cbv_path = json.load(open(cbv[i].Abspath))["cbv"]')
                 step.set_staticinput(name='cbv_path', value='cbv_path')
+                # step.set_execmethod('print(cbv_path)')
                 cbv_cmd = '3dROIstats -mask {rois} {cbv_path}'
                 step.set_command(cbv_cmd, stdout='cbv_out')
                 step.set_execmethod('temp_outputs.append([None, err])')
+                # step.set_execmethod('print(cbv_out)')
                 step.set_execmethod('pd.read_table(StringIO(cbv_out))', var='cbv_df')
                 step.set_execmethod('cbv_df[cbv_df.columns[:]]', var='cbv_df')
+                # step.set_execmethod('print(cbv_df)')
             else:
                 methods.raiseerror(messages.Errors.InputValueError, 'Please check input CBV parameters')
         step.set_execmethod('if len(df.columns):')
@@ -1054,11 +1060,13 @@ class Process(object):
                                 'cbv_df.loc[:n_tr, :].mean(axis=0))')
             step.set_execmethod('\tdR2_stim = (-1 / te) * np.log(df / df.loc[:n_tr, :].mean(axis=0))')
             step.set_execmethod('\tdf = dR2_stim/dR2_mion')
+            # step.set_execmethod('\tprint(df)')
         step.set_execmethod('\tdf.to_excel(os.path.join(sub_path, methods.splitnifti(func[i].Filename)+".xlsx"), '
                             'index=False)')
         step.set_execmethod('\tpass')
         step.set_execmethod('else:')
         step.set_execmethod('\tpass')
+        # step.set_execmethod('print(os.path.join(sub_path, methods.splitnifti(func[i].Filename)))')
         # step.get_executefunc('test', verbose=True)
         output_path = step.run('ExtractROIs', surfix=surfix)
         return dict(timecourse=output_path)

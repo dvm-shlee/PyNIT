@@ -1,6 +1,5 @@
 from .handlers import Project, Preprocess, Process, Pipelines
 from .visualizers import Viewer, Plot
-from .processors import Interface
 from .processors import Analysis, Interface, TempFile
 from .objects import Template, ImageObj
 from .tools import itksnap

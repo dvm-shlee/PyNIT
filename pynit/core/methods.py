@@ -10,8 +10,9 @@ import nibabel as nib
 import numpy as np
 from skimage import exposure
 from nibabel import affines as affns
-import objects
-import messages
+from ..core import ImageObj, Template
+# import objects
+from ..core import messages
 import shlex
 from subprocess import PIPE, Popen
 
@@ -60,7 +61,7 @@ def load(filename):
     :return:
     """
     if '.nii' in filename:
-        img = objects.ImageObj.load(filename)
+        img = ImageObj.load(filename)
     elif '.mha' in filename:
         try:
             mha = sitk.ReadImage(filename)
@@ -70,7 +71,7 @@ def load(filename):
         resol = mha.GetSpacing()
         origin = mha.GetOrigin()
         affine = affns.from_matvec(np.diag(resol), origin)
-        img = objects.ImageObj(data, affine)
+        img = ImageObj(data, affine)
     else:
         raise messages.InputPathError
     return img
@@ -82,7 +83,7 @@ def load_temp(path=None, atlas=None):
     :param filename:
     :return:
     """
-    tempobj = objects.Template(path, atlas)
+    tempobj = Template(path, atlas)
     return tempobj
 
 
@@ -194,16 +195,16 @@ def parsing_atlas(path):
         label[0] = 'Clear Label', [.0, .0, .0]
 
         for idx, img in enumerate(list_of_rois):
-            imageobj = objects.ImageObj.load(os.path.join   (path, img))
+            imageobj = ImageObj.load(os.path.join   (path, img))
             affine.append(imageobj.affine)
             if not idx:
                 atlasdata = np.asarray(imageobj.dataobj)
             else:
                 atlasdata += np.asarray(imageobj.dataobj) * (idx + 1)
             label[idx+1] = splitnifti(img), rgbs[idx]
-        atlas = objects.ImageObj(atlasdata, affine[0])
+        atlas = ImageObj(atlasdata, affine[0])
     elif os.path.isfile(path):
-        atlas = objects.ImageObj.load(path)
+        atlas = ImageObj.load(path)
         if '.nii' in path:
             filepath = os.path.basename(splitnifti(path))
             dirname = os.path.dirname(path)
@@ -458,7 +459,7 @@ def gen_travel_seed(tractobj, start_point, end_point, filename=None):
         data[x, y, z + 1, i] = 1
         data[x + 1, y, z, i] = 1
         data[x + 1, y, z + 1, i] = 1
-    travelseed_obj = objects.ImageObj(data, tractobj.affine)
+    travelseed_obj = ImageObj(data, tractobj.affine)
     if filename:
         travelseed_obj.to_filename(filename)
     return travelseed_obj
