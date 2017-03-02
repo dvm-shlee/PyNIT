@@ -604,7 +604,7 @@ class Process(object):
         if prjobj(1).subjects:
             self._prjobj = prjobj(1, name)
         else:
-            self._prjobj = prjobj
+            self._prjobj = prjobj(0)
         self._processing = name
         path = os.path.join(self._prjobj.path, self._prjobj.ds_type[1])
         self._path = os.path.join(path, self._processing)
@@ -1143,17 +1143,18 @@ class Process(object):
         if self._prjobj.subjects:
             if self._subjects:
                 if self._subjects != self._prjobj.subjects:
-                    temp_subjs = self._prjobj(1, self.processing).subjects
-                    if temp_subjs:
+                    try:
                         self._subjects = sorted(self._prjobj(1, self.processing).subjects[:])
                     else:
-                        self._subjects = sorted(self._prjobj.subjects[:])
+                        self._subjects = sorted(self._prjobj(0).subjects[:])
                 else:
                     self._subjects = sorted(self._prjobj.subjects[:])
             else:
                 self._subjects = sorted(self._prjobj.subjects[:])
             if not self._prjobj.single_session:
                 self._sessions = sorted(self._prjobj.sessions[:])
+        else:
+            self._subjects = sorted(self._prjobj(0).subjects[:])
 
         self.logger.info('Attributes [subjects, sessions] are reset to default value.')
 
