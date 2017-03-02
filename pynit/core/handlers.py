@@ -601,7 +601,10 @@ class Process(object):
 
         # Prepare inputs
         prjobj.reset_filters()
-        self._prjobj = prjobj(1, name)
+        try:
+            self._prjobj = prjobj(1, name)
+        except:
+            pass
         self._processing = name
         path = os.path.join(self._prjobj.path, self._prjobj.ds_type[1])
         self._path = os.path.join(path, self._processing)
