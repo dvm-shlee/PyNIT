@@ -732,7 +732,7 @@ class Process(object):
         output_path = step.run('MotionCorrection', surfix)
         return dict(func=output_path)
 
-    def afni_MaskPrep(self, anat, tmpob):
+    def afni_MaskPrep(self, anat, tmpobj):
         """
 
         :param anat:
