@@ -1,59 +1,54 @@
 import os
 import re
 import sys
-import copy
+import json
+import copy as ccopy
 import pickle
 import pandas as pd
 import itertools
-from tempfile import mkdtemp
-from shutil import rmtree
-
-try:
-    if len([key for key in sys.modules.keys() if key == 'ipykernel']):
-        from tqdm import tqdm_notebook as progressbar
-        from ipywidgets import widgets
-    else:
-        from tqdm import tqdm as progressbar
-except:
-    pass
-
+import messages
+import methods
+import tools
+import multiprocessing
+from multiprocessing.pool import ThreadPool
+from shutil import rmtree, copy
 from collections import namedtuple
-
 from .objects import Reference, ImageObj
 from .processors import Analysis, Interface, TempFile
 from .methods import np
 from .visualizers import Viewer
-import messages
-import methods
-
-import multiprocessing
-from multiprocessing.pool import ThreadPool
+try:
+    if len([key for key in sys.modules.keys() if key == 'ipykernel']):
+        from tqdm import tqdm_notebook as progressbar
+        from ipywidgets import widgets
+        from ipywidgets.widgets import HTML as title
+        jupyter_env = True
+        from IPython.display import display, display_html
+    else:
+        from tqdm import tqdm as progressbar
+        jupyter_env = False
+except:
+    pass
+# Hidden inside the string
+import pipelines
+from time import sleep
+from StringIO import StringIO
+from tempfile import mkdtemp
 
 
 class Project(object):
-    """
-
+    """Project handler
     """
 
     def __init__(self, project_path, ds_ref='NIRAL', img_format='NifTi-1', **kwargs):
-        """ Load and initiate the project
-
-        :param project_path: Path of particular project
-        :param ds_ref:
-        :param img_format:
-        :param kwargs:
-        """
         """Load and initiate the project
 
-        Parameters
-        ----------
-        project_path:   str
-            Path of particular project
-        ds_ref:         str
-            Reference of data structure (default: 'NIRAL')
-        img_format:     str
-            Reference img format
+        :param project_path: str, Path of particular project
+        :param ds_ref: str, Reference of data structure (default: 'NIRAL')
+        :param img_format: str, Reference img format (default: 'NifTi-1')
+        :param kwargs: dict, key arguments for options
         """
+
         # Display options for pandasDataframe
         max_rows = 100
         max_colwidth = 100
@@ -99,37 +94,36 @@ class Project(object):
 
     @property
     def df(self):
-        """ Dataframe for handling data structure
+        """Dataframe for handling data structure
 
-        Returns
-        -------
-        dataset : pandas.Dataframe
+        :return: pandas.DataFrame
         """
         columns = self.__df.columns
         return self.__df.reset_index()[columns]
 
     @property
     def path(self):
-        """ Project path
+        """Project path
 
-        Returns
-        -------
-        path    : str
+        :return: str, path
         """
         return self.__path
 
     @property
     def dataclass(self):
-        """ Dataclass index
+        """Dataclass index
 
-        Returns
-        -------
-        index   : int
+        :return: int, index
         """
         return self.ds_type[self.__dc_idx]
 
     @dataclass.setter
     def dataclass(self, idx):
+        """Setter method for dataclass
+
+        :param idx: int, index of dataclass
+        :return: None
+        """
         if idx in range(3):
             self.__dc_idx = idx
             self.reset()
@@ -141,41 +135,9 @@ class Project(object):
     def subjects(self):
         return self.__subjects
 
-    # @subjects.setter
-    # def subjects(self, idx):
-    #     self.__subjects = sorted(list(set(self.df.Subject.tolist())))
-    #     try:
-    #         if isinstance(idx, list):
-    #             if len(idx) == 2:
-    #                 self.__subjects = self.__subjects[idx[0]:idx[1]]
-    #             else:
-    #                 methods.raiseerror(messages.Errors.InputValueError, 'Wrong indexing.')
-    #         elif isinstance(idx, int):
-    #             self.__subjects = [self.__subjects[idx]]
-    #         else:
-    #             methods.raiseerror(messages.Errors.InputValueError, 'Wrong indexing.')
-    #     except:
-    #         methods.raiseerror(messages.Errors.InputValueError, 'Wrong indexing.')
-
     @property
     def sessions(self):
         return self.__sessions
-
-    # @sessions.setter
-    # def sessions(self, idx):
-    #     self.__sessions = sorted(list(set(self.df.Session.tolist())))
-    #     try:
-    #         if isinstance(idx, list):
-    #             if len(idx) == 2:
-    #                 self.__sessions = self.__sessions[idx[0]:idx[1]]
-    #             else:
-    #                 methods.raiseerror(messages.Errors.InputValueError, 'Wrong indexing.')
-    #         elif isinstance(idx, int):
-    #             self.__sessions = [self.__sessions[idx]]
-    #         else:
-    #             methods.raiseerror(messages.Errors.InputValueError, 'Wrong indexing.')
-    #     except:
-    #         methods.raiseerror(messages.Errors.InputValueError, 'Wrong indexing.')
 
     @property
     def dtypes(self):
@@ -221,17 +183,10 @@ class Project(object):
 
     @property
     def ref_exts(self, type='all'):
-        """
+        """Reference extention handler
 
-        Parameters
-        ----------
-        type    : str
-            type of ext ['all', 'img', 'txt']
-
-        Returns
-        -------
-        return value
-
+        :param type: str, Choose one of 'all', 'img' or 'txt'
+        :return: list, list of extensions
         """
         img_ext = self.ref.img.values()
         txt_ext = self.ref.txt.values()
@@ -251,19 +206,19 @@ class Project(object):
                                "only one of the value in ['all'.'img'.'txt'] is available for type.\n")
 
     def reload(self):
+        """Reload dataset
+
+        :return: None
+        """
         self.reset(True)
         self.apply()
 
     def reset(self, rescan=False, verbose=False):
-        """ Reset DataFrame
+        """Reset DataFrame
 
-        Parameters
-        ----------
-        rescan  : Boolean
-
-        Returns
-        -------
-        None
+        :param rescan: boolean, Choose if you want to re-scan all dataset
+        :param verbose: boolean
+        :return: None
         """
 
         if rescan:
@@ -286,31 +241,20 @@ class Project(object):
             self.__empty_project = False
 
     def save_df(self, dc_idx):
-        """ Save Dataframe to pickle file
+        """Save Dataframe to pickle file
 
-        Parameters
-        ----------
-        dc_idx  : index in range(3)
-
-        Returns
-        -------
-        None
+        :param dc_idx: idx, index in range(3)
+        :return: None
         """
         dc_df = os.path.join(self.__path, self.ds_type[dc_idx], '.class_dataframe')
         with open(dc_df, 'wb') as f:
             pickle.dump(self.__df, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     def reset_filters(self, ext=None):
-        """ Reset filter - Clear all filter information and extension
+        """Reset filter - Clear all filter information and extension
 
-        Parameters
-        ----------
-        ext     : str
-            Filter parameter for file extension
-
-        Returns
-        -------
-        None
+        :param ext: str, Filter parameter for file extension
+        :return: None
         """
         self.__filters = [None] * 6
         if not ext:
@@ -319,11 +263,9 @@ class Project(object):
             self.ext = ext
 
     def scan_prj(self):
-        """ Reload the Dataframe based on current set data class and extension
+        """Reload the Dataframe based on current set data class and extension
 
-        Returns
-        -------
-        None
+        :return: None
         """
         # Parsing command works
         self.__df, self.single_session, empty_prj = methods.parsing(self.path, self.ds_type, self.__dc_idx)
@@ -338,24 +280,13 @@ class Project(object):
         self.save_df(self.__dc_idx)
 
     def set_filters(self, *args, **kwargs):
-        """ Set filters
+        """Set filters
 
-        Parameters
-        ----------
-        args    : str[, ]
-            String arguments regarding hierarchical data structures
-        kwargs  : key=value pair[, ]
-            Key and value pairs for the filtering parameter on filename
-
-            (key) file_tag  : str or list of str
-                Keywords of interest for filename
-            (key) ignore    : str or list of str
-                Keywords of neglect for filename
-
-        Returns
-        -------
-        None
-
+        :param args: str[, ], String arguments regarding hierarchical data structures
+        :param kwargs: key=value pair[, ], Key and value pairs for the filtering parameter on filename
+            :subparam file_tag: str or list of str, Keywords of interest for filename
+            :subparam ignore: str or list of str, Keywords of neglect for filename
+        :return: None
         """
         self.reset_filters(self.ext)
         pipe_filter = None
@@ -467,25 +398,18 @@ class Project(object):
                                        'Wrong filter input:{residuals}'.format(residuals=residuals))
 
     def apply(self):
-        """ Applying all filters to current dataframe
+        """Applying all filters to current dataframe
 
-        Returns
-        -------
-        None
+        :return: None
         """
         self.__df = self.applying_filters(self.__df)
         self.__update()
 
     def applying_filters(self, df):
-        """ Applying current filters to the given dataframe
+        """Applying current filters to the given dataframe
 
-        Parameters
-        ----------
-        df      : pandas.DataFrame
-
-        Returns
-        -------
-        df      : pandas.DataFrame
+        :param df: pandas.DataFrame
+        :return: pandas.DataFrame
         """
         if len(df):
             if self.__filters[0]:
@@ -620,7 +544,7 @@ class Project(object):
         """
         self.dataclass = dc_id
         self.reset()
-        prj = copy.copy(self)
+        prj = ccopy.copy(self)
         prj.set_filters(*args, **kwargs)
         prj.apply()
         return prj
@@ -660,42 +584,43 @@ class Project(object):
 
 
 class Process(object):
-    """ Collections of step components for pipelines
+    """Collections of step components for pipelines
     """
     def __init__(self, prjobj, name, parallel=True, logging=True):
         """
 
-        Parameters
-        ----------
-        prjobj
-        name
+        :param prjobj:
+        :param name:
+        :param parallel:
+        :param logging:
         """
+
+        # Prepare inputs
         prjobj.reset_filters()
-        self._prjobj = prjobj
+        self._prjobj = prjobj(1, name)
         self._processing = name
         path = os.path.join(self._prjobj.path, self._prjobj.ds_type[1])
         self._path = os.path.join(path, self._processing)
+
+        # Initiate logger
         if logging:
             self.logger = methods.get_logger(path, name)
+
+        # Define default arguments
         self._subjects = None
         self._sessions = None
         self._history = {}
         self._parallel = parallel
         self._tempfiles = []
+
+        # Initiate
         self.init_proc()
 
     def check_input(self, input_path):
-        """ Check input_path and return absolute path
+        """Check input_path and return absolute path
 
-        Parameters
-        ----------
-        input_path : str
-            Step path
-
-        Returns
-        -------
-        input_path : str
-            Absolute path of step
+        :param input_path: str, name of the Processing step folder
+        :return: str, Absolute path of the step
         """
         if input_path in self.executed:
             return self._history[input_path]
@@ -703,24 +628,14 @@ class Process(object):
             return input_path
 
     def afni_MeanImgCalc(self, func, cbv=False, surfix='func'):
-        """ Mean image calculation for functional image
+        """Mean image calculation for functional image : Initial preparation
 
-        Major purpose of this preprocessing step is to prepare base-images
-        for both mask drawing and motion correction.
-
-        Parameters
-        ----------
-        func : str
-            datatype of absolute_path
-        cbv : boolean
-            True if MION contrast agent is infused
-        surfix : str
-            Output folder surfix
-
-        Returns
-        -------
-        output_path : dict
+        :param func: str, Name of functional data folder at source location (eg. 'func')
+        :param cbv: boolean, True if MION contrast agent is infused
+        :param surfix: str, Output folder surfix
+        :return: output_path: dict, Absolute path of outputs
         """
+        display(title(value='** Processing mean image calculation.....'))
         func = self.check_input(func)
         step = Step(self)
         step.set_input(name='func', input_path=func, static=True)
@@ -745,24 +660,19 @@ class Process(object):
         else:
             cmd02 = "3dTstat -prefix {output} -mean {temp_01}"
             step.set_command(cmd02)
-            # step.get_executefunc('test', verbose=True)
             output_path = step.run('MeanImgCalc-BOLD', surfix)
         return dict(meanfunc=output_path)
 
     def afni_SliceTimingCorrection(self, func, tr=None, tpattern=None, surfix='func'):
-        """ Corrects for slice time differences when individual 2D slices are recorded over a 3D image
+        """Corrects for slice time differences when individual 2D slices are recorded over a 3D image
 
-        Parameters
-        ----------
-        func : str
-        tr : int
-        tpattern : str
-        surfix : str
-
-        Returns
-        -------
-        output_path : dict
+        :param func: str,
+        :param tr: int,
+        :param tpattern: str,
+        :param surfix: str,
+        :return: output_path: dict, Absolute path of outputs
         """
+        display(title(value='** Processing slice timing correction.....'))
         func = self.check_input(func)
         options = str()
         step = Step(self)
@@ -777,21 +687,17 @@ class Process(object):
         input_str = " {func}"
         cmd = cmd+options+input_str
         step.set_command(cmd)
-        # step.get_executefunc('test', verbose=True)
         output_path = step.run('SliceTmCorrect', surfix)
         return dict(func=output_path)
 
     def afni_MotionCorrection(self, func, surfix='func'):
         """
 
-        Parameters
-        ----------
-        func
-
-        Returns
-        -------
-
+        :param func:
+        :param surfix:
+        :return:
         """
+        display(title(value='** Processing motion correction.....'))
         func = self.check_input(func)
         step = Step(self)
 
@@ -816,29 +722,34 @@ class Process(object):
         step.set_command(cmd03)
         cmd04 = '3dAllineate -prefix {output} -1Dmatrix_apply {transmat} -warp sho {temp_01}'
         step.set_command(cmd04)
-        # step.get_executefunc('test', verbose=True)
         output_path = step.run('MotionCorrection', surfix)
         return dict(func=output_path)
 
-    def afni_MaskPrep(self, anat):
+    def afni_MaskPrep(self, anat, tmpobj):
         """
-        Parameters
-        ----------
-        anat
 
-        Returns
-        -------
+        :param anat:
+        :return:
         """
+        display(title(value='** Processing mask image preparation.....'))
         anat = self.check_input(anat)
         step = Step(self)
+        mimg_path = None
         try:
             step.set_input(name='anat', input_path=anat, static=True)
         except:
             methods.raiseerror(messages.Errors.MissingPipeline,
                                'No anatomy file!')
-        cmd01 = '3dcalc -prefix {output} -expr "a" -a {anat}'
+        try:
+            step.set_staticinput(name='mask', value=tmpobj.mask.get_filename())
+        except:
+            methods.raiseerror(messages.InputPathError,
+                               'No mask template file!')
+        cmd01 = "3dAllineate -prefix {temp1} -NN -onepass -EPI -base {anat} -cmass+xy {mask}"
+        cmd02 = '3dcalc -prefix {output} -expr "astep(a, 0.5)" -a {temp1}'
         step.set_command(cmd01)
-        anat_path = step.run('MaskPrep', 'anat')
+        step.set_command(cmd02)
+        anat_mask = step.run('MaskPrep', 'anat')
         step = Step(self)
         try:
             mimg_path = self.steps[0]
@@ -850,48 +761,65 @@ class Process(object):
         except:
             methods.raiseerror(messages.Errors.MissingPipeline,
                                'Initial Mean image calculation step has not been executed!')
-        cmd02 = '3dcalc -prefix {output} -expr "a" -a {func}'
-        step.set_command(cmd02, idx=0)
-        func_path = step.run('MaskPrep', 'meanfunc')
-        return dict(anat=anat_path, func=func_path)
+        try:
+            step.set_staticinput(name='mask', value=tmpobj.mask.get_filename())
+        except:
+            methods.raiseerror(messages.InputPathError,
+                               'No mask template file!')
+        cmd01 = "3dAllineate -prefix {temp1} -NN -onepass -EPI -base {func} -cmass+xy {mask}"
+        cmd02 = '3dcalc -prefix {output} -expr "astep(a, 0.5)" -a {temp1}'
+        step.set_command(cmd01, idx=0)
+        step.set_command(cmd02)
+        func_mask = step.run('MaskPrep', 'func')
+        if jupyter_env:
+            display(widgets.VBox([title(value='-'*43 + ' Anatomical images ' + '-'*43),
+                                  tools.itksnap(self, anat_mask, anat),
+                                  title(value='<br>' + '-'*43 + ' Functional images ' + '-'*43),
+                                  tools.itksnap(self, func_mask, mimg_path)]))
+        else:
+            return dict(anat_mask=anat_mask, func_mask=func_mask)
 
     def afni_SkullStrip(self, anat, func):
         """
-        Parameters
-        ----------
-        func
-        anat
 
-        Returns
-        -------
+        :param anat:
+        :param func:
+        :return:
         """
+        display(title(value='** Processing skull stripping.....'))
         anat = self.check_input(anat)
         func = self.check_input(func)
+        anat_mask = [self.steps[idx] for idx, step in self.executed.items() if 'MaskPrep-anat' in step][0]
+        anat_mask = self.check_input(anat_mask)
+        func_mask = [self.steps[idx] for idx, step in self.executed.items() if 'MaskPrep-func' in step][0]
+        func_mask = self.check_input(func_mask)
         step = Step(self)
-        mask_filters = {'file_tag': '_mask'}
         step.set_input(name='anat', input_path=anat, static=True)
-        step.set_input(name='anat_mask', input_path=anat, filters=mask_filters, static=True, side=True)
+        step.set_input(name='anat_mask', input_path=anat_mask, static=True, side=True)
         cmd01 = '3dcalc -prefix {output} -expr "a*step(b)" -a {anat} -b {anat_mask}'
         step.set_command(cmd01)
         anat_path = step.run('SkullStrip', 'anat')
         step = Step(self)
-        step.set_input(name='func', input_path=func, static=True)
-        step.set_input(name='func_mask', input_path=func, filters=mask_filters, static=True, side=True)
+        if '-CBV-' in func:
+            func_filter = {'file_tag':'_BOLD'}
+            step.set_input(name='func', input_path=func, filters=func_filter, static=True)
+        else:
+            step.set_input(name='func', input_path=func, static=True)
+        step.set_input(name='func_mask', input_path=func_mask, static=True, side=True)
         cmd02 = '3dcalc -prefic {output} -expr "a*step(b)" -a {func} -b {func_mask}'
         step.set_command(cmd02, idx=0)
-        func_path = step.run('SkullStrip', 'meanfunc')
+        func_path = step.run('SkullStrip', 'func')
         return dict(anat=anat_path, func=func_path)
 
     def afni_Coreg(self, anat, meanfunc, surfix='func'):
         """
-        Parameters
-        ----------
-        meanfunc
-        anat
 
-        Returns
-        -------
+        :param anat:
+        :param meanfunc:
+        :param surfix:
+        :return:
         """
+        display(title(value='** Processing coregistration.....'))
         anat = self.check_input(anat)
         meanfunc = self.check_input(meanfunc)
         step = Step(self)
@@ -910,39 +838,32 @@ class Process(object):
 
     def afni_SkullStripAll(self, func, meanfunc, surfix='func'):
         """
-        Parameters
-        ----------
-        func
-        meanfunc
 
-        Returns
-        -------
+        :param func:
+        :param meanfunc:
+        :param surfix:
+        :return:
         """
+        display(title(value='** Processing skull stripping to all {} data.....'.format(surfix)))
         meanfunc = self.check_input(meanfunc)
         func = self.check_input(func)
         step = Step(self)
-        mask_filters = {'file_tag':'_mask'}
-        step.set_input(name='mask', input_path=meanfunc, filters=mask_filters, static=True, side=True)
+        step.set_input(name='mask', input_path=meanfunc, static=True, side=True)
         step.set_input(name='func', input_path=func)
         cmd = '3dcalc -prefix {output} -expr "a*step(b)" -a {func} -b {mask}'
         step.set_command(cmd)
-        # step.get_executefunc('test', verbose=True)
         output_path = step.run('Apply_SkullStrip', surfix)
         return dict(func=output_path)
 
     def afni_ApplyCoregAll(self, func, coregfunc, surfix='func'):
         """
 
-        Parameters
-        ----------
-        func
-        coregfunc
-        surfix
-
-        Returns
-        -------
-
+        :param func:
+        :param coregfunc:
+        :param surfix:
+        :return:
         """
+        display(title(value='** Applying coregistration to all {} data.....'.format(surfix)))
         coregfunc = self.check_input(coregfunc)
         func = self.check_input(func)
         step = Step(self)
@@ -952,23 +873,18 @@ class Process(object):
         step.set_input(name='func', input_path=func)
         cmd = '3dAllineate -prefix {output} -master {coreg} -1Dmatrix_apply {tform} {func}'
         step.set_command(cmd)
-        # step.get_executefunc('test', verbose=True)
         output_path = step.run('Apply_Coreg', surfix)
         return dict(func=output_path)
 
     def afni_SpatialNorm(self, anat, tmpobj, surfix='anat'):
         """
 
-        Parameters
-        ----------
-        anat
-        tmpobj
-        surfix
-
-        Returns
-        -------
-
+        :param anat:
+        :param tmpobj:
+        :param surfix:
+        :return:
         """
+        display(title(value='** Processing spatial normalization.....'))
         anat = self.check_input(anat)
         step = Step(self)
         step.set_input(name='anat', input_path=anat, static=True)
@@ -977,23 +893,18 @@ class Process(object):
         cmd = '3dAllineate -prefix {output} -twopass -cmass+xy -zclip -conv 0.01 -base {tmpobj} ' \
               '-cost crM -check nmi -warp shr -1Dmatrix_save {transmat} {anat}'
         step.set_command(cmd)
-        # step.get_executefunc('test', verbose=True)
         output_path = step.run('SpatialNorm', surfix)
         return dict(normanat=output_path)
 
     def afni_ApplySpatialNorm(self, func, normanat, surfix='func'):
         """
 
-        Parameters
-        ----------
-        func
-        normanat
-        surfix
-
-        Returns
-        -------
-
+        :param func:
+        :param normanat:
+        :param surfix:
+        :return:
         """
+        display(title(value='** Applying spatial normalization to all {} data.....'.format(surfix)))
         func = self.check_input(func)
         normanat = self.check_input(normanat)
         step = Step(self)
@@ -1003,23 +914,19 @@ class Process(object):
         step.set_input(name='transmat', input_path=normanat, filters=transmat_filter, static=True, side=True)
         cmd = '3dAllineate -prefix {output} -master {normanat} -warp shr -1Dmatrix_apply {transmat} {func}'
         step.set_command(cmd)
-        # step.get_executefunc('test', verbose=True)
         output_path = step.run('ApplySpatialNorm', surfix)
         return dict(normfunc=output_path)
 
-    def afni_SpatialSmoothing(self, func, fwhm=0.5, mask=None, surfix='func'):
+    def afni_SpatialSmoothing(self, func, fwhm=0.5, tmpobj=None, surfix='func'):
         """
 
-        Parameters
-        ----------
-        anat
-        tmpobj
-        surfix
-
-        Returns
-        -------
-
+        :param func:
+        :param fwhm:
+        :param tmpobj:
+        :param surfix:
+        :return:
         """
+        display(title(value='** Processing spatial smoothing.....'))
         func = self.check_input(func)
         step = Step(self)
         step.set_input(name='func', input_path=func)
@@ -1028,14 +935,155 @@ class Process(object):
         else:
             step.set_staticinput('fwhm', fwhm)
         cmd = '3dBlurInMask -prefix {output} -FWHM {fwhm}'
-        if mask:
-            step.set_staticinput('mask', mask)
+        if tmpobj:
+            step.set_staticinput('mask', value=tmpobj.mask.get_filename())
             cmd += ' -mask {mask}'
         cmd += ' -quiet {func}'
         step.set_command(cmd)
-        # step.get_executefunc('test', verbose=True)
         output_path = step.run('SpatialSmoothing', surfix)
         return dict(func=output_path)
+
+    def afni_GLManalysis(self, func, paradigm, surfix='func'):
+        """
+
+        :param func:
+        :param paradigm:
+        :param surgix:
+        :return:
+        """
+        display(title(value='** Processing General Linear Analysis'))
+        func = self.check_input(func)
+        step = Step(self)
+        step.set_input(name='func', input_path=func)
+        step.set_variable(name='paradigm', value=paradigm)
+        step.set_staticinput(name='param', value='" ".join(map(str, paradigm[idx][0]))')
+        step.set_staticinput(name='model', value='paradigm[idx][1][0]')
+        step.set_staticinput(name='mparam', value='" ".join(map(str, paradigm[idx][1][1]))')
+        cmd01 = '3dDeconvolve -input {func} -num_stimts 1 -polort 2 -stim_times 1 "1D: {param}" ' \
+                '"{model}({mparam})" -stim_label 1 STIM -tout -bucket {output}'
+        step.set_command(cmd01)
+        glm = step.run('GLMAnalysis', surfix)
+        display(title(value='** Estimating the temporal auto-correlation structure'))
+        step = Step(self)
+        step.set_input(name='func', input_path=func)
+        filter = dict(ext='.xmat.1D')
+        step.set_input(name='glm', input_path=glm, filters=filter, side=True)
+        cmd02 = '3dREMLfit -matrix {glm} -input {func} -tout -Rbuck {output} -verb'
+        step.set_command(cmd02)
+        output_path = step.run('REMLfit', surfix)
+        return dict(GLM=output_path)
+
+    def afni_ClusterMap(self, glm, tmpobj, pval=0.01, cluster_size=40, surfix='func'):
+        """"""
+        display(title(value='** Generating clustered masks'))
+        glm = self.check_input(glm)
+        step = Step(self)
+        step.set_input(name='glm', input_path=glm)
+        step.set_staticinput(name='pval', value=pval)
+        step.set_staticinput(name='csize', value=cluster_size)
+        cmd01 = '3dAttribute BRICK_STATAUX {glm}'
+        step.set_command(cmd01, stdout='dof')
+        step.set_staticinput(name='dof', value='dof.split()[-1]')
+        cmd02 = 'cdf -p2t fitt {pval} {dof}'
+        step.set_command(cmd02, stdout='tval')
+        step.set_execmethod('tval.split("=")[1].strip()', var='tval')
+        cmd03 = '3dclust -1Dformat -nosum -1dindex 2 -1tindex 2 -2thresh -{tval} {tval} ' \
+                '-dxyz=1 -savemask {output} 1.01 {csize} {glm}'
+        step.set_command(cmd03)
+        # step.get_executefunc('test', verbose=True)
+        output_path = step.run('ClusteredMask', surfix=surfix)
+        if jupyter_env:
+            display(tools.itksnap(self, output_path, tmpobj.image.get_filename()))
+        else:
+            return dict(mask=output_path)
+
+
+    def afni_SignalProcessing(self, func, mparam, mask=None, fwhm=None, dt=None, surfix='func'):
+        """
+
+        :param func:
+        :param mparam:
+        :param mask:
+        :param fwhm:
+        :param dt:
+        :return:
+        """
+        cmd = 'afni_3dTproject -prefix {output} -ort {regr} -norm -mask {mask} -blur {fwhm} -dt {dt} {func}'
+
+    def afni_ROIStats(self, func, rois, cbv=None, surfix='func'):
+        """
+
+        :param func:
+        :param roi:
+        :param cbv: list, [echotime, number of TR for averaging]
+        :param surfix:
+        :return:
+        """
+        display(title(value='** Extracting time-course data from ROIs'))
+        func = self.check_input(func)
+        rois = self.check_input(rois)
+        step = Step(self)
+        step.set_input(name='func', input_path=func)
+        if os.path.isfile(rois):
+            step.set_staticinput(name='rois', value=rois)
+        else:
+            step.set_input(name='rois', input_path=rois, side=True)
+        if cbv:
+            step.set_input(name='cbv', input_path=func, side=True, filters=dict(ext='.json'))
+        cmd = '3dROIstats -mask {rois} {func}'
+        step.set_command(cmd, stdout='out')
+        step.set_execmethod('temp_outputs.append([None, err])')
+        step.set_execmethod('pd.read_table(StringIO(out))', var='df')
+        step.set_execmethod('df[df.columns[2:]]', var='df')
+        if cbv:
+            if isinstance(cbv, list) and len(cbv) == 2:
+                step.set_variable(name='te', value=cbv[0])
+                step.set_variable(name='n_tr', value=cbv[1])
+                step.set_execmethod('cbv_path = json.load(open(cbv[i].Abspath))["cbv"]')
+                step.set_staticinput(name='cbv_path', value='cbv_path')
+                cbv_cmd = '3dROIstats -mask {rois} {cbv_path}'
+                step.set_command(cbv_cmd, stdout='cbv_out')
+                step.set_execmethod('temp_outputs.append([None, err])')
+                step.set_execmethod('pd.read_table(StringIO(cbv_out))', var='cbv_df')
+                step.set_execmethod('cbv_df[cbv_df.columns[:]]', var='cbv_df')
+            else:
+                methods.raiseerror(messages.Errors.InputValueError, 'Please check input CBV parameters')
+        step.set_execmethod('if len(df.columns):')
+        if cbv:
+            step.set_execmethod('\tdR2_mion = (-1 / te) * np.log(df.loc[:n_tr, :].mean(axis=0) / '
+                                'cbv_df.loc[:n_tr, :].mean(axis=0))')
+            step.set_execmethod('\tdR2_stim = (-1 / te) * np.log(df / df.loc[:n_tr, :].mean(axis=0))')
+            step.set_execmethod('\tdf = dR2_stim/dR2_mion')
+        step.set_execmethod('\tdf.to_excel(os.path.join(sub_path, methods.splitnifti(func[i].Filename)+".xlsx"), '
+                            'index=False)')
+        step.set_execmethod('\tpass')
+        step.set_execmethod('else:')
+        step.set_execmethod('\tpass')
+        # step.get_executefunc('test', verbose=True)
+        output_path = step.run('ExtractROIs', surfix=surfix)
+        return dict(timecourse=output_path)
+
+    def itksnap(self, idx, base_idx=None):
+        """Launch ITK-snap
+
+        :param idx:
+        :param base_idx:
+        :return:
+        """
+        if base_idx:
+            tools.itksnap(self, self.steps[idx], self.steps[base_idx])
+        else:
+            tools.itksnap(self, self.steps[idx])
+
+    def afni(self, idx, tmpobj=None):
+        """Launch AFNI gui
+
+        :param idx:
+        :param tmpobj:
+        :return:
+        """
+        tools.afni(self, self.steps[idx], tmpobj=tmpobj)
+
 
     @property
     def path(self):
@@ -1055,13 +1103,20 @@ class Process(object):
 
     @property
     def executed(self):
+        """Listing out executed steps
+
+        :return:
+        """
         exists = [d for d in os.listdir(self.path) if os.path.isdir(os.path.join(self.path, d))]
         for step in self._history.keys():
             if step not in exists:
                 del self._history[step]
         n_hist = len(self._history.keys())
         output = zip(range(n_hist), sorted(self._history.keys()))
-        return dict(output)
+        if jupyter_env:
+            return dict(output)
+        else:
+            return dict(output)
 
 
     @property
@@ -1069,24 +1124,27 @@ class Process(object):
         return [self._history[step] for step in self.executed.values()]
 
     def reset(self):
-        """ reset subject and session information
+        """reset subject and session information
 
-        Returns
-        -------
-        None
+        :return: None
         """
         if self._prjobj.subjects:
-            self._subjects = sorted(self._prjobj.subjects[:])
+            if self._subjects:
+                if self._subjects != self._prjobj.subjects:
+                    self._subjects = sorted(self._prjobj(1, self.processing).subjects[:])
+                else:
+                    self._subjects = sorted(self._prjobj.subjects[:])
+            else:
+                self._subjects = sorted(self._prjobj.subjects[:])
             if not self._prjobj.single_session:
                 self._sessions = sorted(self._prjobj.sessions[:])
+
         self.logger.info('Attributes [subjects, sessions] are reset to default value.')
 
     def init_proc(self):
-        """ Initiate process folder
+        """Initiate process folder
 
-        Returns
-        -------
-        None
+        :return: None
         """
         self.reset()
         methods.mkdir(self._path)
@@ -1101,15 +1159,10 @@ class Process(object):
         return self._path
 
     def init_step(self, name):
-        """ Initiate step
+        """Initiate step
 
-        Parameters
-        ----------
-        name : str
-
-        Returns
-        -------
-        path : str
+        :param name: str
+        :return: str
         """
         if self._processing:
             path = methods.get_step_name(self, name)
@@ -1118,14 +1171,6 @@ class Process(object):
             return path
         else:
             methods.raiseerror(messages.Errors.InitiationFailure, 'Error on initiating step')
-
-    # def init_report(self, title): #TODO: method for preparing reports
-    #     path = os.path.join(self._prjobj.path, self._prjobj.ds_type[2],
-    #                         self.processing, title)
-    #     methods.mkdir(os.path.join(self._prjobj.path, self._prjobj.ds_type[2],
-    #                                self.processing), path)
-    #     self._prjobj.scan_prj()
-    #     return path
 
     def save_history(self):
         history = os.path.join(self._path, '.proc_hisroty')
@@ -1155,6 +1200,10 @@ class Step(object):
     mthset = namedtuple('Method', ['name', 'args', 'kwargs'])               # method template
 
     def __init__(self, procobj):
+        """Initiate Step class
+
+        :param procobj:
+        """
         self._procobj = procobj                         # load Process object
         self._processing = procobj.processing           # read Process name
         self._tempfiles = []                            # temp file handler
@@ -1162,6 +1211,7 @@ class Step(object):
         self._sidesets = []                             # side inputs handler
         self._staticinput = {}                          # static input handler
         self._outparam = {}                             # output_param handler
+        self._cmdstdout = []                            # cmdstdout handler
         self._subjects = procobj.subjects[:]            # load all subject list from process object
         self._outputs = {}                              # output handler
         try:
@@ -1169,26 +1219,26 @@ class Step(object):
         except:
             self._sessions = None
         self._commands = []                             # executing commands handler
-        self._filters = {'main':[], 'sides':{}}         # handler for project obj filtering
+        self._filters = {'main':[], 'sides':{}, 'extra':{}}         # handler for project obj filtering
+
+    def set_variable(self, name, value=None):
+        """
+
+        :param name:
+        :param value:
+        :return:
+        """
+        self._filters['extra'][name] = value
 
     def set_input(self, name, input_path, filters=None, static=False, side=False):
-        """ Import input dataset
+        """Import input dataset
 
-        Parameters
-        ----------
-        input_path :  str
-            datatype or absolute path
-        kw_filters : dict
-            kw_argment filters
-        static : bool
-            True, if this object need to be looped
-            if not, only use first index
-        side : bool
-            True, if this object is side prjobj
-
-        Returns
-        -------
-        None
+        :param name: str, datatype or absolute path
+        :param input_path: str
+        :param filters: dict, kw_argment filters
+        :param static: boolean, True, if this object need to be looped, if not, only use first index
+        :param side: boolean, True, if this object is side prjobj
+        :return: None
         """
         dc, ipath = methods.check_dataclass(input_path)
         if side:
@@ -1199,42 +1249,37 @@ class Step(object):
             self._filters['main'] = self.get_filtercode(str(dc), ipath, filters)
 
     def set_staticinput(self, name, value):
-        """ Import static file
+        """Import static file
+
+        :param name:
+        :param value:
+        :return:
         """
         if isinstance(value, str):
-            value = '"{}"'.format(value)
+            if os.path.exists(value):
+                value = '"{}"'.format(value)
+            else:
+                value = '{}'.format(value)
         self._staticinput[name] = value
 
     def set_outparam(self, name, ext, prefix=None):
-        """ Set parameter output files on out_param handler
+        """Set parameter output files on out_param handler
 
-        Parameters
-        ----------
-        name : str
-            variables for parameter output file
-        output_ext : str
-            for setting extension of the file
-        Returns
-        -------
-        None
+        :param name: str, variables for parameter output file
+        :param ext: str, for setting extension of the file
+        :param prefix:
+        :return: None
         """
         self._outparam[name] = (self.oppset(name=name, prefix=prefix, ext=ext))
 
     def set_execmethod(self, command, var=None, idx=None):
-        """ Set structured command on command handler
+        """Set structured command on command handler
 
-        Parameters
-        ----------
-        command : str
-            structured command with input and output variables
-        verbose : boolean
+        :param command: str, structured command with input and output variables
+        :param var: name of variable
+        :param idx: int, Index for replacing the commands on handler
 
-        idx : int
-            Index for replacing the commands on handler
-
-        Returns
-        -------
-
+        :return:
         """
         if idx:
             self._commands[idx] = (command, [var])
@@ -1242,37 +1287,32 @@ class Step(object):
             self._commands.append((command, [var]))
 
     def set_command(self, command, verbose=False, idx=None, stdout=None ):
-        """ Set structured command on command handler
+        """Set structured command on command handler
 
-        Parameters
-        ----------
-        command : str
-            structured command with input and output variables
-        verbose : boolean
-
-        idx : int
-            Index for replacing the commands on handler
-        stdout : str or None
-            if True, the input string can be used the variable for stand output results of a command
-
-        Returns
-        -------
-
+        :param command: str, Structured command with input and output variables
+        :param verbose: boolean
+        :param idx: int, Index for replacing the commands on handler
+        :param stdout: str or None, if True, the input string can be used the variable for stand output results of a command
+        :return:
         """
         objs = [obj.strip('{}') for obj in re.findall(r"[{\w'}]+", command) if obj[0] == '{' and obj[-1] == '}']
         total = dict([(sideobj.name, sideobj.static) for sideobj in self._sidesets])
         total[self._mainset.name] = self._mainset.static
+        if stdout:
+            total[stdout] = False
+        self._cmdstdout.append(stdout)
         try:
             totalobjs = total.keys()[:]
         except:
             totalobjs = []
 
         # Get list of residual inputs
-        residuals = [obj for obj in objs if obj not in totalobjs]
+        residuals = [obj for obj in sorted(list(set(objs))) if obj not in totalobjs]
         residuals = [obj for obj in residuals if 'temp' not in obj]
         residuals = [obj for obj in residuals if 'output' not in obj]
         residuals = [obj for obj in residuals if obj not in self._staticinput.keys()]
         residuals = [obj for obj in residuals if obj not in self._outparam.keys()]
+        residuals = [obj for obj in residuals if obj not in self._cmdstdout]
 
         # Check accuracy
         if len(residuals):
@@ -1296,11 +1336,18 @@ class Step(object):
                     else:
                         str_format.append("{0}=methods.splitnifti(output)+'{1}'".format(obj, self._outparam[obj].ext))
                 else:
-                    if total[obj]:
-                        str_format.append("{0}={1}.Abspath".format(obj, obj))
-                    else:
-                        str_format.append("{0}={1}[i].Abspath".format(obj, obj))
-        output = "{0}{1})".format(output, ", ".join(str_format))
+                    try:
+                        if total[obj]:
+                            str_format.append("{0}={1}.Abspath".format(obj, obj))
+                        else:
+                            str_format.append("{0}={1}[i].Abspath".format(obj, obj))
+                    except:
+                        if obj in self._cmdstdout:
+                            str_format.append("{0}={1}".format(obj, obj))
+                        else:
+                            methods.raiseerror(messages.Errors.InputValueError, "Something wrong")
+
+        output = "{0}{1})".format(output, ", ".join(list(set(str_format))))
         if idx:
             self._commands[idx] = (output, stdout)
         else:
@@ -1311,11 +1358,9 @@ class Step(object):
             return output
 
     def get_inputcode(self):
-        """ Put the set inputs values on the lists as a building block of customized function
+        """Put the set inputs values on the lists as a building block of customized function
 
-        Returns
-        -------
-        inputcode : str
+        :return: str
         """
         inputcode = []
         mainobj = self._mainset
@@ -1339,17 +1384,21 @@ class Step(object):
                     inputcode.append('{0} = self._prjobj({1})'.format(name, self._filters['sides'][name]))
         else:
             pass
+        if self._filters['extra']:
+            for extra in sorted(self._filters['extra'].keys()):
+                inputcode.append('{0} = {1}'.format(extra, self._filters['extra'][extra]))
         return inputcode
 
     def get_filtercode(self, dataclass, input_path, filters):
-        """ Generate list of filtering based keywords based on set input values
+        """Generate list of filtering based keywords based on set input values
 
-        Returns
-        -------
-        foldercode : str
+        :param dataclass:
+        :param input_path:
+        :param filters:
+        :return: str
         """
         if dataclass == '0':
-            print(input_path)
+            # print(input_path)
             output_filters = [dataclass, '"{0}"'.format(input_path)]
         else:
             output_filters = [dataclass, '"{0}"'.format(self._processing), '"{0}"'.format(input_path)]
@@ -1365,16 +1414,11 @@ class Step(object):
         return ', '.join(output_filters)
 
     def get_executefunc(self, name, verbose=False):
-        """ Step function generator
+        """Step function generator
 
-        Parameters
-        ----------
-        name : str
-        test : boolean
-
-        Returns
-        -------
-        output : str
+        :param name: str
+        :param verbose: boolean
+        :return: str
         """
         # Define inputs
         filters = ['\t{}'.format(input) for input in self.get_inputcode()]
@@ -1392,7 +1436,10 @@ class Step(object):
                 if isinstance(stdout, str):
                     body += ['\t\t{0}, err = methods.shell({1})'.format(stdout, cmd)]
                 elif isinstance(stdout, list):
-                    body += ['\t\t{0} = {1}'.format(stdout[0], cmd)]
+                    if stdout[0]:
+                        body += ['\t\t{0} = {1}'.format(stdout[0], cmd)]
+                    else:
+                        body += ['\t\t{0}'.format(cmd)]
                 else:
                     body += ['\t\toutputs.append(methods.shell({0}))'.format(cmd)]
             if self._tempfiles:
@@ -1412,12 +1459,16 @@ class Step(object):
                     '\t\tflist = [f for f in os.listdir(sub_path)]',
                     '\t\tif len([f for f in flist if prefix in f]):',
                     '\t\t\tself.logger.info("The File[{0}] is already exist.".format(output))',
+                    '\t\t\tsleep(0.08)',
                     '\t\telse:']
             for cmd, stdout in self._commands:
                 if isinstance(stdout, str):
                     body += ['\t\t\t{0}, err = methods.shell({1})'.format(stdout, cmd)]
                 elif isinstance(stdout, list):
-                    body += ['\t\t\t{0} = {1}'.format(stdout[0], cmd)]
+                    if stdout[0]:
+                        body += ['\t\t\t{0} = {1}'.format(stdout[0], cmd)]
+                    else:
+                        body += ['\t\t\t{0}'.format(cmd)]
                 else:
                     body += ['\t\t\ttemp_outputs.append(methods.shell({0}))'.format(cmd)]
             body += ['\t\toutputs.append(temp_outputs)']
@@ -1431,11 +1482,11 @@ class Step(object):
                 body = loop + body
 
         if self._sessions: # Check the project is multi-session
-            header = ['def {0}(self, output_path, subj, sess):'.format(name),
+            header = ['def {0}(self, output_path, idx, subj, sess):'.format(name),
                       '\tsub_path = os.path.join(output_path, subj, sess)',
                       '\tmethods.mkdir(sub_path)']
         else:
-            header = ['def {0}(self, output_path, subj):'.format(name),
+            header = ['def {0}(self, output_path, idx, subj):'.format(name),
                       '\tsub_path = os.path.join(output_path, subj)',
                       '\tmethods.mkdir(sub_path)']
         footer = ['\treturn outputs\n']
@@ -1448,16 +1499,11 @@ class Step(object):
             return output
 
     def run(self, step_name, surfix):
-        """ Generate loop commands for step
+        """Generate loop commands for step
 
-        Parameters
-        ----------
-        step_name : str
-        surfix : str
-
-        Returns
-        -------
-        None
+        :param step_name: str
+        :param surfix: str
+        :return: None
         """
         self._procobj._prjobj.reload()
         if self._procobj._parallel:
@@ -1468,9 +1514,9 @@ class Step(object):
         self._procobj.logger.info("Step:[{0}] is executed with {1} thread(s).".format(step_name, thread))
         output_path = self._procobj.init_step("{0}-{1}".format(step_name, surfix))
         if self._sessions:
-            for subj in progressbar(self._subjects, desc='Subjects'):
+            for idx, subj in enumerate(progressbar(self._subjects, desc='Subjects')):
                 methods.mkdir(os.path.join(output_path, subj))
-                iteritem = [(self._procobj, output_path, subj, sess) for sess in self._sessions]
+                iteritem = [(self._procobj, output_path, idx, subj, sess) for sess in self._sessions]
                 for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Sessions',
                                           leave=False, total=len(iteritem)):
                     if len(outputs):
@@ -1488,19 +1534,22 @@ class Step(object):
         else:
             dirs = [os.path.join(output_path, subj) for subj in self._subjects]
             methods.mkdir(dirs)
-            iteritem = [(self._procobj, output_path, subj) for subj in self._subjects]
+            iteritem = [(self._procobj, output_path, idx, subj) for idx, subj in enumerate(self._subjects)]
             for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Subjects',
                                       total=len(iteritem)):
-                if len(outputs):
-                    if isinstance(outputs[0], list):
-                        all_outputs = []
-                        for output in outputs:
-                            all_outputs.extend(['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in output])
-                        outputs = all_outputs[:]
+                if outputs != None:
+                    if len(outputs):
+                        if isinstance(outputs[0], list):
+                            all_outputs = []
+                            for output in outputs:
+                                all_outputs.extend(['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in output])
+                            outputs = all_outputs[:]
+                        else:
+                            outputs = ['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in outputs]
+                        with open(os.path.join(output_path, 'stephistory.log'), 'a') as f:
+                            f.write('\n\n'.join(outputs))
                     else:
-                        outputs = ['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in outputs]
-                    with open(os.path.join(output_path, 'stephistory.log'), 'a') as f:
-                        f.write('\n\n'.join(outputs))
+                        pass
                 else:
                     pass
         self._procobj._history[os.path.basename(output_path)] = output_path
@@ -1509,16 +1558,10 @@ class Step(object):
         return output_path
 
     def worker(self, args):
-        """ The worker for parallel computing
+        """The worker for parallel computing
 
-        Parameters
-        ----------
-        args : list
-            Arguments for step execution
-
-        Returns : str
-            output
-        -------
+        :param args: list, Arguments for step execution
+        :return: str
         """
         funccode = self.get_executefunc('stepexec')
         output = None
@@ -1533,36 +1576,163 @@ class Step(object):
         return output
 
 
-class Pipelines(object): #TODO: make pipeline for evoked-fMRI preprocessing
+class Pipelines(object):
     """ Pipeline handler
 
-    this class is major class of PyNIT (for most of general users)
-    Initiate Pipeline with ptoject path - (not project object)
-
-    avail atributes return currently available pipelines that stored in Reference object
-
-    Once you initiate this class, you can select the pipeline what you want to execute by
-    'pipe.start(idx)' of 'pipe.start('name of pipeline')
-    then you can execute the
-
+    This class is the major features of PyNIT project (for most of general users)
+    You can either use default pipeline packages we provide or load custom designed pipelines
     """
-    def __init__(self, prj_path, parallel=True, logging=True):
+    def __init__(self, prj_path, tmpobj, parallel=True, logging=True):
+        """Initiate class
+
+        :param prj_path:
+        :param tmpobj:
+        :param parallel:
+        :param logging:
+        """
+        # Define default attributes
         self._prjobj = Project(prj_path)
         self._avail = self._prjobj.ref.avail
         self._proc = None
+        self._tmpobj = tmpobj
+        self._parallel = parallel
+        self._logging = logging
+        self.selected = None
+
+        # Print out project summary
+        self._prjobj.summary
+
+        # Print out available pipeline packages
+        avails = ["\t{} : {}".format(*item) for item in self._avail.items()]
+        output = ["\nList of available packages:"] + avails
+        print("\n".join(output))
 
     @property
     def avail(self):
         return self._avail
 
-    def start(self, pipeline):
+    def initiate(self, pipeline, verbose=False, **kwargs):
+        """Initiate pipeline
+
+        :param pipeline:
+        :param verbose:
+        :param kwargs:
+        :return:
+        """
+        if isinstance(pipeline, int):
+            pipeline = self.avail[pipeline]
+        if pipeline in self.avail.values():
+            self._proc = Process(self._prjobj, pipeline, parallel=self._parallel, logging=self._logging)
+            command = 'self.selected = pipelines.{}(self._proc, self._tmpobj'.format(pipeline)
+            if kwargs:
+                command += ', **{})'.format(kwargs)
+            else:
+                command += ')'
+            exec(command)
+        else:
+            methods.raiseerror(messages.PipelineNotSet, "Incorrect package is selected")
+        if verbose:
+            print(self.selected.__init__.__doc__)
+        avails = ["\t{} : {}".format(*item) for item in self.selected.avail.items()]
+        output = ["List of available pipelines:"] + avails
+        print("\n".join(output))
+
+    def help(self, pipeline):
+        """ Print help function
+
+        :param pipeline:
+        :return:
+        """
+        selected = None
+        if isinstance(pipeline, int):
+            pipeline = self.avail[pipeline]
+        if pipeline in self.avail.values():
+            command = 'selected = pipelines.{}(self._proc, self._tmpobj)'.format(pipeline)
+            exec(command)
+            print(selected.__init__.__doc__)
+            avails = ["\t{} : {}".format(*item) for item in selected.avail.items()]
+            output = ["List of available pipelines:"] + avails
+            print("\n".join(output))
+
+    def run(self, idx):
+        """Execute selected pipeline
+
+        :param idx:
+        :return:
+        """
+        display(title(value='---=[[[ Running "{}" pipeline ]]]=---'.format(self.selected.avail[idx])))
+        exec('self.selected.pipe_{}()'.format(self.selected.avail[idx]))
+
+    def load(self, pipeline):
+        """Load custom pipeline
+
+        :param pipeline:
+        :return:
+        """
         pass
 
-    def close(self):
-        pass
+    def group_organizer(self, group_filters, i_pipe_id, i_step_id, o_pipe_id, cbv=None, **kwargs):
+        """Organizing groups for 2nd level analysis
 
-class Maskdrawing(object):
-    pass
+        :param group_filters:
+        :param i_pipe_id:
+        :param i_step_id:
+        :param o_pipe_id:
+        :param cbv:
+        :param kwargs:
+        :return:
+        """
+        self.initiate(o_pipe_id, **kwargs)
+        input_proc = Process(self._prjobj, self.avail[i_pipe_id])
+        init_path = self._proc.init_step('GroupOrganizing')
+        groups = sorted(group_filters.keys())
+        for group in progressbar(sorted(groups), desc='Subjects'):
+            grp_path = os.path.join(init_path, group)
+            methods.mkdir(grp_path)
+            if self._prjobj.single_session:
+                if group_filters[group][2]:
+                    dset = self._prjobj(1, input_proc.processing, input_proc.executed[i_step_id],
+                                        *group_filters[group][0], **group_filters[group][2])
+                else:
+                    dset = self._prjobj(1, input_proc.processing, input_proc.executed[i_step_id],
+                                        *group_filters[group][0])
+
+            else:
+                grp_path = os.path.join(init_path, group, 'files')
+                methods.mkdir(grp_path)
+                if group_filters[group][2]:
+                    dset = self._prjobj(1, input_proc.processing, input_proc.executed[i_step_id],
+                                        *(group_filters[group][0] + group_filters[group][1]),
+                                        **group_filters[group][2])
+                else:
+                    dset = self._prjobj(1, input_proc.processing, input_proc.executed[i_step_id],
+                                        *(group_filters[group][0] + group_filters[group][1]))
+            for i, finfo in dset:
+                output_path = os.path.join(grp_path, finfo.Filename)
+                if os.path.exists(output_path):
+                    pass
+                else:
+                    if self._prjobj.single_session:
+                        cbv_file = self._prjobj(1, input_proc.processing, input_proc.executed[cbv], finfo.Subject)
+                    else:
+                        cbv_file = self._prjobj(1, input_proc.processing, input_proc.executed[cbv],
+                                                finfo.Subject, finfo.Session)
+                    copy(finfo.Abspath, os.path.join(grp_path, finfo.Filename))
+                    with open(methods.splitnifti(output_path)+'.json', 'wb') as f:
+                        json.dump(dict(cbv=cbv_file[0].Abspath), f)
+        self._proc._subjects = groups[:]
+        self._proc._history[os.path.basename(init_path)] = init_path
+        self._proc.save_history()
+        self._proc._prjobj.reload()
+
+    @property
+    def executed(self):
+        """Listing out executed steps
+
+        :return:
+        """
+        return self._proc.executed
+
 
 # Below classes will be deprecated soon
 class Preprocess(object):
@@ -2581,97 +2751,6 @@ class Preprocess(object):
                         moved_img = os.path.join(step01, subj, sess, finfo.Filename)
                         self._prjobj.run('afni_3dAllineate', moved_img, finfo.Abspath, master=ref.df.Abspath.loc[0],
                                          matrix_apply=param.df.Abspath.loc[0])
-        self._prjobj.reset(True)
-        self._prjobj.apply()
-        return {'func': step01}
-
-    def global_regression(self, func, dtype='func', detrend=-1):
-        """ Method for global signal regression of individual functional image
-
-        Parameters
-        ----------
-        func       : str
-            Datatype or absolute step path for the input functional image
-        dtype      : str
-            Surfix for the step path
-        detrend    : int
-
-        Returns
-        -------
-        step_paths : dict
-        """
-        dataclass, func = methods.check_dataclass(func)
-        print('GlobalRegression-{}'.format(func))
-        step01 = self.init_step('GlobalRegression-{}'.format(dtype))
-        for subj in self.subjects:
-            print("-Subject: {}".format(subj))
-            methods.mkdir(os.path.join(step01, subj))
-            if self._prjobj.single_session:
-                funcs = self._prjobj(dataclass, func, subj)
-                for i, finfo in funcs:
-                    print(" +Filename: {}".format(finfo.Filename))
-                    regressor = os.path.join(step01, subj, "{}.1D".format(os.path.splitext(finfo.Filename)[0]))
-                    self._prjobj.run('afni_3dmaskave', regressor, finfo.Abspath, finfo.Abspath)
-                    self._prjobj.run('afni_3dDetrend', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
-                                     vector=regressor, polort='-1')
-            else:
-                for sess in self.sessions:
-                    print(" :Session: {}".format(sess))
-                    methods.mkdir(os.path.join(step01, subj, sess))
-                    funcs = self._prjobj(dataclass, func, subj)
-                    for i, finfo in funcs:
-                        print("  +Filename: {}".format(finfo.Filename))
-                        regressor = os.path.join(func, subj, sess,
-                                                 "{}.1D".format(os.path.splitext(finfo.Filename)[0]))
-                        self._prjobj.run('afni_3dmaskave', regressor, finfo.Abspath, finfo.Abspath)
-                        self._prjobj.run('afni_3dDetrend', os.path.join(step01, subj, sess, finfo.Filename),
-                                         finfo.Abspath, vector=regressor, polort=str(detrend))
-        self._prjobj.reset(True)
-        self._prjobj.apply()
-        return {'func': step01}
-
-    def motion_parameter_regression(self, func, motioncorrected_func, dtype='func', detrend=-1):
-        """ Method for motion parameter regression of individual functional image
-
-        Parameters
-        ----------
-        func                 : str
-            Datatype or absolute path of the input functional image
-        motioncorrected_func : str
-            Absolute step path which contains the motion corrected functional image
-        dtype                : str
-            Surfix for the step path
-        detrend              : int
-
-        Returns
-        -------
-        step_paths          : dict
-        """
-        dataclass, func = methods.check_dataclass(func)
-        print('MotionRegression-{}'.format(func))
-        step01 = self.init_step('MotionRegression-{}'.format(dtype))
-        for subj in self.subjects:
-            print("-Subject: {}".format(subj))
-            methods.mkdir(os.path.join(step01, subj))
-            if self._prjobj.single_session:
-                funcs = self._prjobj(dataclass, func, subj)
-                for i, finfo in funcs:
-                    print(" +Filename: {}".format(finfo.Filename))
-                    regressor = self._prjobj(dataclass, motioncorrected_func, subj, ext='.1D', ignore='.aff12',
-                                             file_tag=os.path.splitext(finfo.Filename)[0]).df.Abspath[i]
-                    self._prjobj.run('afni_3dDetrend', os.path.join(step01, subj, finfo.Filename), finfo.Abspath,
-                                     vector=regressor, polort=str(detrend))
-            else:
-                for sess in self.sessions:
-                    print(" :Session: {}".format(sess))
-                    methods.mkdir(os.path.join(step01, subj, sess))
-                    funcs = self._prjobj(dataclass, func, subj, sess)
-                    for i, finfo in funcs:
-                        print("  +Filename: {}".format(finfo.Filename))
-                        regressor = self._prjobj(dataclass, motioncorrected_func, subj, ext='.1D', ignore='.aff12',
-                                                 file_tag=os.path.splitext(finfo.Filename)[0]).df.Abspath[i]
-                        self._prjobj.run('afni_3dDetrend', os.path.join(step01, subj, sess, finfo.Filename),
-                                         finfo.Abspath, vector=regressor, polort=str(detrend))
         self._prjobj.reset(True)
         self._prjobj.apply()
         return {'func': step01}

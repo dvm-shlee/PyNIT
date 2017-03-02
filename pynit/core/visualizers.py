@@ -2,16 +2,35 @@
 import sys
 import scipy.ndimage as ndimage
 from skimage import feature
+
 # Import internal packages
 from .methods import np
 from .processors import Analysis
 import messages
 import methods
+
 # Import matplotlib for visualization
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import colors
 import seaborn as sns
+
+# Set error bar as standard deviation
+def _plot_std_bars(central_data=None, ci=None, data=None, *args, **kwargs):
+    std = data.std(axis=0)
+    ci = np.asarray((central_data - std, central_data + std))
+    kwargs.update({"central_data": central_data, "ci": ci, "data": data})
+    sns.timeseries._plot_ci_bars(*args, **kwargs)
+
+def _plot_std_band(central_data=None, ci=None, data=None, *args, **kwargs):
+    std = data.std(axis=0)
+    ci = np.asarray((central_data - (std), central_data + (std)))
+    kwargs.update({"central_data": central_data, "ci": ci, "data": data})
+    sns.timeseries._plot_ci_band(*args, **kwargs)
+
+sns.timeseries._plot_std_bars = _plot_std_bars
+sns.timeseries._plot_std_band = _plot_std_band
+
 # Import interactive plot in jupyter notebook
 if len([key for key in sys.modules.keys() if key == 'ipykernel']):
     from ipywidgets import interact, fixed
@@ -19,20 +38,33 @@ if len([key for key in sys.modules.keys() if key == 'ipykernel']):
 else:
     pass
 
-# The commented codes below are used for save figure later (mayby?)
+# The commented codes below are used for save figure later (maybe?)
 # import matplotlib.patches as mpatches
 # from matplotlib.backends.backend_agg import FigureCanvasAgg
+
 # Set figure style here
 mpl.rcParams['figure.dpi'] = 120
-plt.style.use('ggplot')
+# plt.style.use('ggplot')
+plt.style.use('classic')
+plt.style.use('seaborn-notebook')
 
-# R-Python interface for advanced plotting (This is deactivated becuase of compatibility issues
-# import rpy2.robjects as robj
-# from rpy2.robjects.packages import importr
-# from rpy2.robjects import pandas2ri
-# pandas2ri.activate()
+# Set colormap
+cdict = {'red': ((0.0, 0.0, 0.0),
+                 (0.5, 0.0, 0.0),
+                 (0.5000000001, 0.8, 0.8),
+                 (1.0, 1.0, 1.0)),
+         'green': ((0.0, 1.0, 1.0),
+                   (0.40, 0.0, 0.0),
+                   (0.5, 0.0, 0.0),
+                   (0.60, 0.0, 0.0),
+                   (1.0, 1.0, 1.0)),
+         'blue': ((0.0, 1.0, 1.0),
+                  (0.4999999999, 1.0, 0.5),
+                  (0.5, 0.0, 0.0),
+                  (1.0, 0.0, 0.0))
+         }
 
-# TODO: Simple Video generation or showing over the slice or time
+plt.register_cmap(name='shihlab', data=cdict)
 
 
 class Viewer(object):
@@ -190,6 +222,14 @@ class Viewer(object):
 
     @staticmethod
     def check_mask(imageobj, maskobj, scale=15, **kwargs):
+        """
+
+        :param imageobj:
+        :param maskobj:
+        :param scale:
+        :param kwargs:
+        :return:
+        """
         # Parsing the information
         dim = list(maskobj.shape)
         resol = list(maskobj.header['pixdim'][1:4])
@@ -217,6 +257,14 @@ class Viewer(object):
 
     @staticmethod
     def atlas(tempobj, atlasobj, scale=15, **kwargs):
+        """
+
+        :param tempobj:
+        :param atlasobj:
+        :param scale:
+        :param kwargs:
+        :return:
+        """
         # Check argument for legend generation
         legend = False
         bilateral = False
@@ -306,6 +354,15 @@ class Viewer(object):
 class Plot(object):
     @staticmethod
     def tsplot(dataframe, norm=True, scale=1, err_style='ci_band', **kwargs):
+        """
+
+        :param dataframe:
+        :param norm:
+        :param scale:
+        :param err_style:
+        :param kwargs:
+        :return:
+        """
         figsize = (6 * scale, 4 * scale)
         for arg in kwargs.keys():
             if arg is 'figsize':
@@ -317,6 +374,17 @@ class Plot(object):
 
     @staticmethod
     def heatmap(dataframe, half=True, scale=1, vmin=-1.5, vmax=1.5, cmap='RdBu_r', **kwargs):
+        """
+
+        :param dataframe:
+        :param half:
+        :param scale:
+        :param vmin:
+        :param vmax:
+        :param cmap:
+        :param kwargs:
+        :return:
+        """
         figsize = (6 * scale, 4 * scale)
         for arg in kwargs.keys():
             if arg is 'figsize':
@@ -333,25 +401,32 @@ class Plot(object):
             ax.set_xticklabels(ax.xaxis.get_majorticklabels(), rotation=45)
             ax.set_yticklabels(ax.yaxis.get_majorticklabels(), rotation=45)
 
-# The class below is deactivated because of compatibility issues
-# class RPlot(object):
     # @staticmethod
-    # def rcorrplot(dataframe, filename=None, scale=1, mixed=None, **kwargs):
-    #     # get R objects
-    #     corrplot = importr('corrplot')
-    #     grdevices = importr('grDevices')
-    #     as_matrix = robj.globalenv.get("as.matrix")
-    #     # Parsing arguments
-    #     if not filename:
-    #         filename = u'.cache/_corrplot.png'
-    #         SystemMethods.mkdir('.cache')
-    #     size = np.array([512, 512])*scale
-    #     # generate figure
-    #     grdevices.png(file=filename, width=size[0], height=size[1])
-    #     M = as_matrix(dataframe.corr())
-    #     if mixed:
-    #         corrplot.corrplot_mixed(M, iscorr=False, **kwargs)
-    #     else:
-    #         corrplot.corrplot(M, **kwargs)
-    #     grdevices.dev_off()
-    #     display(Image(filename=filename))
+    # def plot_timetraces(data):
+    #     plt.style.use('classic')
+    #     plt.style.use('seaborn-notebook')
+    #     fig, axes = pyplot.subplots(len(data.keys()), 1, figsize=(15, 5 * len(data.keys())))
+    #     fig.patch.set_facecolor('white')
+    #     for i, group in enumerate(sorted(data.keys())):
+    #         try:
+    #             group_data = data[group].values.T
+    #             if group in ['group2_1', 'group3_1']:
+    #                 group_data = map(baseline_fitting, group_data, [10e3] * len(group_data), [0.01] * len(group_data))
+    #                 group_data = map(smoothing, group_data, [1] * len(group_data))
+    #                 sns.tsplot(group_data, err_style="std_band", color='red',
+    #                            n_boot=0, ax=axes[i], estimator=np.mean)
+    #             else:
+    #                 group_data = map(baseline_fitting, group_data, [10e3] * len(group_data), [0.99] * len(group_data))
+    #                 sns.tsplot(group_data, err_style="std_band", color='blue',
+    #                            n_boot=0, ax=axes[i], estimator=np.mean)
+    #             plt.tick_params(labelsize=25, direction='out')
+    #
+    #             axes[i].spines['top'].set_visible(False)
+    #             axes[i].spines['right'].set_visible(False)
+    #             axes[i].tick_params(left='on', top='off', right='off')
+    #             axes[i].tick_params(labelsize=25, direction='out')
+    #             axes[i].set_title(group, size=40)
+    #             axes[i].set_ylim(-0.1, 0.1)
+    #         except Exception as e:
+    #             print(e)
+    #     tight_layout()

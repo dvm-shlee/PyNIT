@@ -6,6 +6,7 @@ from .visualizers import Viewer
 from .processors import TempFile
 import messages
 import methods
+import pipelines
 
 
 class Reference(object):
@@ -26,11 +27,7 @@ class Reference(object):
            }
     data_structure = {'NIRAL': ['Data', 'Processing', 'Results'],
                       }
-    pipelines = {'evoked-fMRI_preprocess': dict(dim=['2D']),
-                 # 'evoked-fMRI_analysis',
-                 # 'rsfMRI_preprocess',
-                 # 'rsfMRI_analysis',
-                 }
+    pipelines = [pipe for pipe in dir(pipelines) if 'PipeTemplate' not in pipe if '__' not in pipe]
 
     def __init__(self, *args):
         try:
@@ -65,8 +62,11 @@ class Reference(object):
 
     @property
     def avail(self):
-        n_pipe = len(self.pipelines.keys())
-        return dict(zip(range(n_pipe), self.pipelines.keys()))
+        n_pipe = len(self.pipelines)
+        output = dict(zip(range(n_pipe), self.pipelines))
+        # for i, values in output.items():
+        #     output[i] = values[2:]
+        return output
 
     def set_img_format(self, img_format):
         if img_format in self.img.keys():
@@ -166,9 +166,10 @@ class ImageObj(Nifti1Image):
 class Template(object):
     """ TemplateObject for PyNIT
     """
-    def __init__(self, path=None, atlas=None):
+    def __init__(self, path=None, atlas=None, mask=None):
         self._atlas = None
         self._atlas_path = None
+        self._mask = None
         self._object = False
         if type(path) is ImageObj:
             self._image = path
@@ -185,10 +186,23 @@ class Template(object):
                     raise messages.InputPathError
         else:
             raise messages.InputFileError
+        if mask:
+            self.mask = mask
         if self._object:
             self._path = TempFile(self._image, 'temp_template')
         else:
             self._path = path
+
+    @property
+    def mask(self):
+        return self._mask
+
+    @mask.setter
+    def mask(self, path):
+        try:
+            self._mask = ImageObj.load(path)
+        except:
+            methods.raiseerror(messages.InputPathError, 'Wrong input path for mask')
 
     @property
     def image(self):

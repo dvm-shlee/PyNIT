@@ -616,23 +616,13 @@ def parsing(path, ds_type, idx):
         return df.sort_values('Abspath'), single_session, empty_prj
 
 def initial_filter(df, data_class, exts):
-    """ Filtering out only selected file type in the project folder
+    """Filtering out only selected file type in the project folder
 
-    Parameters
-    ----------
-    df          : pandas.DataFrame
-        Dataframe of project boject
-    data_class  : list
-        Dataclass want to be filtered
-        e.g.) One of value in ['Data', 'Processing', 'Results'] for NIRAL method
-    ext         : list
-        Extension want to be filtered
-
-    Returns
-    -------
-    df          : pandas.DataFrame
-        Filtered dataframe
-
+    :param df: pandas.DataFrame, Dataframe of project boject
+    :param data_class: list, Dataclass want to be filtered
+            e.g.) One of value in ['Data', 'Processing', 'Results'] for NIRAL method
+    :param exts: list, Extension want to be filtered
+    :return: pandas.DataFrame, Filtered dataframe
     """
     if data_class:
         if not type(data_class) is list:
@@ -648,19 +638,11 @@ def initial_filter(df, data_class, exts):
 
 
 def update_columns(idx, single_session):
-    """ Update name of columns according to the set Dataclass
+    """Update name of columns according to the set Dataclass
 
-    Parameters
-    ----------
-    idx             : int
-        Dataclass index
-    single_session  : boolean
-        True if the project is single session
-
-    Returns
-    -------
-    column          : dict
-        New list of columns
+    :param idx: int, Dataclass index
+    :param single_session: boolean, True if the project is single session
+    :return: dict, New list of columns
     """
     if idx == 0:
         if single_session:
@@ -678,19 +660,11 @@ def update_columns(idx, single_session):
 
 
 def reorder_columns(idx, single_session):
-    """ Reorder the name of columns
+    """Reorder the name of columns
 
-    Parameters
-    ----------
-    idx             : int
-        Dataclass index
-    single_session  : boolean
-        True if the project is single session
-
-    Returns
-    -------
-    column          : list or None
-        Reordered column
+    :param idx: int, Dataclass index
+    :param single_session: boolean, True if the project is single session
+    :return: list or None, Reordered column
     """
     if idx == 0:
         if single_session:
@@ -712,41 +686,27 @@ def reorder_columns(idx, single_session):
 
 
 def mk_main_folder(prj):
-    """ Make processing and results folders
+    """Make processing and results folders
 
-    Parameters
-    ----------
-    prj         : pynit.Project
-
-    Returns
-    -------
-    None
+    :param prj: pynit.Project
+    :return: None
     """
     mkdir(os.path.join(prj.path, prj.ds_type[0]),
                     os.path.join(prj.path, prj.ds_type[1]),
-                    os.path.join(prj.path, prj.ds_type[2]),
-                    os.path.join(prj.path, 'Masks'))
+                    os.path.join(prj.path, prj.ds_type[2]))
 
 
 def check_arguments(args, residuals, lists):
-    """ Parse the values in the list to be used as filter
+    """Parse the values in the list to be used as filter
 
-    Parameters
-    ----------
-    args        : tuple
-        Input arguments for filtering
-    residuals   : list
-        Residual values
-    lists       : list
-        Attributes of project object
-
-    Returns
-    -------
-    filter      : list
-        Values need to be filtered
-    residuals   : list
-        Residual values
+    :param args: tuple, Input arguments for filtering
+    :param residuals: list, Residual values
+    :param lists: list, Attributes of project object
+    :return:
+        filter: list, Values need to be filtered
+        residuals: list, Residual values
     """
+
     filter = [arg for arg in args if arg in lists]
     residuals = list(residuals)
     if len(filter):
@@ -755,23 +715,38 @@ def check_arguments(args, residuals, lists):
                 residuals.remove(comp)
     return list(set(filter)), list(set(residuals))
 
-def get_step_name(procobj, step):
-    processing_path = os.path.join(procobj._prjobj.path, procobj._prjobj.ds_type[1], procobj.processing)
+def get_step_name(procobj, step, results=False, verbose=None):
+    """Add index number into step name as prefix
+
+    :param procobj:
+    :param step:
+    :param results:
+    :param verbose:
+    :return:
+    """
+    if results:
+        idx = 2
+    else:
+        idx = 1
+    processing_path = os.path.join(procobj._prjobj.path, procobj._prjobj.ds_type[idx], procobj.processing)
     executed_steps = [f for f in os.listdir(processing_path) if os.path.isdir(os.path.join(processing_path, f))]
     if len(executed_steps):
         overlapped = [old_step for old_step in executed_steps if step in old_step]
         if len(overlapped):
-            print('Notice: existing path')
+            if verbose:
+                print('Notice: existing path')
             checked_files = []
             for f in os.walk(os.path.join(processing_path, overlapped[0])):
                 checked_files.extend(f[2])
             if len(checked_files):
-                print('Notice: Last step path is not empty')
+                if verbose:
+                    print('Notice: Last step path is not empty')
             return overlapped[0]
         else:
             return "_".join([str(len(executed_steps) + 1).zfill(3), step])
     else:
-        print('First step for the pipeline [{pipeline}] is initiated'.format(pipeline=procobj.processing))
+        if verbose:
+            print('The pipeline [{pipeline}] is initiated'.format(pipeline=procobj.processing))
         return "_".join([str(1).zfill(3), step])
 
 

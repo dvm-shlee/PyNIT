@@ -19,7 +19,7 @@ setup(name='PyNIT',
       license='GNLv3',
       packages=find_packages(),
       install_requires=['numpy', 'nibabel', 'pandas', 'IPython', 'ipywidgets',
-                        'matplotlib', 'seaborn', 'tqdm',
+                        'matplotlib', 'seaborn', 'tqdm', 'statsmodels', 'bctpy',
                         'scikit-image', 'xlrd', 'openpyxl'],
       classifier=[
             # How mature is this project? Common values are
