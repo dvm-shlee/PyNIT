@@ -604,7 +604,7 @@ class Process(object):
         try:
             self._prjobj = prjobj(1, name)
         except:
-            pass
+            self._prjobj = prjobj
         self._processing = name
         path = os.path.join(self._prjobj.path, self._prjobj.ds_type[1])
         self._path = os.path.join(path, self._processing)
