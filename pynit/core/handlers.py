@@ -1140,11 +1140,11 @@ class Process(object):
 
         :return: None
         """
+        print(self._prjobj.subjects)
         if self._prjobj.subjects:
             if self._subjects:
                 if self._subjects != self._prjobj.subjects:
                     temp_subjs = self._prjobj(1, self.processing).subjects
-                    print(temp_subjs)
                     if temp_subjs:
                         self._subjects = sorted(self._prjobj(1, self.processing).subjects[:])
                     else:
