@@ -11,7 +11,7 @@ class PipeTemplate(object):
 
 class A_fMRI_preprocess(PipeTemplate):
     def __init__(self, proc, tmpobj, anat='anat', func='func', tr=None, tpattern=None,
-                 fwhm=None, cbv=False, surfix=None):
+                 fwhm=None, cbv=False, surfix='func'):
         """Collection of preprocessing pipelines for Shihlab at UNC
         Author  : SungHo Lee(shlee@unc.edu)
         Revised : Feb.27th.2017
@@ -69,21 +69,17 @@ class A_fMRI_preprocess(PipeTemplate):
         # Apply coregistration transform matrix to all functional data
         self.proc.afni_ApplyCoregAll(self.proc.steps[8], self.proc.steps[5], surfix=self.surfix)
         # Spatial normalization
-        self.proc.afni_SpatialNorm(self.proc.steps[3], self.tmpobj, surfix=self.surfix)
+        self.proc.afni_SpatialNorm(self.proc.steps[3], self.tmpobj)
         self.proc.afni_ApplySpatialNorm(self.proc.steps[9], self.proc.steps[10], surfix=self.surfix)
         if self.cbv:
-            if self.surfix:
-                self.proc.afni_ApplyCoregAll(self.cbv, self.proc.steps[5], surfix=self.surfix+'_cbv')
-                self.proc.afni_ApplySpatialNorm(self.proc.steps[12], self.proc.steps[10], surfix=self.surfix+'_cbv')
-            else:
-                self.proc.afni_ApplyCoregAll(self.cbv, self.proc.steps[5], surfix='cbv')
-                self.proc.afni_ApplySpatialNorm(self.proc.steps[12], self.proc.steps[10], surfix='cbv')
+            self.proc.afni_ApplyCoregAll(self.cbv, self.proc.steps[5], surfix='cbv')
+            self.proc.afni_ApplySpatialNorm(self.proc.steps[12], self.proc.steps[10], surfix='cbv')
         if self.fwhm:
             self.proc.afni_SpatialSmoothing(self.proc.steps[11], fwhm=self.fwhm, tmpobj=self.tmpobj, surfix=self.surfix)
 
 
 class B_evoked_fMRI_analysis(PipeTemplate):
-    def __init__(self, proc, tmpobj, paradigm=None, mask=None, cbv=None, surfix=None):
+    def __init__(self, proc, tmpobj, paradigm=None, mask=None, cbv=None, surfix='func'):
         """Collection of GLM analysis pipelines for Shihlab at UNC
                 Author  : SungHo Lee(shlee@unc.edu)
                 Revised : Mar.2nd.2017

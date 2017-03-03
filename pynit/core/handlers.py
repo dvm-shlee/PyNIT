@@ -1,42 +1,50 @@
+# import python standard modules
 import os
 import re
 import sys
 import json
-import copy as ccopy
 import pickle
-import pandas as pd
 import itertools
 from shutil import rmtree, copy
-from StringIO import StringIO
+from collections import namedtuple
+import copy as ccopy
 
+# Multiprocessing module
+import multiprocessing
+from multiprocessing.pool import ThreadPool
+
+# Import pandas
+import pandas as pd
+
+# Import internal modules
+from .objects import Reference, ImageObj
+from .processors import Analysis, Interface, TempFile
+from .methods import np
+from .visualizers import Viewer
+
+import messages
+import methods
+import tools
+
+# Import hidden modules
+import pipelines
+from tempfile import mkdtemp
+from StringIO import StringIO
+from time import sleep
+
+# Import modules for interfacing with jupyter notebook
 try:
-    if len([key for key in sys.modules.keys() if key == 'ipykernel']):
+    if len([key for key in sys.modules.keys() if 'ipykernel' in key]):
         from tqdm import tqdm_notebook as progressbar
         from ipywidgets import widgets
         from ipywidgets.widgets import HTML as title
-        jupyter_env = True
         from IPython.display import display, display_html
+        jupyter_env = True
     else:
         from tqdm import tqdm as progressbar
         jupyter_env = False
 except:
     pass
-
-from collections import namedtuple
-
-from .objects import Reference, ImageObj
-from .processors import Analysis, Interface, TempFile
-from .methods import np
-from .visualizers import Viewer
-from time import sleep
-import messages
-import methods
-import tools
-import pipelines
-from tempfile import mkdtemp
-
-import multiprocessing
-from multiprocessing.pool import ThreadPool
 
 
 class Project(object):
@@ -75,7 +83,7 @@ class Project(object):
         self.__df = methods.DataFrame()
 
         # Parsing the information from the reference
-        self.__ref = [ds_ref, img_format]       #TODO: Check the develope note for future usage of this part
+        self.__ref = [ds_ref, img_format]
         self.ref = Reference(*self.__ref)
         self.img_ext = self.ref.imgext
         self.ds_type = self.ref.ref_ds
@@ -601,11 +609,8 @@ class Process(object):
 
         # Prepare inputs
         prjobj.reset_filters()
-        if prjobj(1).subjects:
-            self._prjobj = prjobj(1, name)
-        else:
-            self._prjobj = prjobj(0)
         self._processing = name
+        self._prjobj = prjobj
         path = os.path.join(self._prjobj.path, self._prjobj.ds_type[1])
         self._path = os.path.join(path, self._processing)
 
@@ -778,11 +783,16 @@ class Process(object):
         step.set_command(cmd01, idx=0)
         step.set_command(cmd02)
         func_mask = step.run('MaskPrep', 'func')
+        # if jupyter_env:
+        #     display(widgets.VBox([title(value='-'*43 + ' Anatomical images ' + '-'*43),
+        #                           tools.itksnap(self, anat_mask, anat),
+        #                           title(value='<br>' + '-'*43 + ' Functional images ' + '-'*43),
+        #                           tools.itksnap(self, func_mask, mimg_path)]))
         if jupyter_env:
             display(widgets.VBox([title(value='-'*43 + ' Anatomical images ' + '-'*43),
-                                  tools.itksnap(self, anat_mask, anat),
+                                  tools.fslview(self, anat_mask, anat),
                                   title(value='<br>' + '-'*43 + ' Functional images ' + '-'*43),
-                                  tools.itksnap(self, func_mask, mimg_path)]))
+                                  tools.fslview(self, func_mask, mimg_path)]))
         else:
             return dict(anat_mask=anat_mask, func_mask=func_mask)
 
@@ -969,6 +979,7 @@ class Process(object):
         cmd01 = '3dDeconvolve -input {func} -num_stimts 1 -polort 2 -stim_times 1 "1D: {param}" ' \
                 '"{model}({mparam})" -stim_label 1 STIM -tout -bucket {output}'
         step.set_command(cmd01)
+        # step.get_executefunc('test', verbose=True)
         glm = step.run('GLMAnalysis', surfix)
         display(title(value='** Estimating the temporal auto-correlation structure'))
         step = Step(self)
@@ -977,6 +988,7 @@ class Process(object):
         step.set_input(name='glm', input_path=glm, filters=filter, side=True)
         cmd02 = '3dREMLfit -matrix {glm} -input {func} -tout -Rbuck {output} -verb'
         step.set_command(cmd02)
+        # step.get_executefunc('test', verbose=True)
         output_path = step.run('REMLfit', surfix)
         return dict(GLM=output_path)
 
@@ -997,10 +1009,14 @@ class Process(object):
         cmd03 = '3dclust -1Dformat -nosum -1dindex 2 -1tindex 2 -2thresh -{tval} {tval} ' \
                 '-dxyz=1 -savemask {output} 1.01 {csize} {glm}'
         step.set_command(cmd03)
+        step.set_execmethod('with open(methods.splitnifti(output) + ".json", "wb") as f:')
+        step.set_execmethod('\tjson.dump(dict(source=glm[i].Abspath), f)')
         # step.get_executefunc('test', verbose=True)
         output_path = step.run('ClusteredMask', surfix=surfix)
+        # if jupyter_env:
+        #     display(tools.itksnap(self, output_path, tmpobj.image.get_filename()))
         if jupyter_env:
-            display(tools.itksnap(self, output_path, tmpobj.image.get_filename()))
+            display(tools.fslview(self, output_path, tmpobj.image.get_filename()))
         else:
             return dict(mask=output_path)
 
@@ -1070,7 +1086,6 @@ class Process(object):
         step.set_execmethod('\tpass')
         step.set_execmethod('else:')
         step.set_execmethod('\tpass')
-        # step.set_execmethod('print(os.path.join(sub_path, methods.splitnifti(func[i].Filename)))')
         # step.get_executefunc('test', verbose=True)
         output_path = step.run('ExtractROIs', surfix=surfix)
         return dict(timecourse=output_path)
@@ -1095,6 +1110,18 @@ class Process(object):
         :return:
         """
         tools.afni(self, self.steps[idx], tmpobj=tmpobj)
+
+    def fslview(self, idx, base_idx=None):
+        """Launch fslview
+
+                :param idx:
+                :param base_idx:
+                :return:
+                """
+        if base_idx:
+            tools.fslview(self, self.steps[idx], self.steps[base_idx])
+        else:
+            tools.fslview(self, self.steps[idx])
 
 
     @property
@@ -1140,23 +1167,30 @@ class Process(object):
 
         :return: None
         """
-        if self._prjobj.subjects:
-            if self._subjects:
-                if self._subjects != self._prjobj.subjects:
-                    try:
-                        self._subjects = sorted(self._prjobj(1, self.processing).subjects[:])
-                    except:
-                        self._subjects = sorted(self._prjobj(0).subjects[:])
-                else:
+        if self._prjobj(1).subjects:
+            if self._subjects != self._prjobj(1).subjects:
+                try:
+                    self._subjects = sorted(self._prjobj(1, self.processing).subjects[:])
+                    if not self._prjobj.single_session:
+                        self._sessions = sorted(self._prjobj(1, self.processing).sessions[:])
+
+                except:
                     self._subjects = sorted(self._prjobj.subjects[:])
+                    if not self._prjobj.single_session:
+                        self._sessions = sorted(self._prjobj.sessions[:])
             else:
                 self._subjects = sorted(self._prjobj.subjects[:])
             if not self._prjobj.single_session:
                 self._sessions = sorted(self._prjobj.sessions[:])
         else:
-            self._subjects = sorted(self._prjobj(0).subjects[:])
+            self._subjects = sorted(self._prjobj.subjects[:])
+            if not self._prjobj.single_session:
+                self._sessions = sorted(self._prjobj.sessions[:])
 
         self.logger.info('Attributes [subjects, sessions] are reset to default value.')
+        self.logger.info('Subject is defined as [{}]'.format(",".join(self._subjects)))
+        if self._sessions:
+            self.logger.info('Session is defined as [{}]'.format(",".join(self._sessions)))
 
     def init_proc(self):
         """Initiate process folder
@@ -1181,6 +1215,7 @@ class Process(object):
         :param name: str
         :return: str
         """
+        self.reset()
         if self._processing:
             path = methods.get_step_name(self, name)
             path = os.path.join(self._prjobj.path, self._prjobj.ds_type[1], self._processing, path)
@@ -1532,6 +1567,7 @@ class Step(object):
         output_path = self._procobj.init_step("{0}-{1}".format(step_name, surfix))
         if self._sessions:
             for idx, subj in enumerate(progressbar(self._subjects, desc='Subjects')):
+                print(subj)
                 methods.mkdir(os.path.join(output_path, subj))
                 iteritem = [(self._procobj, output_path, idx, subj, sess) for sess in self._sessions]
                 for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Sessions',
@@ -1628,7 +1664,7 @@ class Pipelines(object):
     def avail(self):
         return self._avail
 
-    def initiate(self, pipeline, verbose=False, **kwargs):
+    def initiate(self, pipeline, verbose=False, listing=True, **kwargs):
         """Initiate pipeline
 
         :param pipeline:
@@ -1650,9 +1686,10 @@ class Pipelines(object):
             methods.raiseerror(messages.PipelineNotSet, "Incorrect package is selected")
         if verbose:
             print(self.selected.__init__.__doc__)
-        avails = ["\t{} : {}".format(*item) for item in self.selected.avail.items()]
-        output = ["List of available pipelines:"] + avails
-        print("\n".join(output))
+        if listing:
+            avails = ["\t{} : {}".format(*item) for item in self.selected.avail.items()]
+            output = ["List of available pipelines:"] + avails
+            print("\n".join(output))
 
     def help(self, pipeline):
         """ Print help function
@@ -1699,7 +1736,8 @@ class Pipelines(object):
         :param kwargs:
         :return:
         """
-        self.initiate(o_pipe_id, **kwargs)
+        display(title(value='---=[[[ Move subject to group folder ]]]=---'))
+        self.initiate(o_pipe_id, listing=False, **kwargs)
         input_proc = Process(self._prjobj, self.avail[i_pipe_id])
         init_path = self._proc.init_step('GroupOrganizing')
         groups = sorted(group_filters.keys())
@@ -1741,6 +1779,7 @@ class Pipelines(object):
         self._proc._history[os.path.basename(init_path)] = init_path
         self._proc.save_history()
         self._proc._prjobj.reload()
+        self.help(o_pipe_id)
 
     @property
     def executed(self):

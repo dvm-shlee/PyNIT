@@ -1,7 +1,7 @@
 from string import ascii_lowercase as lc
 from shutil import rmtree
 from subprocess import list2cmdline, check_output, call
-from scipy import sparse, interpolate
+from scipy import sparse
 import statsmodels.api as sm
 import shlex
 import os
