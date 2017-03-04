@@ -1676,7 +1676,7 @@ class Pipelines(object):
         :param kwargs:
         :return:
         """
-        self._prjobj.reset(True)
+        self._prjobj.reload()
         if isinstance(pipeline, int):
             pipeline = self.avail[pipeline]
         if pipeline in self.avail.values():
