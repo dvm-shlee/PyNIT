@@ -1010,7 +1010,7 @@ class Process(object):
         cmd03 = '3dclust -1Dformat -nosum -1dindex 2 -1tindex 2 -2thresh -{tval} {tval} ' \
                 '-dxyz=1 -savemask {output} 1.01 {csize} {glm}'
         step.set_command(cmd03)
-        step.set_execmethod('with open(methods.splitnifti(output) + ".json", "wb") as f:')
+        step.set_execmethod('with open(os.path.splitext(output)[0] + ".json", "wb") as f:')
         step.set_execmethod('\tjson.dump(dict(source=func[i].Abspath), f)')
         # step.get_executefunc('test', verbose=True)
         output_path = step.run('ClusteredMask', surfix=surfix)
