@@ -107,7 +107,7 @@ class B_evoked_fMRI_analysis(PipeTemplate):
         self.proc.afni_GLManalysis(self.proc.steps[0], self.paradigm, surfix=self.surfix)
         if not self.mask:
             # Extract clusters using evoked results
-            self.proc.afni_ClusterMap(self.proc.steps[2], self.tmpobj, surfix=self.surfix)
+            self.proc.afni_ClusterMap(self.proc.steps[2], self.proc.steps[0], self.tmpobj, surfix=self.surfix)
 
     def pipe_02_Extract_Timecourse(self):
         if self.mask:

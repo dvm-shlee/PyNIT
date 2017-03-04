@@ -991,12 +991,14 @@ class Process(object):
         output_path = step.run('REMLfit', surfix)
         return dict(GLM=output_path)
 
-    def afni_ClusterMap(self, glm, tmpobj, pval=0.01, cluster_size=40, surfix='func'):
+    def afni_ClusterMap(self, glm, func, tmpobj, pval=0.01, cluster_size=40, surfix='func'):
         """"""
         display(title(value='** Generating clustered masks'))
         glm = self.check_input(glm)
+        func = self.check_input(func)
         step = Step(self)
         step.set_input(name='glm', input_path=glm)
+        step.set_input(name='func', input_path=func, side=True)
         step.set_staticinput(name='pval', value=pval)
         step.set_staticinput(name='csize', value=cluster_size)
         cmd01 = '3dAttribute BRICK_STATAUX {glm}'
@@ -1009,7 +1011,7 @@ class Process(object):
                 '-dxyz=1 -savemask {output} 1.01 {csize} {glm}'
         step.set_command(cmd03)
         step.set_execmethod('with open(methods.splitnifti(output) + ".json", "wb") as f:')
-        step.set_execmethod('\tjson.dump(dict(source=glm[i].Abspath), f)')
+        step.set_execmethod('\tjson.dump(dict(source=func[i].Abspath), f)')
         # step.get_executefunc('test', verbose=True)
         output_path = step.run('ClusteredMask', surfix=surfix)
         # if jupyter_env:
@@ -1050,13 +1052,14 @@ class Process(object):
             cmd = '3dROIstats -mask {rois} {func}'
         else:
             step.set_input(name='rois', input_path=rois)
-            step.set_input(name='func', input_path=rois, filters=dict(ext='json'))
-            step.set_execmethod('func_path = json.load(open(rois[i].Abspath))[""]')
+            step.set_input(name='func', input_path=rois, filters=dict(ext='json'), side=True)
+            step.set_execmethod('func_path = json.load(open(func[i].Abspath))["source"]')
+            step.set_staticinput('func_path', value='func_path')
+            cmd = '3dROIstats -mask {rois} {func_path}'
         if cbv:
             step.set_input(name='cbv', input_path=func, side=True, filters=dict(ext='.json'))
-
         step.set_command(cmd, stdout='out')
-        step.set_execmethod('temp_outputs.append([None, err])')
+        step.set_execmethod('temp_outputs.append([out, err])')
         step.set_execmethod('pd.read_table(StringIO(out))', var='df')
         step.set_execmethod('df[df.columns[2:]]', var='df')
         if cbv:
@@ -1068,7 +1071,7 @@ class Process(object):
                 # step.set_execmethod('print(cbv_path)')
                 cbv_cmd = '3dROIstats -mask {rois} {cbv_path}'
                 step.set_command(cbv_cmd, stdout='cbv_out')
-                step.set_execmethod('temp_outputs.append([None, err])')
+                step.set_execmethod('temp_outputs.append([out, err])')
                 # step.set_execmethod('print(cbv_out)')
                 step.set_execmethod('pd.read_table(StringIO(cbv_out))', var='cbv_df')
                 step.set_execmethod('cbv_df[cbv_df.columns[:]]', var='cbv_df')
