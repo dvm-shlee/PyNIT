@@ -554,9 +554,8 @@ class Project(object):
     def __call__(self, dc_id, *args, **kwargs):
         """Return DataFrame followed applying filters
         """
-        self.dataclass = dc_id
-        self.reset()
         prj = ccopy.copy(self)
+        prj.dataclass = dc_id
         prj.set_filters(*args, **kwargs)
         prj.apply()
         return prj
@@ -1020,7 +1019,6 @@ class Process(object):
         else:
             return dict(mask=output_path)
 
-
     def afni_SignalProcessing(self, func, mparam, mask=None, fwhm=None, dt=None, surfix='func'):
         """
 
@@ -1167,6 +1165,8 @@ class Process(object):
 
         :return: None
         """
+        self._prjobj.summary
+
         if self._prjobj(1).subjects:
             if self._subjects != self._prjobj(1).subjects:
                 try:
@@ -1179,10 +1179,11 @@ class Process(object):
                     if not self._prjobj.single_session:
                         self._sessions = sorted(self._prjobj.sessions[:])
             else:
-                self._subjects = sorted(self._prjobj.subjects[:])
+                self._subjects = sorted(self._prjobj(1).subjects[:])
             if not self._prjobj.single_session:
-                self._sessions = sorted(self._prjobj.sessions[:])
+                self._sessions = sorted(self._prjobj(0).sessions[:])
         else:
+            self._prjobj.summary
             self._subjects = sorted(self._prjobj.subjects[:])
             if not self._prjobj.single_session:
                 self._sessions = sorted(self._prjobj.sessions[:])
