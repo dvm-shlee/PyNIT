@@ -1044,14 +1044,17 @@ class Process(object):
         func = self.check_input(func)
         rois = self.check_input(rois)
         step = Step(self)
-        step.set_input(name='func', input_path=func)
         if os.path.isfile(rois):
             step.set_staticinput(name='rois', value=rois)
+            step.set_input(name='func', input_path=func)
+            cmd = '3dROIstats -mask {rois} {func}'
         else:
-            step.set_input(name='rois', input_path=rois, side=True)
+            step.set_input(name='rois', input_path=rois)
+            step.set_input(name='func', input_path=rois, filters=dict(ext='json'))
+            step.set_execmethod('func_path = json.load(open(rois[i].Abspath))[""]')
         if cbv:
             step.set_input(name='cbv', input_path=func, side=True, filters=dict(ext='.json'))
-        cmd = '3dROIstats -mask {rois} {func}'
+
         step.set_command(cmd, stdout='out')
         step.set_execmethod('temp_outputs.append([None, err])')
         step.set_execmethod('pd.read_table(StringIO(out))', var='df')
@@ -1165,8 +1168,6 @@ class Process(object):
 
         :return: None
         """
-        self._prjobj.summary
-
         if self._prjobj(1).subjects:
             if self._subjects != self._prjobj(1).subjects:
                 try:
@@ -1181,9 +1182,8 @@ class Process(object):
             else:
                 self._subjects = sorted(self._prjobj(1).subjects[:])
             if not self._prjobj.single_session:
-                self._sessions = sorted(self._prjobj(0).sessions[:])
+                self._sessions = sorted(self._prjobj(1).sessions[:])
         else:
-            self._prjobj.summary
             self._subjects = sorted(self._prjobj.subjects[:])
             if not self._prjobj.single_session:
                 self._sessions = sorted(self._prjobj.sessions[:])
