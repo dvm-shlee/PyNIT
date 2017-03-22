@@ -9,6 +9,7 @@ class PipeTemplate(object):
         #     output[i] = values[3:]
         return output
 
+
 class A_fMRI_preprocess(PipeTemplate):
     def __init__(self, proc, tmpobj, anat='anat', func='func', tr=None, tpattern=None,
                  fwhm=None, cbv=False, surfix='func'):
@@ -81,18 +82,18 @@ class A_fMRI_preprocess(PipeTemplate):
 class B_evoked_fMRI_analysis(PipeTemplate):
     def __init__(self, proc, tmpobj, paradigm=None, mask=None, cbv=None, surfix='func'):
         """Collection of GLM analysis pipelines for Shihlab at UNC
-                Author  : SungHo Lee(shlee@unc.edu)
-                Revised : Mar.2nd.2017
+        Author  : SungHo Lee(shlee@unc.edu)
+        Revised : Mar.2nd.2017
 
-                Parameters:
-                    paradigm: dict (default: None)
-                        Mandatary input for evoked paradigm
-                    mask    : path (default: None)
-                        ROIs mask for extracting timecourses
-                        if not provided, then generating cluster map using evoked responses
-                    cbv     : [echotime, number_of_TR], list (default: None)
-                        parameters to calculate CBV, if this parameters are given, CBV correction will be calculated
-                    surfix  : str
+        Parameters:
+            paradigm: dict (default: None)
+                Mandatary input for evoked paradigm
+            mask    : path (default: None)
+                ROIs mask for extracting timecourses
+                if not provided, then generating cluster map using evoked responses
+            cbv     : [echotime, number_of_TR], list (default: None)
+                parameters to calculate CBV, if this parameters are given, CBV correction will be calculated
+            surfix  : str
                 """
         # Define attributes
         self.tmpobj = tmpobj

@@ -5,6 +5,7 @@ import sys
 import json
 import pickle
 import itertools
+# import pprint
 from shutil import rmtree, copy
 from collections import namedtuple
 import copy as ccopy
@@ -31,6 +32,8 @@ import pipelines
 from tempfile import mkdtemp
 from StringIO import StringIO
 from time import sleep
+
+# pp = pprint.PrettyPrinter(indent=4)
 
 # Import modules for interfacing with jupyter notebook
 try:
@@ -1549,7 +1552,7 @@ class Step(object):
         output = header + filters + body + footer
         output = '\n'.join(output)
         if verbose:
-            print(output)
+            print(unicode(output, "utf-8"))
             return None
         else:
             return output
@@ -1571,7 +1574,6 @@ class Step(object):
         output_path = self._procobj.init_step("{0}-{1}".format(step_name, surfix))
         if self._sessions:
             for idx, subj in enumerate(progressbar(self._subjects, desc='Subjects')):
-                print(subj)
                 methods.mkdir(os.path.join(output_path, subj))
                 iteritem = [(self._procobj, output_path, idx, subj, sess) for sess in self._sessions]
                 for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Sessions',

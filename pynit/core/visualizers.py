@@ -16,11 +16,14 @@ from matplotlib import colors
 import seaborn as sns
 
 # Set error bar as standard deviation
+
+
 def _plot_std_bars(central_data=None, ci=None, data=None, *args, **kwargs):
     std = data.std(axis=0)
     ci = np.asarray((central_data - std, central_data + std))
     kwargs.update({"central_data": central_data, "ci": ci, "data": data})
     sns.timeseries._plot_ci_bars(*args, **kwargs)
+
 
 def _plot_std_band(central_data=None, ci=None, data=None, *args, **kwargs):
     std = data.std(axis=0)

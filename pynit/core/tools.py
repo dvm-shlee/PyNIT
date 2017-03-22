@@ -2,13 +2,12 @@ from handlers import sys, os, messages
 import methods
 try:
     if len([key for key in sys.modules.keys() if key == 'ipykernel']):
-        # from tqdm import tqdm_notebook as progressbar
         from ipywidgets import widgets
     else:
-        # from tqdm import tqdm as progressbar
         pass
 except:
     pass
+
 
 def afni(procobj, input_path, tmpobj=None):
     """Launch afni
@@ -23,6 +22,7 @@ def afni(procobj, input_path, tmpobj=None):
         groups_path += [os.path.dirname(tmpobj.image.get_filename())]
     out, err = methods.shell('afni {}'.format(str(' '.join(groups_path))))
     return out, err
+
 
 def itksnap(procobj, input_path, temp_path=None):
     """ run itksnap for given pass
@@ -83,7 +83,7 @@ def itksnap(procobj, input_path, temp_path=None):
                     scan_list.append(scan)
                 list_of_items[subj] = scan_list
     sub_toggle = widgets.Dropdown(options=sorted(procobj._subjects), description='Subjects:',
-                                      layout=widgets.Layout(width='600px', ))
+                                  layout=widgets.Layout(width='600px', ))
     if procobj._sessions:
         ses_toggle = widgets.Dropdown(options=sorted(procobj._sessions), description='Sessions:',
                                       layout=widgets.Layout(width='600px'))
@@ -116,6 +116,7 @@ def itksnap(procobj, input_path, temp_path=None):
 
     launcher.on_click(run_itksnap)
     return widgets.VBox([sub_toggle, scan_dropdown, launcher])
+
 
 def fslview(procobj, input_path, temp_path=None):
     """ run fslview for given pass
@@ -176,7 +177,7 @@ def fslview(procobj, input_path, temp_path=None):
                     scan_list.append(scan)
                 list_of_items[subj] = scan_list
     sub_toggle = widgets.Dropdown(options=sorted(procobj._subjects), description='Subjects:',
-                                      layout=widgets.Layout(width='600px', ))
+                                  layout=widgets.Layout(width='600px', ))
     if procobj._sessions:
         ses_toggle = widgets.Dropdown(options=sorted(procobj._sessions), description='Sessions:',
                                       layout=widgets.Layout(width='600px'))
