@@ -319,6 +319,8 @@ def convert_to_3d(imageobj):
         data = np.asarray(imageobj.dataobj)[..., 0]
     elif dim == 3:
         data = np.asarray(imageobj.dataobj)
+    elif dim == 5:
+        data = np.asarray(imageobj.dataobj)[..., 0, 0]
     else:
         raise messages.ImageDimentionMismatched
     return data

@@ -1782,7 +1782,7 @@ class Pipelines(object):
     This class is the major features of PyNIT project (for most of general users)
     You can either use default pipeline packages we provide or load custom designed pipelines
     """
-    def __init__(self, prj_path, tmpobj, parallel=True, logging=True):
+    def __init__(self, prj_path, tmpobj, parallel=True, logging=True, viewer='itksnap'):
         """Initiate class
 
         :param prj_path:
@@ -1791,7 +1791,7 @@ class Pipelines(object):
         :param logging:
         """
         # Define default attributes
-        self._prjobj = Project(prj_path)
+        self._prjobj = Project(prj_path, viewer=viewer)
         self._avail = self._prjobj.ref.avail
         self._proc = None
         self._tmpobj = tmpobj
