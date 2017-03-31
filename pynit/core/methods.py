@@ -8,6 +8,7 @@ import logging.handlers
 from pandas import DataFrame, Series, read_table
 import nibabel as nib
 import numpy as np
+from scipy import ndimage
 from skimage import exposure
 from nibabel import affines as affns
 import objects
@@ -178,7 +179,7 @@ def set_center(imageobj, corr):
 # Method collection for templateObject handler
 
 def parsing_atlas(path):
-    """ Parsing atlas imageobj and label
+    """Parsing atlas imageobj and label
 
     :param path:
     :return:
@@ -186,10 +187,8 @@ def parsing_atlas(path):
     label = dict()
     affine = list()
     if os.path.isdir(path):
-        # print(path)
         atlasdata = None
         list_of_rois = [img for img in os.listdir(path) if '.nii' in img]
-        # print(list_of_rois)
         rgbs = np.random.rand(len(list_of_rois), 3)
         label[0] = 'Clear Label', [.0, .0, .0]
 
@@ -207,6 +206,8 @@ def parsing_atlas(path):
         if '.nii' in path:
             filepath = os.path.basename(splitnifti(path))
             dirname = os.path.dirname(path)
+            if dirname == '':
+                dirname = '.'
             for f in os.listdir(dirname):
                 if filepath in f:
                     if '.lbl' in f:
@@ -233,7 +234,13 @@ def parsing_atlas(path):
                     label[idx] = roi, rgb
     else:
         raise messages.InputPathError
-    return atlas, label
+    data = np.asarray(atlas.dataobj)
+    # Calculate centor of mass (coordinate of the rois)
+    com = dict()
+    for i, roi in enumerate(zip(*label.values())[0]):
+        roi_mask = (data ==i)*1.0
+        com[roi] = map(round, ndimage.center_of_mass(roi_mask))
+    return atlas, label, com
 
 
 def save_label(label, filename):
@@ -474,16 +481,10 @@ def check_dataclass(datatype):
     return dataclass, datatype
 
 def shell(cmd):
-    """ Execute shell command
+    """Execute shell command
 
-    Parameters
-    ----------
-    cmd : string
-        command to execute
-
-    Returns
-    -------
-    stdout, e
+    :param cmd: str, command to execute
+    :return: stdout, error
     """
     try:
         processor = Popen(shlex.split(cmd), stdout=PIPE, stderr=PIPE)

@@ -14,6 +14,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import colors
 import seaborn as sns
+from IPython import display
 
 # Set error bar as standard deviation
 
@@ -110,36 +111,39 @@ class Viewer(object):
         data = methods.apply_invert(data, *invert)
 
         # Internal show slice function for interact python
-        def imshow(slice_num, frame=0):
-            fig, axes = plt.subplots()
+        def imshow(slice_num, ax, frame=0):
+            ax.set_facecolor('white')
+            # fig = plt.Figure()
+            # fig.set_facecolor('white')
+            plt.clf()
             if len(data.shape) == 3:
-                axes.imshow(data[..., int(slice_num)].T, origin='lower', interpolation='nearest', cmap='gray')
+                plt.imshow(data[..., int(slice_num)].T, origin='lower', interpolation='nearest', cmap='gray')
             elif len(data.shape) == 4:
-                axes.imshow(data[:, :, int(slice_num), frame].T, origin='lower', interpolation='nearest', cmap='gray')
+                plt.imshow(data[:, :, int(slice_num), frame].T, origin='lower', interpolation='nearest', cmap='gray')
             else:
                 raise messages.ImageDimentionMismatched
-            axes = methods.set_viewaxes(axes)
+            ax = methods.set_viewaxes(plt.axes())
             if resol[1] != resol[0]:
-                axes.set_aspect(abs(resol[1] / resol[0]))
+                ax.set_aspect(abs(resol[1] / resol[0]))
             else:
                 pass
+            display(plt.gcf())
+
         # Check image dimension, only 3D and 4D is available
-        print(data.shape)
         try:
+            ax = plt.gca()
             if len(data.shape) == 3:
-                interact(imshow, slice_num=(0, imageobj.shape[axis]-1), frame=fixed(0))
-                print('interact')
+                interact(imshow, slice_num=(0, imageobj.shape[axis]-1), ax=fixed(ax), frame=fixed(0))
             elif len(data.shape) == 4:
                 if data.shape[-1] == 1:
-                    interact(imshow, slice_num=(0, imageobj.shape[axis] - 1), frame=fixed(0))
+                    interact(imshow, slice_num=(0, imageobj.shape[axis] - 1), ax=fixed(ax), frame=fixed(0))
                 else:
-                    interact(imshow, slice_num=(0, imageobj.shape[axis]-1), frame=(0, imageobj.shape[axis+1]-1))
+                    interact(imshow, slice_num=(0, imageobj.shape[axis]-1), ax=fixed(ax), frame=(0, imageobj.shape[axis+1]-1))
             else:
                 raise messages.ImageDimentionMismatched
         except:
             fig, axes = plt.subplots()
             data = methods.convert_to_3d(imageobj)
-            print('notinteract')
             axes.imshow(data[..., int(slice_num)].T, origin='lower', cmap='gray')
             axes.set_axis_off()
 

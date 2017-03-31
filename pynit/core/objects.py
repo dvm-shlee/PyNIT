@@ -166,43 +166,38 @@ class ImageObj(Nifti1Image):
 class Template(object):
     """ TemplateObject for PyNIT
     """
-    def __init__(self, path=None, atlas=None, mask=None):
+    def __init__(self, path=None, atlas=None):
+        # Initiate default attributes
         self._atlas = None
         self._atlas_path = None
         self._mask = None
         self._object = False
+        # If input is instance of the ImageObj
         if type(path) is ImageObj:
             self._image = path
             self._object = True
+        # If input is path string
         elif type(path) is str:
             try:
                 self.load(path)
             except:
                 raise messages.InputPathError
+            # if atlas path also given
             if atlas:
-                try:
-                    self.set_atlas(atlas)
-                except:
-                    raise messages.InputPathError
+                self.set_atlas(atlas)
         else:
             raise messages.InputFileError
-        if mask:
-            self.mask = mask
+        # Generating mask image
+        self._mask = self.get_mask()
         if self._object:
             self._path = TempFile(self._image, 'temp_template')
         else:
             self._path = path
 
+    # Attributes
     @property
     def mask(self):
         return self._mask
-
-    @mask.setter
-    def mask(self, path):
-        try:
-            self._mask = ImageObj.load(path)
-        except:
-            methods.raiseerror(messages.InputPathError, 'Wrong input path for mask')
 
     @property
     def image(self):
@@ -216,7 +211,9 @@ class Template(object):
             raise messages.InputObjectError
 
     @property
-    def atlas(self):
+    def atlas_obj(self):
+        """Return ImageObj of Atlas
+        """
         return self._atlas.image
 
     @property
@@ -232,7 +229,9 @@ class Template(object):
         return self._atlas_path
 
     @property
-    def atlasobj(self):
+    def atlas(self):
+        """Return atlas instance
+        """
         return self._atlas
 
     def load(self, path):
@@ -246,26 +245,45 @@ class Template(object):
 
     def set_atlas(self, path):
         self._atlas = Atlas(path)
-        self._atlas_path = TempFile(self.atlasobj.image, 'temp_atlas')
+        self._atlas_path = TempFile(self.atlas.image, 'temp_atlas')
+
+    def get_mask(self):
+        """Calculate mask from image data and generating template file
+        """
+        mask = np.asarray(self._image.dataobj)
+        mask[abs(mask) > 0] = 1
+        maskobj = ImageObj(mask, self.image.affine)
+        return TempFile(maskobj, 'template_mask')
+
+    def get_bg_cordinate(self):
+        maskdata = self.mask._image._dataobj
+        coronal = maskdata.sum(axis=2)
+        coronal[coronal>0] = 1
+        axial = maskdata.sum(axis=1)
+        axial[axial>0] = 1
+        x = np.argmax(coronal.sum(axis=1))
+        y = np.argmax(coronal.sum(axis=0))
+        z = np.argmax(axial.sum(axis=0))
+        return x, y, z
 
     def swap_axis(self, axis1, axis2):
         if self._atlas:
-            self.atlas.swap_axis(axis1, axis2)
+            self.atlas_obj.swap_axis(axis1, axis2)
         self.image.swap_axis(axis1, axis2)
 
     def flip(self, **kwargs):
         if self._atlas:
-            self.atlas.flip(**kwargs)
+            self.atlas_obj.flip(**kwargs)
         self.image.flip(**kwargs)
 
     def crop(self, **kwargs):
         if self._atlas:
-            self.atlas.crop(**kwargs)
+            self.atlas_obj.crop(**kwargs)
         self.image.crop(**kwargs)
 
     def reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis=2):
         if self._atlas:
-            self.atlas.reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis=axis)
+            self.atlas_obj.reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis=axis)
         self.image.reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis=axis)
 
     def show(self, scale=15, **kwargs):
@@ -285,6 +303,8 @@ class Template(object):
             os.remove(self._path)
         if self._atlas:
             os.remove(self._atlas_path)
+        if self._mask:
+            os.remove(str(self._mask))
 
     def __getitem__(self, idx):
         return self._atlas.__getitem__(idx)
@@ -297,19 +317,23 @@ class Template(object):
 
 
 class Atlas(object):
+    """ This class templating the segmentation image object to handle atlas related attributes
+
+    """
     def __init__(self, path=None):
         self.path = path
         self._label = None
+        self._coordinates = None
         if type(path) is ImageObj:
             self._image = path
         elif type(path) is str:
-            # try:
-            # print(path)
             self.load(path)
-            # except:
-                # raise error.InputPathError
         else:
             raise messages.InputFileError
+
+    @property
+    def coordinates(self):
+        return self._coordinates
 
     @property
     def image(self):
@@ -327,7 +351,7 @@ class Atlas(object):
             raise messages.InputObjectError
 
     def load(self, path):
-        self._image, self._label = methods.parsing_atlas(path)
+        self._image, self._label, self._coordinates = methods.parsing_atlas(path)
 
     def save_as(self, filename, label_only=False, quiet=False):
         if not label_only:
@@ -342,7 +366,7 @@ class Atlas(object):
                 raise messages.InputPathError
         atlas = self._image.dataobj
         num_of_rois = int(np.max(atlas))
-        for i in range(num_of_rois):
+        for i in range(num_of_rois+1):
             if not i:
                 pass
             else:

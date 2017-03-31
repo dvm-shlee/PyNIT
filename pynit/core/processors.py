@@ -200,26 +200,26 @@ class Analysis(object):
 
         input_file = TempFile(imageobj, filename='input')
         if contra:
-            mask_file = TempFile(tempobj.atlas, filename='mask', flip=True)
+            mask_file = TempFile(tempobj.atlas_obj, filename='mask', flip=True)
         if bilateral:
             list_of_rois = [roi[0] for roi in tempobj.label.itervalues()][1:]
-            mask_file = TempFile(tempobj.atlas, filename='mask')
+            mask_file = TempFile(tempobj.atlas_obj, filename='mask')
             df = Interface.afni_3dROIstats(None, input_file, mask_file)
             df.columns = list_of_rois
 
             list_of_rois = ['contra_'+roi[0] for roi in tempobj.label.itervalues()][1:]
-            mask2_file = TempFile(tempobj.atlas, filename='mask2', flip=True)
+            mask2_file = TempFile(tempobj.atlas_obj, filename='mask2', flip=True)
             cont_df = Interface.afni_3dROIstats(None, input_file, mask2_file)
             cont_df.columns = list_of_rois
             df = df.join(cont_df)
             # mask_file.close()
         else:
             if merged:
-                new_atlas = tempobj.atlas._dataobj + tempobj.atlas._dataobj[::-1, :, :]
+                new_atlas = tempobj.atlas_obj._dataobj + tempobj.atlas_obj._dataobj[::-1, :, :]
                 list_of_rois = ['bilateral_' + roi[0] for roi in tempobj.label.itervalues()][1:]
             else:
                 list_of_rois = [roi[0] for roi in tempobj.label.itervalues()][1:]
-            nii = objects.ImageObj(new_atlas, tempobj.atlas.affine)
+            nii = objects.ImageObj(new_atlas, tempobj.atlas_obj.affine)
             mask_file = TempFile(nii, filename='mask')
             df = Interface.afni_3dROIstats(None, input_file, mask_file)
             df.columns = list_of_rois
@@ -227,61 +227,6 @@ class Analysis(object):
         # Check each labels
         input_file.close()
         return df
-
-    # @staticmethod
-    # def get_timetrace(imageobj, tempobj, **kwargs):
-    #     """ Parsing timetrace from imageobj, with multiple rois
-    #     """
-    #     contra = None
-    #     bilateral = None
-    #     merged = None
-    #     afni = None
-    #     quiet = None
-    #     # Check kwargs
-    #     if kwargs:
-    #         for arg in kwargs.keys():
-    #             if arg == 'contra':
-    #                 contra = kwargs[arg]
-    #             if arg == 'bilateral':
-    #                 bilateral = kwargs[arg]
-    #             if arg == 'merge':
-    #                 merged = kwargs[arg]
-    #             if arg == 'afni':
-    #                 afni = kwargs[arg]
-    #             if arg == 'quiet':
-    #                 quiet = kwargs[arg]
-    #     # Initiate dataframe
-    #     df = methods.DataFrame()
-    #     # Check each labels
-    #     for idx in tempobj.label.keys():
-    #         if idx:
-    #             roi, maskobj = tempobj[idx]
-    #             if merged:
-    #                 col = Analysis.mask_average(imageobj, maskobj, merge=True, afni=afni)
-    #                 roi = 'Bilateral_{}'.format(roi)
-    #             else:
-    #                 if contra:
-    #                     col = Analysis.mask_average(imageobj, maskobj, contra=True, afni=afni)
-    #                 else:
-    #                     col = Analysis.mask_average(imageobj, maskobj, afni=afni)
-    #             df[roi] = col
-    #             if not quiet:
-    #                 print("  * Time trace is extracted using the mask '{}'".format(roi))
-    #     if bilateral:
-    #         for idx in tempobj.label.keys():
-    #             if idx:
-    #                 roi, maskobj = tempobj[idx]
-    #                 if merged:
-    #                     pass
-    #                 else:
-    #                     if contra:
-    #                         col = Analysis.mask_average(imageobj, maskobj, afni=afni)
-    #                     else:
-    #                         col = Analysis.mask_average(imageobj, maskobj, contra=True, afni=afni)
-    #                     df["Cont_{}".format(roi)] = col
-    #                     if not quiet:
-    #                         print("  * Time trace is extracted using the mask 'Cont_{}'".format(roi))
-    #     return df
 
     @staticmethod
     def cal_mean(imgobj, start=None, end=None):
@@ -794,21 +739,41 @@ class Interface(object):
 
 
 class TempFile(object):
-    """Object for temporary file
+    """This class is designed to make Template Object can be utilized on Processing steps
+    Due to the major processing steps using command line tools(AFNI, ANTs so on..), the numpy
+    object cannot be used on these tools.
+
+    Using this class, loaded ImageObj now has temporary files on the location at './.tmp' or './atlas_tmp'
     """
-    def __init__(self, obj, filename='image_cache', atlas=False, flip=False):
+    def __init__(self, obj, filename='image_cache', atlas=False, flip=False, merge=False):
+        """Initiate instance
+
+        :param obj:         ImageObj
+        :param filename:    Temporary filename
+        :param atlas:       True if the input is atlas data
+        :param flip:        True if you want to flip
+        :param merge:       True if you want to merge flipped ImageObj
+        """
+        # If given input object is atlas
         if atlas:
             self._image = None
+            # Copy object to protect the intervention between object
             self._atlas = copy.copy(obj)
             if flip:
                 self._atlas.flip(invertx=True)
+            if merge:
+                org_atlas = self._atlas
+                self._atlas.flip(invertx=True)
+                self._atlas._dataobj = org_atlas._dataobj + self._atlas._dataobj
             self._atlas.extract('./.atlas_tmp')
             self._listdir = [ f for f in os.listdir('./.atlas_tmp') if '.nii' in f ]
         else:
+            # Copy object to protect the intervention between object
             self._image = copy.copy(obj)
             if flip:
                 self._image.flip(invertx=True)
-                print('Flipped!')
+            if merge:
+                self._image._dataobj += self._image._dataobj[::-1,]
             self._fname = filename
             methods.mkdir('./.tmp')
             self._image.save_as(os.path.join('./.tmp', filename), quiet=True)

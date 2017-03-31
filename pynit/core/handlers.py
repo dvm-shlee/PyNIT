@@ -18,7 +18,7 @@ from multiprocessing.pool import ThreadPool
 import pandas as pd
 
 # Import internal modules
-from .objects import Reference, ImageObj
+from .objects import Reference, ImageObj, Template
 from .processors import Analysis, Interface, TempFile
 from .methods import np
 from .visualizers import Viewer
@@ -405,8 +405,11 @@ class Project(object):
                                                '\t\t\tPlease take a look if you had applied correct input'
                                                ''.format(residuals=residuals))
                     else:
-                        methods.raiseerror(messages.Errors.NoFilteredOutput,
-                                           'Uncertain exception occured, please report to Author (shlee@unc.edu)')
+                        if not os.path.exists(os.path.join(self.path, self.dataclass, residuals[0])):
+                            methods.raiseerror(messages.Errors.NoFilteredOutput,
+                                               'Uncertain exception occured, please report to Author (shlee@unc.edu)')
+                        else:
+                            pass
                 else:
                     methods.raiseerror(messages.Errors.NoFilteredOutput,
                                        'Wrong filter input:{residuals}'.format(residuals=residuals))
@@ -600,13 +603,14 @@ class Project(object):
 class Process(object):
     """Collections of step components for pipelines
     """
-    def __init__(self, prjobj, name, parallel=True, logging=True):
+    def __init__(self, prjobj, name, parallel=True, logging=True, viewer='itksnap'):
         """
 
         :param prjobj:
         :param name:
         :param parallel:
         :param logging:
+        :param viewer:
         """
 
         # Prepare inputs
@@ -626,6 +630,7 @@ class Process(object):
         self._history = {}
         self._parallel = parallel
         self._tempfiles = []
+        self._viewer = viewer
 
         # Initiate
         self.init_proc()
@@ -755,7 +760,7 @@ class Process(object):
             methods.raiseerror(messages.Errors.MissingPipeline,
                                'No anatomy file!')
         try:
-            step.set_staticinput(name='mask', value=tmpobj.mask.get_filename())
+            step.set_staticinput(name='mask', value=str(tmpobj.mask))
         except:
             methods.raiseerror(messages.InputPathError,
                                'No mask template file!')
@@ -776,7 +781,7 @@ class Process(object):
             methods.raiseerror(messages.Errors.MissingPipeline,
                                'Initial Mean image calculation step has not been executed!')
         try:
-            step.set_staticinput(name='mask', value=tmpobj.mask.get_filename())
+            step.set_staticinput(name='mask', value=str(tmpobj.mask))
         except:
             methods.raiseerror(messages.InputPathError,
                                'No mask template file!')
@@ -785,21 +790,25 @@ class Process(object):
         step.set_command(cmd01, idx=0)
         step.set_command(cmd02)
         func_mask = step.run('MaskPrep', 'func')
-        # if jupyter_env:
-        #     display(widgets.VBox([title(value='-'*43 + ' Anatomical images ' + '-'*43),
-        #                           tools.itksnap(self, anat_mask, anat),
-        #                           title(value='<br>' + '-'*43 + ' Functional images ' + '-'*43),
-        #                           tools.itksnap(self, func_mask, mimg_path)]))
         if jupyter_env:
-            display(widgets.VBox([title(value='-'*43 + ' Anatomical images ' + '-'*43),
-                                  tools.fslview(self, anat_mask, anat),
-                                  title(value='<br>' + '-'*43 + ' Functional images ' + '-'*43),
-                                  tools.fslview(self, func_mask, mimg_path)]))
+            if self._viewer == 'itksnap':
+                display(widgets.VBox([title(value='-'*43 + ' Anatomical images ' + '-'*43),
+                                      tools.itksnap(self, anat_mask, anat),
+                                      title(value='<br>' + '-'*43 + ' Functional images ' + '-'*43),
+                                      tools.itksnap(self, func_mask, mimg_path)]))
+            elif self._viewer == 'fslview':
+                display(widgets.VBox([title(value='-'*43 + ' Anatomical images ' + '-'*43),
+                                      tools.fslview(self, anat_mask, anat),
+                                      title(value='<br>' + '-'*43 + ' Functional images ' + '-'*43),
+                                      tools.fslview(self, func_mask, mimg_path)]))
+            else:
+                methods.raiseerror(messages.Errors.InputValueError,
+                                   '"{}" is not available'.format(self._viewer))
         else:
             return dict(anat_mask=anat_mask, func_mask=func_mask)
 
     def afni_SkullStrip(self, anat, func):
-        """
+        """ The pre-defined step for skull stripping with AFNI
 
         :param anat:
         :param func:
@@ -955,19 +964,20 @@ class Process(object):
             step.set_staticinput('fwhm', fwhm)
         cmd = '3dBlurInMask -prefix {output} -FWHM {fwhm}'
         if tmpobj:
-            step.set_staticinput('mask', value=tmpobj.mask.get_filename())
+            step.set_staticinput('mask', value=str(tmpobj.mask))
             cmd += ' -mask {mask}'
         cmd += ' -quiet {func}'
         step.set_command(cmd)
         output_path = step.run('SpatialSmoothing', surfix)
         return dict(func=output_path)
 
-    def afni_GLManalysis(self, func, paradigm, surfix='func'):
+    def afni_GLManalysis(self, func, paradigm, crop=None, surfix='func'):
         """
 
         :param func:
         :param paradigm:
-        :param surgix:
+        :param crop:
+        :param surfix:
         :return:
         """
         display(title(value='** Processing General Linear Analysis'))
@@ -978,8 +988,14 @@ class Process(object):
         step.set_staticinput(name='param', value='" ".join(map(str, paradigm[idx][0]))')
         step.set_staticinput(name='model', value='paradigm[idx][1][0]')
         step.set_staticinput(name='mparam', value='" ".join(map(str, paradigm[idx][1][1]))')
-        cmd01 = '3dDeconvolve -input {func} -num_stimts 1 -polort 2 -stim_times 1 "1D: {param}" ' \
-                '"{model}({mparam})" -stim_label 1 STIM -tout -bucket {output}'
+        if crop:
+            cmd01 = '3dDeconvolve -input {func}'
+            cmd01 += '"[{}..{}]" '.format(crop[0], crop[1])
+            cmd01 += '-num_stimts 1 -polort 2 -stim_times 1 "1D: {param}" ' \
+                    '"{model}({mparam})" -stim_label 1 STIM -tout -bucket {output}'
+        else:
+            cmd01 = '3dDeconvolve -input {func} -num_stimts 1 -polort 2 -stim_times 1 "1D: {param}" ' \
+                    '"{model}({mparam})" -stim_label 1 STIM -tout -bucket {output}'
         step.set_command(cmd01)
         # step.get_executefunc('test', verbose=True)
         glm = step.run('GLMAnalysis', surfix)
@@ -988,7 +1004,12 @@ class Process(object):
         step.set_input(name='func', input_path=func)
         filter = dict(ext='.xmat.1D')
         step.set_input(name='glm', input_path=glm, filters=filter, side=True)
-        cmd02 = '3dREMLfit -matrix {glm} -input {func} -tout -Rbuck {output} -verb'
+        if crop:
+            cmd02 = '3dREMLfit -matrix {glm} -input {func}'
+            cmd02 += '"[{}..{}]" '.format(crop[0], crop[1])
+            cmd02 += '-tout -Rbuck {output} -verb'
+        else:
+            cmd02 = '3dREMLfit -matrix {glm} -input {func} -tout -Rbuck {output} -verb'
         step.set_command(cmd02)
         # step.get_executefunc('test', verbose=True)
         output_path = step.run('REMLfit', surfix)
@@ -1013,89 +1034,201 @@ class Process(object):
         cmd03 = '3dclust -1Dformat -nosum -1dindex 2 -1tindex 2 -2thresh -{tval} {tval} ' \
                 '-dxyz=1 -savemask {output} 1.01 {csize} {glm}'
         step.set_command(cmd03)
-        step.set_execmethod('with open(os.path.splitext(output)[0] + ".json", "wb") as f:')
+        step.set_execmethod('with open(methods.splitnifti(output) + ".json", "wb") as f:')
         step.set_execmethod('\tjson.dump(dict(source=func[i].Abspath), f)')
         # step.get_executefunc('test', verbose=True)
         output_path = step.run('ClusteredMask', surfix=surfix)
-        # if jupyter_env:
-        #     display(tools.itksnap(self, output_path, tmpobj.image.get_filename()))
         if jupyter_env:
-            display(tools.fslview(self, output_path, tmpobj.image.get_filename()))
+            if self._viewer == 'itksnap':
+                display(tools.itksnap(self, output_path, tmpobj.image.get_filename()))
+            elif self._viewer == 'fslview':
+                display(tools.fslview(self, output_path, tmpobj.image.get_filename()))
+            else:
+                methods.raiseerror(messages.Errors.InputValueError,
+                                   '"{}" is not available'.format(self._viewer))
         else:
             return dict(mask=output_path)
 
-    def afni_SignalProcessing(self, func, mparam, mask=None, fwhm=None, dt=None, surfix='func'):
+    def afni_SignalProcessing(self, func, norm=True, ort=None, range=None, mask=None, bpass=None,
+                              fwhm=None, dt=None, surfix='func'):
         """
 
         :param func:
-        :param mparam:
+        :param norm:
+        :param ort:
         :param mask:
+        :param bpass:
         :param fwhm:
         :param dt:
-        :return:
-        """
-        cmd = 'afni_3dTproject -prefix {output} -ort {regr} -norm -mask {mask} -blur {fwhm} -dt {dt} {func}'
-
-    def afni_ROIStats(self, func, rois, cbv=None, surfix='func'):
-        """
-
-        :param func:
-        :param roi:
-        :param cbv: list, [echotime, number of TR for averaging]
         :param surfix:
         :return:
         """
+        display(title(value='** Run signal processing for resting state data'))
+        step = Step(self)
+        func = self.check_input(func)
+        step.set_input(name='func', input_path=func)
+        cmd = ['3dTproject -prefix {output}']
+        orange, irange = None, None
+        if bpass:
+            if isinstance(bpass, list) and len(bpass) == 2:
+                cmd.append('-passband {} {}'.format(*bpass))
+            else:
+                pass
+        if norm:
+            cmd.append('-norm')
+        if ort:
+            if range:
+                if isinstance(range, list):
+                    if len(range) == 2:
+                        orange = "'{" + "{}..{}".format(*range) + "}'"
+                        irange = "'[" + "{}..{}".format(*range) + "]'"
+                        step.set_staticinput(name='orange', value=orange)
+                        step.set_staticinput(name='irange', value=irange)
+            ort_filter = {'ext': '.1D', 'ignore': '.aff12'}
+            if isinstance(ort, dict):
+                for key, value in ort.items():
+                    ortpath = self.check_input(value)
+                    if range:
+                        cmd.append('-ort {{}}'.format(key)+'{orange}')
+                    else:
+                        cmd.append('-ort {{}}'.format(key))
+                    step.set_input(name=key, input_path=ortpath, filters=ort_filter, side=True)
+            elif isinstance(ort, list):
+                for i, o in enumerate(ort):
+                    exec('ort_{} = self.check_input({})'.format(str(i), o))
+                    ort_name = 'ort_{}'.format(str(i))
+                    if range:
+                        cmd.append('-ort {}'.format(ort_name)+'{orange}')
+                    else:
+                        cmd.append('-ort {}'.format(ort_name))
+                    ort_filter = {'ext': '.1D', 'ignore': '.aff12'}
+                    step.set_input(name=ort_name, input_path=o, filters=ort_filter, side=True)
+            elif isinstance(ort, str):
+                ort = self.check_input(ort)
+                if range:
+                    cmd.append('-ort {ort}"{orange}"')
+                else:
+                    cmd.append('-ort {ort}')
+                ort_filter = {'ext': '.1D', 'ignore': '.aff12'}
+                step.set_input(name='ort', input_path=ort, filters=ort_filter, side=True)
+            else:
+                self.logger.debug('TypeError on input ort.')
+        if mask:
+            step.set_staticinput(name='mask', value=mask)
+            cmd.append('-mask {mask}')
+        if fwhm:
+            step.set_staticinput(name='fwhm', value=fwhm)
+            cmd.append('-blur {fwhm}')
+        if dt:
+            step.set_staticinput(name='dt', value=dt)
+            cmd.append('-dt {dt}')
+        if range:
+            cmd.append('-input {func}"{irange}"')
+        else:
+            cmd.append('-input {func}')
+        step.set_command(" ".join(cmd))
+        # step.get_executefunc('test', verbose=True)
+        output_path = step.run('SignalProcess', surfix=surfix)
+        return dict(signalprocess=output_path)
+
+    def afni_ROIStats(self, func, rois, cbv=None, crop=None, option=None, surfix='func'): #TODO: Need to give option for bilateral or merged atlas
+        """Extracting time-course data from ROIs
+
+        :param func:    Input path for functional data
+        :param roi:     Template instance or mask path
+        :param cbv:     [echotime, number of volumes (TR) to average]
+        :param crop:
+        :param option:  bilateral or merge if roi is Template instance
+        :param surfix:
+        :type func:     str
+        :type roi:      Template or str
+        :type cbv:      list
+        :type surfix:   str
+        :return:        Current step path
+        :rtype:         dict
+        """
         display(title(value='** Extracting time-course data from ROIs'))
         func = self.check_input(func)
+        # Check if given rois is Template instance
+        if not isinstance(rois, str):
+            try:
+                list_of_roi = [roi[0] for roi in rois.label.itervalues()][1:]
+                rois = rois.atlas.image.get_filename()
+            except:
+                list_of_roi = None
+        else:
+            list_of_roi = None
+        # Check if given rois path is existed in the list of executed steps
         rois = self.check_input(rois)
+
+        # Initiate step instance
         step = Step(self)
+
+        # If given roi path is single file
         if os.path.isfile(rois):
             step.set_staticinput(name='rois', value=rois)
             step.set_input(name='func', input_path=func)
             cmd = '3dROIstats -mask {rois} {func}'
+        # Else, given roi path is directory
         else:
             step.set_input(name='rois', input_path=rois)
             step.set_input(name='func', input_path=rois, filters=dict(ext='json'), side=True)
             step.set_execmethod('func_path = json.load(open(func[i].Abspath))["source"]')
             step.set_staticinput('func_path', value='func_path')
             cmd = '3dROIstats -mask {rois} {func_path}'
+        # If CBV parameters are given, parsing the CBV infusion file path from json file
         if cbv:
             step.set_input(name='cbv', input_path=func, side=True, filters=dict(ext='.json'))
+        if crop:
+            cmd += '"[{}..{}]"'.format(crop[0], crop[1])
         step.set_command(cmd, stdout='out')
         step.set_execmethod('temp_outputs.append([out, err])')
         step.set_execmethod('pd.read_table(StringIO(out))', var='df')
         step.set_execmethod('df[df.columns[2:]]', var='df')
+        # If given roi is Template instance
+        if list_of_roi:
+            step.set_variable(name='list_roi', value=list_of_roi)
+            step.set_execmethod('list_roi', var='df.columns')
+        # again, if CBV parameter are given, put commends and methods into custom build function
         if cbv:
             if isinstance(cbv, list) and len(cbv) == 2:
                 step.set_variable(name='te', value=cbv[0])
                 step.set_variable(name='n_tr', value=cbv[1])
                 step.set_execmethod('cbv_path = json.load(open(cbv[i].Abspath))["cbv"]')
                 step.set_staticinput(name='cbv_path', value='cbv_path')
-                # step.set_execmethod('print(cbv_path)')
                 cbv_cmd = '3dROIstats -mask {rois} {cbv_path}'
+                # if crop:
+                #     cbv_cmd += '"[{}..{}]"'.format(crop[0], crop[1])
                 step.set_command(cbv_cmd, stdout='cbv_out')
                 step.set_execmethod('temp_outputs.append([out, err])')
-                # step.set_execmethod('print(cbv_out)')
                 step.set_execmethod('pd.read_table(StringIO(cbv_out))', var='cbv_df')
                 step.set_execmethod('cbv_df[cbv_df.columns[:]]', var='cbv_df')
-                # step.set_execmethod('print(cbv_df)')
             else:
                 methods.raiseerror(messages.Errors.InputValueError, 'Please check input CBV parameters')
         step.set_execmethod('if len(df.columns):')
+        # again, if CBV parameter are given, correct the CBV changes.
         if cbv:
             step.set_execmethod('\tdR2_mion = (-1 / te) * np.log(df.loc[:n_tr, :].mean(axis=0) / '
                                 'cbv_df.loc[:n_tr, :].mean(axis=0))')
             step.set_execmethod('\tdR2_stim = (-1 / te) * np.log(df / df.loc[:n_tr, :].mean(axis=0))')
             step.set_execmethod('\tdf = dR2_stim/dR2_mion')
-            # step.set_execmethod('\tprint(df)')
-        step.set_execmethod('\tdf.to_excel(os.path.join(sub_path, methods.splitnifti(func[i].Filename)+".xlsx"), '
+        # Generating excel files
+        step.set_execmethod('\tfname = os.path.splitext(str(func[i].Filename))[0]')
+        step.set_execmethod('\tdf.to_excel(os.path.join(sub_path, methods.splitnifti(fname)+".xlsx"), '
                             'index=False)')
         step.set_execmethod('\tpass')
         step.set_execmethod('else:')
         step.set_execmethod('\tpass')
-        # step.get_executefunc('test', verbose=True)
-        output_path = step.run('ExtractROIs', surfix=surfix)
+
+        # Run the steps
+        output_path = step.run('ExtractROIs', surfix=surfix)#, debug=True)
         return dict(timecourse=output_path)
+
+    def ants_Registration(self):
+        pass
+
+    def ants_BiasFieldCorrection(self):
+        pass
 
     def itksnap(self, idx, base_idx=None):
         """Launch ITK-snap
@@ -1180,7 +1313,6 @@ class Process(object):
                     self._subjects = sorted(self._prjobj(1, self.processing).subjects[:])
                     if not self._prjobj.single_session:
                         self._sessions = sorted(self._prjobj(1, self.processing).sessions[:])
-
                 except:
                     self._subjects = sorted(self._prjobj.subjects[:])
                     if not self._prjobj.single_session:
@@ -1204,7 +1336,6 @@ class Process(object):
 
         :return: None
         """
-        self.reset()
         methods.mkdir(self._path)
         self.logger.info('Process object is initiated with {0}'.format(self.processing))
         history = os.path.join(self._path, '.proc_hisroty')
@@ -1214,6 +1345,7 @@ class Process(object):
             self.logger.info("History file is loaded".format(history))
         else:
             self.save_history()
+        self.reset()
         return self._path
 
     def init_step(self, name):
@@ -1354,7 +1486,13 @@ class Step(object):
         :param stdout: str or None, if True, the input string can be used the variable for stand output results of a command
         :return:
         """
-        objs = [obj.strip('{}') for obj in re.findall(r"[{\w'}]+", command) if obj[0] == '{' and obj[-1] == '}']
+        tmpobjs = [obj.strip('{}') for obj in re.findall(r"[{\w'}]+", command) if obj[0] == '{' and obj[-1] == '}']
+        objs = []
+        for o in tmpobjs:
+            if "}{" in o:
+                objs.extend(o.split('}{'))
+            else:
+                objs.append(o)
         total = dict([(sideobj.name, sideobj.static) for sideobj in self._sidesets])
         total[self._mainset.name] = self._mainset.static
         if stdout:
@@ -1557,64 +1695,67 @@ class Step(object):
         else:
             return output
 
-    def run(self, step_name, surfix):
+    def run(self, step_name, surfix, debug=False):
         """Generate loop commands for step
 
         :param step_name: str
         :param surfix: str
         :return: None
         """
-        self._procobj._prjobj.reload()
-        if self._procobj._parallel:
-            thread = multiprocessing.cpu_count()
+        if debug:
+            return self.get_executefunc('debug', verbose=True)
         else:
-            thread = 1
-        pool = ThreadPool(thread)
-        self._procobj.logger.info("Step:[{0}] is executed with {1} thread(s).".format(step_name, thread))
-        output_path = self._procobj.init_step("{0}-{1}".format(step_name, surfix))
-        if self._sessions:
-            for idx, subj in enumerate(progressbar(self._subjects, desc='Subjects')):
-                methods.mkdir(os.path.join(output_path, subj))
-                iteritem = [(self._procobj, output_path, idx, subj, sess) for sess in self._sessions]
-                for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Sessions',
-                                          leave=False, total=len(iteritem)):
-                    if len(outputs):
-                        if isinstance(outputs[0], list):
-                            all_outputs = []
-                            for output in outputs:
-                                all_outputs.extend(['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in output])
-                            outputs = all_outputs[:]
+            self._procobj._prjobj.reload()
+            if self._procobj._parallel:
+                thread = multiprocessing.cpu_count()
+            else:
+                thread = 1
+            pool = ThreadPool(thread)
+            self._procobj.logger.info("Step:[{0}] is executed with {1} thread(s).".format(step_name, thread))
+            output_path = self._procobj.init_step("{0}-{1}".format(step_name, surfix))
+            if self._sessions:
+                for idx, subj in enumerate(progressbar(self._subjects, desc='Subjects')):
+                    methods.mkdir(os.path.join(output_path, subj))
+                    iteritem = [(self._procobj, output_path, idx, subj, sess) for sess in self._sessions]
+                    for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Sessions',
+                                              leave=False, total=len(iteritem)):
+                        if len(outputs):
+                            if isinstance(outputs[0], list):
+                                all_outputs = []
+                                for output in outputs:
+                                    all_outputs.extend(['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in output])
+                                outputs = all_outputs[:]
+                            else:
+                                outputs = ['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in outputs if outputs]
+                            with open(os.path.join(output_path, 'stephistory.log'), 'a') as f:
+                                f.write('\n\n'.join(outputs))
                         else:
-                            outputs = ['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in outputs if outputs]
-                        with open(os.path.join(output_path, 'stephistory.log'), 'a') as f:
-                            f.write('\n\n'.join(outputs))
+                            pass
+            else:
+                dirs = [os.path.join(output_path, subj) for subj in self._subjects]
+                methods.mkdir(dirs)
+                iteritem = [(self._procobj, output_path, idx, subj) for idx, subj in enumerate(self._subjects)]
+                for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Subjects',
+                                          total=len(iteritem)):
+                    if outputs != None:
+                        if len(outputs):
+                            if isinstance(outputs[0], list):
+                                all_outputs = []
+                                for output in outputs:
+                                    all_outputs.extend(['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in output])
+                                outputs = all_outputs[:]
+                            else:
+                                outputs = ['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in outputs]
+                            with open(os.path.join(output_path, 'stephistory.log'), 'a') as f:
+                                f.write('\n\n'.join(outputs))
+                        else:
+                            pass
                     else:
                         pass
-        else:
-            dirs = [os.path.join(output_path, subj) for subj in self._subjects]
-            methods.mkdir(dirs)
-            iteritem = [(self._procobj, output_path, idx, subj) for idx, subj in enumerate(self._subjects)]
-            for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Subjects',
-                                      total=len(iteritem)):
-                if outputs != None:
-                    if len(outputs):
-                        if isinstance(outputs[0], list):
-                            all_outputs = []
-                            for output in outputs:
-                                all_outputs.extend(['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in output])
-                            outputs = all_outputs[:]
-                        else:
-                            outputs = ['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in outputs]
-                        with open(os.path.join(output_path, 'stephistory.log'), 'a') as f:
-                            f.write('\n\n'.join(outputs))
-                    else:
-                        pass
-                else:
-                    pass
-        self._procobj._history[os.path.basename(output_path)] = output_path
-        self._procobj.save_history()
-        self._procobj._prjobj.reload()
-        return output_path
+            self._procobj._history[os.path.basename(output_path)] = output_path
+            self._procobj.save_history()
+            self._procobj._prjobj.reload()
+            return output_path
 
     def worker(self, args):
         """The worker for parallel computing
@@ -1657,6 +1798,7 @@ class Pipelines(object):
         self._parallel = parallel
         self._logging = logging
         self.selected = None
+        self.preprocessed = None
 
         # Print out project summary
         self._prjobj.summary
@@ -1697,6 +1839,9 @@ class Pipelines(object):
             avails = ["\t{} : {}".format(*item) for item in self.selected.avail.items()]
             output = ["List of available pipelines:"] + avails
             print("\n".join(output))
+
+    def afni(self, idx):
+        self._proc.afni(idx, self._tmpobj)
 
     def help(self, pipeline):
         """ Print help function
@@ -3493,7 +3638,7 @@ class Preprocess(object):
                 self._prjobj.run('ants_WarpImageMultiTransform', output_path,
                                  '{}_atlas.nii'.format(temp_path), warped.Abspath,
                                  True, '-i', mats, warps)
-                tempobj.atlasobj.save_as(os.path.join(step01, subj, "{}_atlas".format(subj)), label_only=True)
+                tempobj.atlas.save_as(os.path.join(step01, subj, "{}_atlas".format(subj)), label_only=True)
                 for i, finfo in anats:
                     subjatlas = methods.load_temp(finfo.Abspath, output_path)
                     fig = subjatlas.show(**kwargs)
@@ -3515,7 +3660,7 @@ class Preprocess(object):
                     print(" +Filename: {}".format(warped.Filename))
                     self._prjobj.run('ants_WarpImageMultiTransform', output_path,
                                      '{}_atlas.nii'.format(temp_path), warped.Abspath, True, '-i', mats, warps)
-                    tempobj.atlasobj.save_as(os.path.join(step01, subj, sess, "{}_atlas".format(sess)), label_only=True)
+                    tempobj.atlas.save_as(os.path.join(step01, subj, sess, "{}_atlas".format(sess)), label_only=True)
                     for i, finfo in anats:
                         subjatlas = methods.load_temp(finfo.Abspath, output_path)
                         fig = subjatlas.show(**kwargs)
