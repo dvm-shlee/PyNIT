@@ -131,7 +131,10 @@ class B_evoked_fMRI_analysis(PipeTemplate):
         # Define attributes
         self.tmpobj = tmpobj
         self.proc = proc
-        self.thr = thresholds
+        if thresholds:
+            self.thr = thresholds
+        else:
+            self.thr = [None, None]
         self.paradigm = paradigm
         self.cbv = cbv
         self.crop = crop
