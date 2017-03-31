@@ -1307,16 +1307,22 @@ class Process(object):
 
         :return: None
         """
-        if self._prjobj(1).subjects:
-            if self._subjects != self._prjobj(1).subjects:
-                try:
-                    self._subjects = sorted(self._prjobj(1, self.processing).subjects[:])
-                    if not self._prjobj.single_session:
-                        self._sessions = sorted(self._prjobj(1, self.processing).sessions[:])
-                except:
+        proc_subjs = self._prjobj(1).subjects
+        if proc_subjs:
+            if self._subjects != proc_subjs:
+                if proc_subjs[0] in self._subjects:
                     self._subjects = sorted(self._prjobj.subjects[:])
                     if not self._prjobj.single_session:
                         self._sessions = sorted(self._prjobj.sessions[:])
+                else:
+                    try:
+                        self._subjects = sorted(self._prjobj(1, self.processing).subjects[:])
+                        if not self._prjobj.single_session:
+                            self._sessions = sorted(self._prjobj(1, self.processing).sessions[:])
+                    except:
+                        self._subjects = sorted(self._prjobj.subjects[:])
+                        if not self._prjobj.single_session:
+                            self._sessions = sorted(self._prjobj.sessions[:])
             else:
                 self._subjects = sorted(self._prjobj(1).subjects[:])
             if not self._prjobj.single_session:
