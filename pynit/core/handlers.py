@@ -1798,7 +1798,7 @@ class Pipelines(object):
         :param logging:
         """
         # Define default attributes
-        self._prjobj = Project(prj_path, viewer=viewer)
+        self._prjobj = Project(prj_path)
         self._avail = self._prjobj.ref.avail
         self._proc = None
         self._tmpobj = tmpobj
@@ -1806,6 +1806,7 @@ class Pipelines(object):
         self._logging = logging
         self.selected = None
         self.preprocessed = None
+        self._viewer = viewer
 
         # Print out project summary
         self._prjobj.summary
@@ -1831,7 +1832,8 @@ class Pipelines(object):
         if isinstance(pipeline, int):
             pipeline = self.avail[pipeline]
         if pipeline in self.avail.values():
-            self._proc = Process(self._prjobj, pipeline, parallel=self._parallel, logging=self._logging)
+            self._proc = Process(self._prjobj, pipeline, parallel=self._parallel,
+                                 logging=self._logging, viewer=self._viewer)
             command = 'self.selected = pipelines.{}(self._proc, self._tmpobj'.format(pipeline)
             if kwargs:
                 command += ', **{})'.format(kwargs)
