@@ -1349,7 +1349,7 @@ class Process(object):
             self.logger.info("History file is loaded".format(history))
         else:
             self.save_history()
-        self.reset()
+        self.reload()
         return self._path
 
     def init_step(self, name):
