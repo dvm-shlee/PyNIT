@@ -48,8 +48,6 @@ class A_fMRI_preprocess(PipeTemplate):
         self.cbv = cbv
         self.surfix = surfix
         # Reset subjects
-        if self.proc:
-            self.proc.reload()
 
     def pipe_01_Brain_Mask_Preparation(self):
         # Mean image calculation
@@ -140,8 +138,6 @@ class B_evoked_fMRI_analysis(PipeTemplate):
         self.mask = mask
         self.surfix = surfix
         # Reset subjects
-        if self.proc:
-            self.proc.reload()
 
     def pipe_01_GLM_analysis(self):
         # Perform GLM analysis
