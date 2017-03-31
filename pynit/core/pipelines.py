@@ -148,11 +148,17 @@ class B_evoked_fMRI_analysis(PipeTemplate):
             self.proc.afni_ClusterMap(step, self.proc.steps[0], self.tmpobj, surfix=self.surfix)
 
     def pipe_02_Extract_Timecourse(self):
+        if self.crop:
+            total = [step for step in self.proc.steps if 'fullts' in step and 'ExtractROIs' in step]
+            if len(total):
+                pass
+            else:
+                self.proc.afni_ROIStats(self.proc.steps[0], self.mask, cbv=self.cbv, surfix='fullts')
         if self.mask:
             # If mask given, extract timecourse using the given mask
             self.proc.afni_ROIStats(self.proc.steps[0], self.mask, cbv=self.cbv, crop=self.crop, surfix=self.surfix)
         # Extract timecourse using the mask you generated at step1
         else:
             step = [step for step in self.proc.steps if self.surfix in step and 'ClusteredMask' in step][0]
-            self.proc.afni_ROIStats(self.proc.steps[0], self.proc.steps[3], crop=self.crop,
+            self.proc.afni_ROIStats(self.proc.steps[0], step, crop=self.crop,
                                     cbv=self.cbv, surfix=self.surfix)
