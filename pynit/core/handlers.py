@@ -1302,35 +1302,36 @@ class Process(object):
     def steps(self):
         return [self._history[step] for step in self.executed.values()]
 
-    def reset(self):
+    def reset(self): #TODO: This is not work when new subjects are added
         """reset subject and session information
 
         :return: None
         """
-        proc_subjs = self._prjobj(1).subjects
-        if proc_subjs:
-            if self._subjects != proc_subjs:
-                if proc_subjs[0] in self._subjects:
-                    self._subjects = sorted(self._prjobj.subjects[:])
-                    if not self._prjobj.single_session:
-                        self._sessions = sorted(self._prjobj.sessions[:])
-                else:
+        if self._prjobj(1).subjects:
+            datasubj = set(self._prjobj(0).subjects)
+            procsubj = set(self._prjobj(1).subjects)
+            if datasubj.issubset(procsubj):
+                if self._subjects != self._prjobj(1).subjects:
                     try:
                         self._subjects = sorted(self._prjobj(1, self.processing).subjects[:])
                         if not self._prjobj.single_session:
                             self._sessions = sorted(self._prjobj(1, self.processing).sessions[:])
                     except:
-                        self._subjects = sorted(self._prjobj.subjects[:])
+                        self._subjects = sorted(self._prjobj(0).subjects[:])
                         if not self._prjobj.single_session:
-                            self._sessions = sorted(self._prjobj.sessions[:])
+                            self._sessions = sorted(self._prjobj(0).sessions[:])
+                else:
+                    self._subjects = sorted(self._prjobj(1).subjects[:])
+                if not self._prjobj.single_session:
+                    self._sessions = sorted(self._prjobj(1).sessions[:])
             else:
-                self._subjects = sorted(self._prjobj(1).subjects[:])
-            if not self._prjobj.single_session:
-                self._sessions = sorted(self._prjobj(1).sessions[:])
+                self._subjects = sorted(self._prjobj(0).subjects[:])
+                if not self._prjobj.single_session:
+                    self._sessions = sorted(self._prjobj(0).sessions[:])
         else:
-            self._subjects = sorted(self._prjobj.subjects[:])
+            self._subjects = sorted(self._prjobj(0).subjects[:])
             if not self._prjobj.single_session:
-                self._sessions = sorted(self._prjobj.sessions[:])
+                self._sessions = sorted(self._prjobj(0).sessions[:])
 
         self.logger.info('Attributes [subjects, sessions] are reset to default value.')
         self.logger.info('Subject is defined as [{}]'.format(",".join(self._subjects)))
