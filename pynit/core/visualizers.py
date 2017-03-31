@@ -111,15 +111,15 @@ class Viewer(object):
         data = methods.apply_invert(data, *invert)
 
         # Internal show slice function for interact python
-        def imshow(slice_num, ax, frame=0):
+        def imshow(slice_num, ax, frame=0, stat=0):
             ax.set_facecolor('white')
-            # fig = plt.Figure()
-            # fig.set_facecolor('white')
             plt.clf()
             if len(data.shape) == 3:
                 plt.imshow(data[..., int(slice_num)].T, origin='lower', interpolation='nearest', cmap='gray')
             elif len(data.shape) == 4:
                 plt.imshow(data[:, :, int(slice_num), frame].T, origin='lower', interpolation='nearest', cmap='gray')
+            elif len(data.shape) == 5:
+                plt.imshow(data[:, :, int(slice_num), frame, stat].T, origin='lower', interpolation='nearest', cmap='gray')
             else:
                 raise messages.ImageDimentionMismatched
             ax = methods.set_viewaxes(plt.axes())
@@ -133,12 +133,18 @@ class Viewer(object):
         try:
             ax = plt.gca()
             if len(data.shape) == 3:
-                interact(imshow, slice_num=(0, imageobj.shape[axis]-1), ax=fixed(ax), frame=fixed(0))
+                interact(imshow, slice_num=(0, imageobj.shape[axis]-1), ax=fixed(ax), frame=fixed(0), stat=fixed(0))
             elif len(data.shape) == 4:
                 if data.shape[-1] == 1:
-                    interact(imshow, slice_num=(0, imageobj.shape[axis] - 1), ax=fixed(ax), frame=fixed(0))
+                    interact(imshow, slice_num=(0, imageobj.shape[axis] - 1), ax=fixed(ax), frame=fixed(0),
+                             stat=fixed(0))
                 else:
-                    interact(imshow, slice_num=(0, imageobj.shape[axis]-1), ax=fixed(ax), frame=(0, imageobj.shape[axis+1]-1))
+                    interact(imshow, slice_num=(0, imageobj.shape[axis]-1), ax=fixed(ax),
+                             frame=(0, imageobj.shape[axis+1]-1), stat=fixed(0))
+            elif len(data.shape) == 5:
+                interact(imshow, slice_num=(0, imageobj.shape[axis] - 1), ax=fixed(ax),
+                         frame=(0, imageobj.shape[axis+1]-1), stat=(0, imageobj.shape[axis+2]-1))
+
             else:
                 raise messages.ImageDimentionMismatched
         except:
@@ -146,6 +152,7 @@ class Viewer(object):
             data = methods.convert_to_3d(imageobj)
             axes.imshow(data[..., int(slice_num)].T, origin='lower', cmap='gray')
             axes.set_axis_off()
+            display(fig)
 
     @staticmethod
     def orthogonal(imageobj, norm=True, **kwargs):
