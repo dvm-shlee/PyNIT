@@ -47,6 +47,8 @@ class A_fMRI_preprocess(PipeTemplate):
         self.fwhm = fwhm
         self.cbv = cbv
         self.surfix = surfix
+        # Reset subjects
+        self.proc.reload()
 
     def pipe_01_Brain_Mask_Preparation(self):
         # Mean image calculation

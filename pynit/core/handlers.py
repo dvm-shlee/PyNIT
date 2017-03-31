@@ -1302,6 +1302,10 @@ class Process(object):
     def steps(self):
         return [self._history[step] for step in self.executed.values()]
 
+    def reload(self):
+        self._prjobj.reload()
+        self.reset()
+
     def reset(self):
         """reset subject and session information
 
