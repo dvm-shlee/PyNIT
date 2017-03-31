@@ -1302,10 +1302,6 @@ class Process(object):
     def steps(self):
         return [self._history[step] for step in self.executed.values()]
 
-    def reload(self):
-        self._prjobj.reload()
-        self.reset()
-
     def reset(self):
         """reset subject and session information
 
@@ -1349,7 +1345,7 @@ class Process(object):
             self.logger.info("History file is loaded".format(history))
         else:
             self.save_history()
-        self.reload()
+        self.reset()
         return self._path
 
     def init_step(self, name):
