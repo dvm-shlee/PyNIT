@@ -238,8 +238,11 @@ def parsing_atlas(path):
     # Calculate centor of mass (coordinate of the rois)
     com = dict()
     for i, roi in enumerate(zip(*label.values())[0]):
-        roi_mask = (data ==i)*1.0
-        com[roi] = map(round, ndimage.center_of_mass(roi_mask))
+        if not i:
+            pass
+        else:
+            roi_mask = (data == i)*1.0
+            com[roi] = map(round, ndimage.center_of_mass(roi_mask))
     return atlas, label, com
 
 
@@ -275,6 +278,7 @@ def set_viewaxes(axes):
     xlim = axes.get_xlim()
     axes.set_ylabel('L', rotation=0, fontsize=20)
     axes.set_xlabel('I', fontsize=20)
+    axes.set_facecolor('white')
     axes.tick_params(labeltop=True, labelright=True, labelsize=8)
     axes.grid(False)
     axes.text(xlim[1]/2, ylim[1] * 1.1, 'P', fontsize=20)

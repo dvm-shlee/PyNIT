@@ -1,10 +1,10 @@
 from handlers import sys, os, messages
 import methods
+jupyter_env = False
 try:
     if len([key for key in sys.modules.keys() if key == 'ipykernel']):
         from ipywidgets import widgets
-    else:
-        pass
+        jupyter_env = True
 except:
     pass
 

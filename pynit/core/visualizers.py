@@ -39,8 +39,9 @@ sns.timeseries._plot_std_band = _plot_std_band
 if len([key for key in sys.modules.keys() if key == 'ipykernel']):
     from ipywidgets import interact, fixed
     from IPython.display import Image, display
+    jupyter_env = True
 else:
-    pass
+    jupyter_env = False
 
 # The commented codes below are used for save figure later (maybe?)
 # import matplotlib.patches as mpatches
@@ -112,7 +113,6 @@ class Viewer(object):
 
         # Internal show slice function for interact python
         def imshow(slice_num, ax, frame=0, stat=0):
-            ax.set_facecolor('white')
             plt.clf()
             if len(data.shape) == 3:
                 plt.imshow(data[..., int(slice_num)].T, origin='lower', interpolation='nearest', cmap='gray')
@@ -123,15 +123,19 @@ class Viewer(object):
             else:
                 raise messages.ImageDimentionMismatched
             ax = methods.set_viewaxes(plt.axes())
+            ax.set_facecolor('white')
             if resol[1] != resol[0]:
                 ax.set_aspect(abs(resol[1] / resol[0]))
             else:
                 pass
-            display(plt.gcf())
+            if jupyter_env:
+                display(plt.gcf())
 
         # Check image dimension, only 3D and 4D is available
-        try:
-            ax = plt.gca()
+        if jupyter_env:
+            fig, ax = plt.subplots()
+            fig.patch.set_facecolor('white')
+            # ax = plt.axes()
             if len(data.shape) == 3:
                 interact(imshow, slice_num=(0, imageobj.shape[axis]-1), ax=fixed(ax), frame=fixed(0), stat=fixed(0))
             elif len(data.shape) == 4:
@@ -147,12 +151,13 @@ class Viewer(object):
 
             else:
                 raise messages.ImageDimentionMismatched
-        except:
+        else:
             fig, axes = plt.subplots()
             data = methods.convert_to_3d(imageobj)
             axes.imshow(data[..., int(slice_num)].T, origin='lower', cmap='gray')
             axes.set_axis_off()
-            display(fig)
+            if jupyter_env:
+                display(fig)
 
     @staticmethod
     def orthogonal(imageobj, norm=True, **kwargs):
@@ -173,6 +178,7 @@ class Viewer(object):
         # Set grid shape
         data, slice_grid, size = methods.set_mosaic_fig(data, dim, resol, slice_axis, scale)
         fig, axes = Viewer.mosaic(fixed_img, scale=scale, norm=norm, cmap='bone', **kwargs)
+        fig.set_facecolor('black')
         # Applying inversion
         invert = methods.check_invert(kwargs)
         data = methods.apply_invert(data, *invert)
@@ -192,7 +198,9 @@ class Viewer(object):
                 ax.imshow(mask.T, origin='lower', interpolation='nearest', cmap=cmap, norm=m_norm, alpha=0.8)
             else:
                 ax.imshow(np.zeros((dim[0], dim[1])).T, origin='lower', interpolation='nearest', cmap=cmap)
-        return fig
+        if jupyter_env:
+            display(fig)
+        return fig, axes
 
     @staticmethod
     def mosaic(imageobj, scale=15, norm=True, **kwargs):
@@ -216,6 +224,7 @@ class Viewer(object):
         # Set grid shape
         data, slice_grid, size = methods.set_mosaic_fig(data, dim, resol, slice_axis, scale)
         fig, axes = plt.subplots(slice_grid[1], slice_grid[2], figsize=(size[0], size[1]))
+        fig.set_facecolor('black')
         # Applying inversion
         invert = methods.check_invert(kwargs)
         data = methods.apply_invert(data, *invert)
@@ -230,7 +239,6 @@ class Viewer(object):
             if int(resol[1]/resol[0]) != 1:
                 ax.set_aspect(abs(resol[1]/resol[0]))
             ax.set_axis_off()
-        fig.set_facecolor('black')
         plt.subplots_adjust(hspace=.002, wspace=.002)
         return fig, axes
 
@@ -367,24 +375,42 @@ class Viewer(object):
 
 class Plot(object):
     @staticmethod
-    def tsplot(dataframe, norm=True, scale=1, err_style='ci_band', **kwargs):
+    def tsplot(df, figsize=None, xlim=None, ylim=None, xlabel=None, ylabel=None, label_size=None, tick_size=None,
+               title=None, title_size=None, **kwargs):
         """
 
-        :param dataframe:
-        :param norm:
-        :param scale:
-        :param err_style:
+        :param df:
+        :param figsize:
+        :param xlim:
+        :param ylim:
+        :param xlabel:
+        :param ylabel:
+        :param label_size:
+        :param tick_size:
+        :param title:
+        :param title_size:
         :param kwargs:
         :return:
         """
-        figsize = (6 * scale, 4 * scale)
-        for arg in kwargs.keys():
-            if arg is 'figsize':
-                figsize = kwargs[arg]
-        if norm:
-            dataframe = Analysis.linear_norm(dataframe, 0, 1)
-        fig = plt.figure(figsize=figsize)
-        ax = sns.tsplot(dataframe.T.values, err_style=err_style, **kwargs)
+        fig, axes = plt.subplots(1,1,figsize=figsize)
+        fig.patch.set_facecolor('white')
+        axes.spines['top'].set_visible(False)
+        axes.spines['right'].set_visible(False)
+        axes.set_xlim(xlim)
+        axes.set_ylim(ylim)
+        if title:
+            axes.set_title(title, size=title_size)
+        if xlabel:
+            axes.set_xlabel(xlabel, size=label_size)
+        else:
+            axes.set_xlabel('Time (s)', size=label_size)
+        if ylabel:
+            axes.set_ylabel(ylabel, size=label_size)
+        else:
+            axes.set_ylabel('Responses', size=label_size)
+        axes.tick_params(labelsize=tick_size, direction='out')
+        sns.tsplot(df.T.values, err_style='std_band', ax = axes, **kwargs)
+        return fig, axes
 
     @staticmethod
     def heatmap(dataframe, half=True, scale=1, vmin=-1.5, vmax=1.5, cmap='RdBu_r', **kwargs):
@@ -414,33 +440,3 @@ class Plot(object):
                              cmap=cmap, square=True, **kwargs)
             ax.set_xticklabels(ax.xaxis.get_majorticklabels(), rotation=45)
             ax.set_yticklabels(ax.yaxis.get_majorticklabels(), rotation=45)
-
-    # @staticmethod
-    # def plot_timetraces(data):
-    #     plt.style.use('classic')
-    #     plt.style.use('seaborn-notebook')
-    #     fig, axes = pyplot.subplots(len(data.keys()), 1, figsize=(15, 5 * len(data.keys())))
-    #     fig.patch.set_facecolor('white')
-    #     for i, group in enumerate(sorted(data.keys())):
-    #         try:
-    #             group_data = data[group].values.T
-    #             if group in ['group2_1', 'group3_1']:
-    #                 group_data = map(baseline_fitting, group_data, [10e3] * len(group_data), [0.01] * len(group_data))
-    #                 group_data = map(smoothing, group_data, [1] * len(group_data))
-    #                 sns.tsplot(group_data, err_style="std_band", color='red',
-    #                            n_boot=0, ax=axes[i], estimator=np.mean)
-    #             else:
-    #                 group_data = map(baseline_fitting, group_data, [10e3] * len(group_data), [0.99] * len(group_data))
-    #                 sns.tsplot(group_data, err_style="std_band", color='blue',
-    #                            n_boot=0, ax=axes[i], estimator=np.mean)
-    #             plt.tick_params(labelsize=25, direction='out')
-    #
-    #             axes[i].spines['top'].set_visible(False)
-    #             axes[i].spines['right'].set_visible(False)
-    #             axes[i].tick_params(left='on', top='off', right='off')
-    #             axes[i].tick_params(labelsize=25, direction='out')
-    #             axes[i].set_title(group, size=40)
-    #             axes[i].set_ylim(-0.1, 0.1)
-    #         except Exception as e:
-    #             print(e)
-    #     tight_layout()

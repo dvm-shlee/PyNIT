@@ -5,7 +5,7 @@ PyNIT (Python NeuroImaging Toolkit)
 from distutils.core import setup
 from setuptools import find_packages
 
-__version__ = '0.2.0'
+__version__ = '0.3.0'
 __author__ = 'SungHo Lee'
 __email__ = 'shlee@unc.edu'
 __url__ = 'https://dvm-shlee.github.io/pynit'

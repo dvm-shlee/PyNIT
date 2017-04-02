@@ -1,4 +1,4 @@
-import os
+import os, sys
 import numpy as np
 from nibabel import Nifti1Image
 
@@ -7,6 +7,15 @@ from .processors import TempFile
 import messages
 import methods
 import pipelines
+try:
+    if len([key for key in sys.modules.keys() if key == 'ipykernel']):
+        from ipywidgets import widgets
+        from .visualizers import display
+        jupyter_env = True
+    else:
+        jupyter_env = False
+except:
+    pass
 
 
 class Reference(object):
@@ -291,18 +300,29 @@ class Template(object):
             fig = Viewer.atlas(self.image, self._atlas, scale=scale, **kwargs)
         else:
             fig = Viewer.mosaic(self.image, scale=scale, **kwargs)
-        return fig
+        try:
+            fig, legend = fig
+            display(fig)
+            display(legend)
+        except:
+            display(fig)
 
     def save_as(self, filename, quiet=False):
-        self.image.save_as('{}_template.nii'.format(filename), quiet=quiet)
+        self.image.save_as('{}_template.nii.gz'.format(filename), quiet=quiet)
         if self._atlas:
             self._atlas.save_as('{}_atlas'.format(filename), quiet=quiet)
-    
+
+    def extract(self, path, **kwargs):
+        if self._atlas:
+            self._atlas.extract(path, **kwargs)
+        else:
+            methods.raiseerror(messages.Notice.MethodNotActivated, 'Atlas is not defined')
+
     def close(self):
         if self._object:
             os.remove(self._path)
         if self._atlas:
-            os.remove(self._atlas_path)
+            os.remove(str(self._atlas_path))
         if self._mask:
             os.remove(str(self._mask))
 
@@ -358,20 +378,30 @@ class Atlas(object):
             self._image.save_as("{}.nii".format(filename), quiet=quiet)
         methods.save_label(self._label, "{}.label".format(filename))
 
-    def extract(self, path):
+    def extract(self, path, contra=False, merge=False, surfix=None):
         if not os.path.exists(path):
             try:
                 methods.mkdir(path)
             except:
                 raise messages.InputPathError
-        atlas = self._image.dataobj
-        num_of_rois = int(np.max(atlas))
+        else:
+            if merge:
+                self._image._dataobj += self._image._dataobj[::-1,...]
+        num_of_rois = int(np.max(self._image._dataobj))
         for i in range(num_of_rois+1):
             if not i:
                 pass
             else:
                 try:
                     label, roi = self[i]
+                    if contra:
+                        label = 'contra_'+label
+                        roi._dataobj = roi._dataobj[::-1,...]
+                    else:
+                        if merge:
+                            label = 'bilateral_'+label
+                    if surfix:
+                        label = "{}_{}".format(surfix, label)
                     roi.to_filename(os.path.join(path, "{}.nii".format(label)))
                 except:
                     pass

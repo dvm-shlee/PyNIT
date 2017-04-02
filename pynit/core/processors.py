@@ -745,7 +745,7 @@ class TempFile(object):
 
     Using this class, loaded ImageObj now has temporary files on the location at './.tmp' or './atlas_tmp'
     """
-    def __init__(self, obj, filename='image_cache', atlas=False, flip=False, merge=False):
+    def __init__(self, obj, filename='image_cache', atlas=False, flip=False, merge=False, bilateral=False):
         """Initiate instance
 
         :param obj:         ImageObj
@@ -760,13 +760,19 @@ class TempFile(object):
             # Copy object to protect the intervention between object
             self._atlas = copy.copy(obj)
             if flip:
-                self._atlas.flip(invertx=True)
+                self._atlas.extract('./.atlas_tmp', contra=True)
             if merge:
-                org_atlas = self._atlas
-                self._atlas.flip(invertx=True)
-                self._atlas._dataobj = org_atlas._dataobj + self._atlas._dataobj
-            self._atlas.extract('./.atlas_tmp')
+                self._atlas.extract('./.atlas_tmp', merge=True)
+            if bilateral:
+                self._atlas.extract('./.atlas_tmp', surfix='ipsi')
+                obj.extract('./.atlas_tmp', contra=True)
             self._listdir = [ f for f in os.listdir('./.atlas_tmp') if '.nii' in f ]
+            atlas = objects.Atlas('./.atlas_tmp')
+            methods.mkdir('./.tmp')
+            self._path = os.path.join('./.tmp', "{}.nii".format(filename))
+            self._fname = filename
+            atlas.save_as(os.path.join('./.tmp', filename), quiet=True)
+            self._label = [roi for roi, color in atlas.label.values()][1:]
         else:
             # Copy object to protect the intervention between object
             self._image = copy.copy(obj)
@@ -778,6 +784,16 @@ class TempFile(object):
             methods.mkdir('./.tmp')
             self._image.save_as(os.path.join('./.tmp', filename), quiet=True)
             self._atlas = None
+            self._label = None
+            self._path = os.path.join('./.tmp', "{}.nii".format(filename))
+
+    @property
+    def path(self):
+        return self._path
+
+    @property
+    def label(self):
+        return self._label
 
     def __getitem__(self, idx):
         if self._image:
@@ -803,5 +819,8 @@ class TempFile(object):
             os.remove(os.path.join('.tmp', "{}.nii".format(self._fname)))
         if self._atlas:
             rmtree('.atlas_tmp', ignore_errors=True)
+            os.remove(os.path.join('.tmp', "{}.nii".format(self._fname)))
+            os.remove(os.path.join('.tmp', "{}.label".format(self._fname)))
         self._atlas = None
         self._image = None
+        self._path = None

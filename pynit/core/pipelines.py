@@ -47,7 +47,6 @@ class A_fMRI_preprocess(PipeTemplate):
         self.fwhm = fwhm
         self.cbv = cbv
         self.surfix = surfix
-        # Reset subjects
 
     def pipe_01_Brain_Mask_Preparation(self):
         # Mean image calculation
@@ -109,7 +108,8 @@ class A_fMRI_preprocess(PipeTemplate):
                                         mask=self.tmpobj.mask.get_filename(), bpass = self.bpass, surfix=self.surfix)
 
 class B_evoked_fMRI_analysis(PipeTemplate):
-    def __init__(self, proc, tmpobj, paradigm, thresholds=None, mask=None, cbv=None, crop=None, surfix='func'):
+    def __init__(self, proc, tmpobj, paradigm=None, thresholds=None, mask=None, cbv=None, crop=None,
+                 option=None, surfix='func'):
         """Collection of GLM analysis pipelines for Shihlab at UNC
         Author  : SungHo Lee(shlee@unc.edu)
         Revised : Mar.2nd.2017
@@ -126,6 +126,8 @@ class B_evoked_fMRI_analysis(PipeTemplate):
                 parameters to calculate CBV, if this parameters are given, CBV correction will be calculated
             crop    : list [start, end]
                 range that you want to crop the time-course data
+            option  : str
+                option for ROIs extraction ('bilateral', 'merge', or 'contra')
             surfix  : str
                 """
         # Define attributes
@@ -134,13 +136,13 @@ class B_evoked_fMRI_analysis(PipeTemplate):
         if thresholds:
             self.thr = thresholds
         else:
-            self.thr = [None, None]
+            self.thr = None
         self.paradigm = paradigm
         self.cbv = cbv
         self.crop = crop
+        self.option = option
         self.mask = mask
         self.surfix = surfix
-        # Reset subjects
 
     def pipe_01_GLM_analysis(self):
         # Perform GLM analysis
@@ -148,8 +150,11 @@ class B_evoked_fMRI_analysis(PipeTemplate):
         if not self.mask:
             # Extract clusters using evoked results
             step = [step for step in self.proc.steps if self.surfix in step and 'REMLfit' in step][0]
-            self.proc.afni_ClusterMap(step, self.proc.steps[0], self.tmpobj,
-                                      pval=self.thr[0], cluster_size=self.thr[1], surfix=self.surfix)
+            if self.thr:
+                self.proc.afni_ClusterMap(step, self.proc.steps[0], self.tmpobj,
+                                          pval=self.thr[0], cluster_size=self.thr[1], surfix=self.surfix)
+            else:
+                self.proc.afni_ClusterMap(step, self.proc.steps[0], self.tmpobj, surfix=self.surfix)
 
     def pipe_02_Extract_Timecourse(self):
         if self.crop:
@@ -164,5 +169,5 @@ class B_evoked_fMRI_analysis(PipeTemplate):
         # Extract timecourse using the mask you generated at step1
         else:
             step = [step for step in self.proc.steps if self.surfix in step and 'ClusteredMask' in step][0]
-            self.proc.afni_ROIStats(self.proc.steps[0], step, crop=self.crop,
+            self.proc.afni_ROIStats(self.proc.steps[0], step, crop=self.crop, option=self.option,
                                     cbv=self.cbv, surfix=self.surfix)

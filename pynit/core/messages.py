@@ -14,11 +14,17 @@ class Warning(object):
         warnings.simplefilter("ignore")
 
 
+class Notice(object):
+    class MethodNotActivated(Exception):
+        """MethodNotActivated"""
+        pass
+
 class Errors(object):
     """ Correction of CustomExceptions
     """
     class PackageUpdateFailure(EnvironmentError):
         """PackageUpdateFailure"""
+        pass
 
     class InputTypeError(TypeError):
         """InputTypeError"""

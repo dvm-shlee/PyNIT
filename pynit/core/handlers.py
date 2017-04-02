@@ -36,6 +36,7 @@ from time import sleep
 # pp = pprint.PrettyPrinter(indent=4)
 
 # Import modules for interfacing with jupyter notebook
+jupyter_env = False
 try:
     if len([key for key in sys.modules.keys() if 'ipykernel' in key]):
         from tqdm import tqdm_notebook as progressbar
@@ -45,7 +46,6 @@ try:
         jupyter_env = True
     else:
         from tqdm import tqdm as progressbar
-        jupyter_env = False
 except:
     pass
 
@@ -94,6 +94,7 @@ class Project(object):
         # Define default filter values
         self.__dc_idx = 0                       # Dataclass index
         self.__ext_filter = self.img_ext        # File extension
+        self.__residuals = None
 
         # Generate folders for dataclasses
         methods.mk_main_folder(self)
@@ -191,7 +192,7 @@ class Project(object):
             self.__ext_filter = None
         else:
             methods.raiseerror(messages.Errors.InputTypeError,
-                               'Please use correct input type.')
+                               'Please use correct type for input.')
         self.reset()
         self.apply()
 
@@ -394,6 +395,7 @@ class Project(object):
                         self.__filters[3] = rslt_filter[:]
                 else:
                     self.__filters[3] = None
+
             if len(residuals):
                 if self.dataclass == self.ds_type[1]:
                     if len(pipe_filter) == 1:
@@ -402,17 +404,21 @@ class Project(object):
                         if len([step for step in processed if step in residuals]):
                             methods.raiseerror(messages.Errors.NoFilteredOutput,
                                                'Cannot find any results from [{residuals}]\n'
-                                               '\t\t\tPlease take a look if you had applied correct input'
+                                               '\t\t\tPlease take a look if you had applied correct filter inputs'
                                                ''.format(residuals=residuals))
                     else:
                         if not os.path.exists(os.path.join(self.path, self.dataclass, residuals[0])):
+                            # Unexpected error
                             methods.raiseerror(messages.Errors.NoFilteredOutput,
                                                'Uncertain exception occured, please report to Author (shlee@unc.edu)')
                         else:
-                            pass
+                            # When Processing folder is empty
+                            self.__filters[2] = residuals
                 else:
                     methods.raiseerror(messages.Errors.NoFilteredOutput,
                                        'Wrong filter input:{residuals}'.format(residuals=residuals))
+            else:
+                self.__residuals = None
 
     def apply(self):
         """Applying all filters to current dataframe
@@ -477,7 +483,7 @@ class Project(object):
         """Print summary of current project
         """
         summary = '** Project summary'
-        summary = '{}\nProject: {}'.format(summary, os.path.dirname(self.path).split(os.sep)[-1])
+        summary = '{}\nProject: {}'.format(summary, os.path.basename(self.path))
         if self.__empty_project:
             summary = '{}\n[Empty project]'.format(summary)
         else:
@@ -719,7 +725,6 @@ class Process(object):
         display(title(value='** Processing motion correction.....'))
         func = self.check_input(func)
         step = Step(self)
-
         step.set_input(name='func', input_path=func, static=False)
         try:
             mimg_path = self.steps[0]
@@ -840,7 +845,8 @@ class Process(object):
         return dict(anat=anat_path, func=func_path)
 
     def afni_Coreg(self, anat, meanfunc, surfix='func'):
-        """
+        """Applying bias field correction with ANTs N4 algorithm and then align funtional image to
+        anatomical space using Afni's 3dAllineate command
 
         :param anat:
         :param meanfunc:
@@ -865,7 +871,7 @@ class Process(object):
         return dict(func=output_path)
 
     def afni_SkullStripAll(self, func, meanfunc, surfix='func'):
-        """
+        """Applying arithmetic skull stripping
 
         :param func:
         :param meanfunc:
@@ -884,7 +890,7 @@ class Process(object):
         return dict(func=output_path)
 
     def afni_ApplyCoregAll(self, func, coregfunc, surfix='func'):
-        """
+        """Applying transform matrix to all functional data using Afni's 3dAllineate command
 
         :param func:
         :param coregfunc:
@@ -905,7 +911,7 @@ class Process(object):
         return dict(func=output_path)
 
     def afni_SpatialNorm(self, anat, tmpobj, surfix='anat'):
-        """
+        """Align anatomical image to template brain space using Afni's 3dAllineate command
 
         :param anat:
         :param tmpobj:
@@ -925,7 +931,7 @@ class Process(object):
         return dict(normanat=output_path)
 
     def afni_ApplySpatialNorm(self, func, normanat, surfix='func'):
-        """
+        """Applying transform matrix to all functional data for spatial normalization
 
         :param func:
         :param normanat:
@@ -1011,12 +1017,20 @@ class Process(object):
         else:
             cmd02 = '3dREMLfit -matrix {glm} -input {func} -tout -Rbuck {output} -verb'
         step.set_command(cmd02)
-        # step.get_executefunc('test', verbose=True)
         output_path = step.run('REMLfit', surfix)
         return dict(GLM=output_path)
 
     def afni_ClusterMap(self, glm, func, tmpobj, pval=0.01, cluster_size=40, surfix='func'):
-        """"""
+        """Wrapper method of afni's 3dclust for generating clustered mask
+
+        :param glm:
+        :param func:
+        :param tmpobj:
+        :param pval:
+        :param cluster_size:
+        :param surfix:
+        :return:
+        """
         display(title(value='** Generating clustered masks'))
         glm = self.check_input(glm)
         func = self.check_input(func)
@@ -1036,7 +1050,6 @@ class Process(object):
         step.set_command(cmd03)
         step.set_execmethod('with open(methods.splitnifti(output) + ".json", "wb") as f:')
         step.set_execmethod('\tjson.dump(dict(source=func[i].Abspath), f)')
-        # step.get_executefunc('test', verbose=True)
         output_path = step.run('ClusteredMask', surfix=surfix)
         if jupyter_env:
             if self._viewer == 'itksnap':
@@ -1051,7 +1064,7 @@ class Process(object):
 
     def afni_SignalProcessing(self, func, norm=True, ort=None, range=None, mask=None, bpass=None,
                               fwhm=None, dt=None, surfix='func'):
-        """
+        """Wrapper method of afni's 3dTproject for signal processing of resting state data
 
         :param func:
         :param norm:
@@ -1131,7 +1144,7 @@ class Process(object):
         output_path = step.run('SignalProcess', surfix=surfix)
         return dict(signalprocess=output_path)
 
-    def afni_ROIStats(self, func, rois, cbv=None, crop=None, option=None, surfix='func'): #TODO: Need to give option for bilateral or merged atlas
+    def afni_ROIStats(self, func, rois, cbv=None, crop=None, option=None, surfix='func'):
         """Extracting time-course data from ROIs
 
         :param func:    Input path for functional data
@@ -1150,14 +1163,27 @@ class Process(object):
         display(title(value='** Extracting time-course data from ROIs'))
         func = self.check_input(func)
         # Check if given rois is Template instance
+        tmp = None
+        list_of_roi = None
         if not isinstance(rois, str):
             try:
-                list_of_roi = [roi[0] for roi in rois.label.itervalues()][1:]
-                rois = rois.atlas.image.get_filename()
+                if option:
+                    if option == 'bilateral':
+                        tmp = TempFile(rois.atlas, atlas=True, bilateral=True)
+                    elif option == 'merge':
+                        tmp = TempFile(rois.atlas, atlas=True, merge=True)
+                    elif option == 'contra':
+                        tmp = TempFile(rois.atlas, atlas=True, flip=True)
+                    else:
+                        tmp = TempFile(rois.atlas, atlas=True)
+                else:
+                    tmp = TempFile(rois.atlas, atlas=True)
+                rois = tmp.path
+                list_of_roi = tmp.label
             except:
-                list_of_roi = None
+                pass
         else:
-            list_of_roi = None
+            pass
         # Check if given rois path is existed in the list of executed steps
         rois = self.check_input(rois)
 
@@ -1197,8 +1223,6 @@ class Process(object):
                 step.set_execmethod('cbv_path = json.load(open(cbv[i].Abspath))["cbv"]')
                 step.set_staticinput(name='cbv_path', value='cbv_path')
                 cbv_cmd = '3dROIstats -mask {rois} {cbv_path}'
-                # if crop:
-                #     cbv_cmd += '"[{}..{}]"'.format(crop[0], crop[1])
                 step.set_command(cbv_cmd, stdout='cbv_out')
                 step.set_execmethod('temp_outputs.append([out, err])')
                 step.set_execmethod('pd.read_table(StringIO(cbv_out))', var='cbv_df')
@@ -1222,13 +1246,48 @@ class Process(object):
 
         # Run the steps
         output_path = step.run('ExtractROIs', surfix=surfix)#, debug=True)
+        if tmp:
+            tmp.close()
         return dict(timecourse=output_path)
 
-    def ants_Registration(self):
+    def ants_Coreg(self):
         pass
 
-    def ants_BiasFieldCorrection(self):
+    def ants_SpatialNorm(self):
         pass
+
+    def ants_MotionCorrection(self, func, surfix='func', debug=False):
+        display(title(value='** Extracting time-course data from ROIs'))
+        func = self.check_input(func)
+        step = Step(self)
+        step.set_input(name='func', input_path=func, static=False)
+        cmd01 = "antsMotionCorr -d 3 -a {func} -o {prefix}-avg.nii.gz"
+        cmd02 = "antsMotionCorr -d 3 -o [{prefix},{prefix}.nii.gz,{prefix}-avg.nii.gz] " \
+                "-m gc[ {prefix}-avg.nii.gz ,{func}, 1, 1, Random, 0.05  ] -t Affine[ 0.005 ] " \
+                "-i 20 -u 1 -e 1 -s 0 -f 1 -n 10"
+        step.set_command(cmd01)
+        step.set_command(cmd02)
+        output_path = step.run('MotionCorrection', surfix=surfix, debug=debug)
+        return dict(func=output_path)
+
+    def ants_BiasFieldCorrection(self, anat, func):
+        anat = self.check_input(anat)
+        func = self.check_input(func)
+        step1 = Step(self)
+        step2 = Step(self)
+        filters = dict(file_tag='_mask')
+        step1.set_input(name='anat', input_path=anat, static=True)
+        step2.set_input(name='func', input_path=func, static=True)
+        cmd1 = 'N4BiasFieldCorrection -i {anat} -o {output}'
+        cmd2 = 'N4BiasFieldCorrection -i {func} -o {output}'
+        step1.set_command(cmd1)
+        step2.set_command(cmd2)
+        anat_path = step1.run('BiasFiled', 'anat')
+        func_path = step2.run('BiasField', 'func')
+        return dict(anat=anat_path, func=func_path)
+
+    def fsl_Melodic(self, func, surfix='func'):
+        cmd = 'melodic -i {input} -n 30 -m {mask} --tr={tr} -o {out_path}'
 
     def itksnap(self, idx, base_idx=None):
         """Launch ITK-snap
@@ -1311,7 +1370,7 @@ class Process(object):
             datasubj = set(self._prjobj(0).subjects)
             procsubj = set(self._prjobj(1).subjects)
             if datasubj.issubset(procsubj):
-                if self._subjects != self._prjobj(1).subjects:
+                if not procsubj.issubset(datasubj):
                     try:
                         self._subjects = sorted(self._prjobj(1, self.processing).subjects[:])
                         if not self._prjobj.single_session:
@@ -1321,9 +1380,9 @@ class Process(object):
                         if not self._prjobj.single_session:
                             self._sessions = sorted(self._prjobj(0).sessions[:])
                 else:
-                    self._subjects = sorted(self._prjobj(1).subjects[:])
-                if not self._prjobj.single_session:
-                    self._sessions = sorted(self._prjobj(1).sessions[:])
+                    self._subjects = sorted(self._prjobj(0).subjects[:])
+                    if not self._prjobj.single_session:
+                        self._sessions = sorted(self._prjobj(0).sessions[:])
             else:
                 self._subjects = sorted(self._prjobj(0).subjects[:])
                 if not self._prjobj.single_session:
@@ -1361,7 +1420,6 @@ class Process(object):
         :param name: str
         :return: str
         """
-        self.reset()
         if self._processing:
             path = methods.get_step_name(self, name)
             path = os.path.join(self._prjobj.path, self._prjobj.ds_type[1], self._processing, path)
@@ -1514,6 +1572,8 @@ class Step(object):
         residuals = [obj for obj in sorted(list(set(objs))) if obj not in totalobjs]
         residuals = [obj for obj in residuals if 'temp' not in obj]
         residuals = [obj for obj in residuals if 'output' not in obj]
+        residuals = [obj for obj in residuals if 'prefix' not in obj]
+        residuals = [obj for obj in residuals if 'sub_path' not in obj]
         residuals = [obj for obj in residuals if obj not in self._staticinput.keys()]
         residuals = [obj for obj in residuals if obj not in self._outparam.keys()]
         residuals = [obj for obj in residuals if obj not in self._cmdstdout]
@@ -1524,7 +1584,7 @@ class Step(object):
         output = "'{0}'.format(".format(command)
         str_format = []
         for obj in objs:
-            if obj == 'output':
+            if obj == 'output' or obj == 'prefix' or obj == 'sub_path':
                 str_format.append("{0}={0}".format(obj))
             else:
                 if 'temp' in obj:
@@ -1602,7 +1662,6 @@ class Step(object):
         :return: str
         """
         if dataclass == '0':
-            # print(input_path)
             output_filters = [dataclass, '"{0}"'.format(input_path)]
         else:
             output_filters = [dataclass, '"{0}"'.format(self._processing), '"{0}"'.format(input_path)]
@@ -1631,9 +1690,10 @@ class Step(object):
         if self._mainset.static:    # if main input datasets only need to process first files for each subject
             body = ['\toutputs = []',
                     '\toutput = os.path.join(sub_path, {0}.Filename)'.format(self._mainset.name),
-                    '\tprefix = methods.splitnifti(os.path.basename(output))',
+                    '\tprefix_filter = methods.splitnifti(os.path.basename(output))',
+                    '\tprefix = methods.splitnifti(output)',
                     '\tflist = [f for f in os.listdir(sub_path)]',
-                    '\tif len([f for f in flist if prefix in f]):',
+                    '\tif len([f for f in flist if prefix_filter in f]):',
                     '\t\tself.logger.info("The File[{0}] is already exist.".format(output))',
                     '\telse:']
             for cmd, stdout in self._commands:
@@ -1659,9 +1719,10 @@ class Step(object):
                     '\tfor i in progressbar(range(len({0})), desc="Files", leave=False):'.format(self._mainset.name)]
             body = ['\t\ttemp_outputs = []',
                     '\t\toutput = os.path.join(sub_path, {0}[i].Filename)'.format(self._mainset.name),
-                    '\t\tprefix = methods.splitnifti(os.path.basename(output))',
+                    '\t\tprefix_filter = methods.splitnifti(os.path.basename(output))',
+                    '\t\tprefix = methods.splitnifti(output)',
                     '\t\tflist = [f for f in os.listdir(sub_path)]',
-                    '\t\tif len([f for f in flist if prefix in f]):',
+                    '\t\tif len([f for f in flist if prefix_filter in f]):',
                     '\t\t\tself.logger.info("The File[{0}] is already exist.".format(output))',
                     '\t\t\tsleep(0.08)',
                     '\t\telse:']
