@@ -162,7 +162,11 @@ class B_evoked_fMRI_analysis(PipeTemplate):
             if len(total):
                 pass
             else:
-                self.proc.afni_ROIStats(self.proc.steps[0], self.mask, cbv=self.cbv, surfix='fullts')
+                if self.mask:
+                    self.proc.afni_ROIStats(self.proc.steps[0], self.mask, cbv=self.cbv, surfix='fullts')
+                else:
+                    step = [step for step in self.proc.steps if self.surfix in step and 'ClusteredMask' in step][0]
+                    self.proc.afni_ROIStats(self.proc.steps[0], step, cbv=self.cbv, surfix='fullts')
         if self.mask:
             # If mask given, extract timecourse using the given mask
             self.proc.afni_ROIStats(self.proc.steps[0], self.mask, cbv=self.cbv, crop=self.crop, surfix=self.surfix)
