@@ -766,6 +766,8 @@ class TempFile(object):
             if bilateral:
                 self._atlas.extract('./.atlas_tmp', surfix='ipsi')
                 obj.extract('./.atlas_tmp', contra=True)
+            else:
+                self._atlas.extract('./.atlas_tmp')
             self._listdir = [ f for f in os.listdir('./.atlas_tmp') if '.nii' in f ]
             atlas = objects.Atlas('./.atlas_tmp')
             methods.mkdir('./.tmp')

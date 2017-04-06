@@ -375,7 +375,7 @@ class Viewer(object):
 
 class Plot(object):
     @staticmethod
-    def tsplot(df, figsize=None, xlim=None, ylim=None, xlabel=None, ylabel=None, label_size=None, tick_size=None,
+    def tsplot(df, add_plot=None, figsize=None, xlim=None, ylim=None, xlabel=None, ylabel=None, label_size=None, tick_size=None,
                title=None, title_size=None, **kwargs):
         """
 
@@ -392,12 +392,18 @@ class Plot(object):
         :param kwargs:
         :return:
         """
-        fig, axes = plt.subplots(1,1,figsize=figsize)
+        if not add_plot:
+            fig, axes = plt.subplots(1,1,figsize=figsize)
+        else:
+            fig, axes = add_plot
         fig.patch.set_facecolor('white')
         axes.spines['top'].set_visible(False)
         axes.spines['right'].set_visible(False)
-        axes.set_xlim(xlim)
-        axes.set_ylim(ylim)
+
+        if xlim:
+            axes.set_xlim(xlim)
+        if ylim:
+            axes.set_ylim(ylim)
         if title:
             axes.set_title(title, size=title_size)
         if xlabel:
@@ -408,7 +414,7 @@ class Plot(object):
             axes.set_ylabel(ylabel, size=label_size)
         else:
             axes.set_ylabel('Responses', size=label_size)
-        axes.tick_params(labelsize=tick_size, direction='out')
+        axes.tick_params(labelsize=tick_size, direction='out', top='off', right='off')
         sns.tsplot(df.T.values, err_style='std_band', ax = axes, **kwargs)
         return fig, axes
 

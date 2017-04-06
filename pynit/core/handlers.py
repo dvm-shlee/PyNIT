@@ -1178,8 +1178,8 @@ class Process(object):
                         tmp = TempFile(rois.atlas, atlas=True)
                 else:
                     tmp = TempFile(rois.atlas, atlas=True)
-                rois = tmp.path
-                list_of_roi = tmp.label
+                rois = str(tmp.path)
+                list_of_roi = list(tmp.label)
             except:
                 pass
         else:
