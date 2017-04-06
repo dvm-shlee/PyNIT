@@ -32,6 +32,20 @@ def _plot_std_band(central_data=None, ci=None, data=None, *args, **kwargs):
     kwargs.update({"central_data": central_data, "ci": ci, "data": data})
     sns.timeseries._plot_ci_band(*args, **kwargs)
 
+
+def _plot_sterr_bars(central_data=None, ci=None, data=None, *args, **kwargs):
+    std = data.std(axis=0) / np.sqrt(data.shape[0])
+    ci = np.asarray((central_data - std, central_data + std))
+    kwargs.update({"central_data": central_data, "ci": ci, "data": data})
+    sns.timeseries._plot_ci_bars(*args, **kwargs)
+
+
+def _plot_sterr_band(central_data=None, ci=None, data=None, *args, **kwargs):
+    std = data.std(axis=0) / np.sqrt(data.shape[0])
+    ci = np.asarray((central_data - (std), central_data + (std)))
+    kwargs.update({"central_data": central_data, "ci": ci, "data": data})
+    sns.timeseries._plot_ci_band(*args, **kwargs)
+
 sns.timeseries._plot_std_bars = _plot_std_bars
 sns.timeseries._plot_std_band = _plot_std_band
 
@@ -375,8 +389,8 @@ class Viewer(object):
 
 class Plot(object):
     @staticmethod
-    def tsplot(df, add_plot=None, figsize=None, xlim=None, ylim=None, xlabel=None, ylabel=None, label_size=None, tick_size=None,
-               title=None, title_size=None, **kwargs):
+    def tsplot(df, add_plot=None, figsize=None, xlim=None, ylim=None, xlabel=None, ylabel=None,
+               label_size=None, tick_size=None, title=None, title_size=None, err=0, **kwargs):
         """
 
         :param df:
@@ -389,6 +403,7 @@ class Plot(object):
         :param tick_size:
         :param title:
         :param title_size:
+        :param err: 0 = standard deviation, 1 = standard error
         :param kwargs:
         :return:
         """
@@ -415,7 +430,10 @@ class Plot(object):
         else:
             axes.set_ylabel('Responses', size=label_size)
         axes.tick_params(labelsize=tick_size, direction='out', top='off', right='off')
-        sns.tsplot(df.T.values, err_style='std_band', ax = axes, **kwargs)
+        if err:
+            sns.tsplot(df.T.values, err_style='sterr_band', ax=axes, **kwargs)
+        else:
+            sns.tsplot(df.T.values, err_style='std_band', ax = axes, **kwargs)
         return fig, axes
 
     @staticmethod
