@@ -48,6 +48,8 @@ def _plot_sterr_band(central_data=None, ci=None, data=None, *args, **kwargs):
 
 sns.timeseries._plot_std_bars = _plot_std_bars
 sns.timeseries._plot_std_band = _plot_std_band
+sns.timeseries._plot_sterr_bars = _plot_sterr_bars
+sns.timeseries._plot_sterr_band = _plot_sterr_band
 
 # Import interactive plot in jupyter notebook
 if len([key for key in sys.modules.keys() if key == 'ipykernel']):
