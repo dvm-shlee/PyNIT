@@ -5,7 +5,6 @@ from skimage import feature
 
 # Import internal packages
 from .methods import np
-from .processors import Analysis
 import messages
 import methods
 
@@ -16,7 +15,7 @@ from matplotlib import colors
 import seaborn as sns
 from IPython import display
 
-# Set error bar as standard deviation
+# Set error bar as standard deviation and standard error
 
 
 def _plot_std_bars(central_data=None, ci=None, data=None, *args, **kwargs):
@@ -131,11 +130,14 @@ class Viewer(object):
         def imshow(slice_num, ax, frame=0, stat=0):
             plt.clf()
             if len(data.shape) == 3:
-                plt.imshow(data[..., int(slice_num)].T, origin='lower', interpolation='nearest', cmap='gray')
+                plt.imshow(data[..., int(slice_num)].T, origin='lower',
+                           interpolation='nearest', cmap='gray')
             elif len(data.shape) == 4:
-                plt.imshow(data[:, :, int(slice_num), frame].T, origin='lower', interpolation='nearest', cmap='gray')
+                plt.imshow(data[:, :, int(slice_num), frame].T, origin='lower',
+                           interpolation='nearest', cmap='gray')
             elif len(data.shape) == 5:
-                plt.imshow(data[:, :, int(slice_num), frame, stat].T, origin='lower', interpolation='nearest', cmap='gray')
+                plt.imshow(data[:, :, int(slice_num), frame, stat].T, origin='lower',
+                           interpolation='nearest', cmap='gray')
             else:
                 raise messages.ImageDimentionMismatched
             ax = methods.set_viewaxes(plt.axes())

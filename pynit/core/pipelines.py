@@ -5,8 +5,6 @@ class PipeTemplate(object):
     def avail(self):
         pipes = [pipe[5:] for pipe in dir(self) if 'pipe_' in pipe]
         output = dict(zip(range(len(pipes)), pipes))
-        # for i, values in output.items():
-        #     output[i] = values[3:]
         return output
 
 

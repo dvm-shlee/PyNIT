@@ -1,10 +1,15 @@
-from .handlers import Project, Preprocess, Process, Pipelines, Step
+from .handlers import Project, Process, Pipelines, Step
 from .visualizers import Viewer, Plot
-from .processors import Analysis, Interface, TempFile, Signal
+from .processors import TempFile, Signal
 from .objects import Template, ImageObj
-from .tools import itksnap
+from .tools import itksnap, fslview
+from .deprecated import Preprocess, Analysis, Interface
 import methods
 import messages
 
-__all__ = ['Project', 'Preprocess', 'Process', 'Pipelines', 'Viewer', 'Plot', 'Template',  'Analysis',
-           'Interface', 'TempFile', 'methods', 'messages', 'itksnap', 'Step', 'Signal']
+__all__ = ['Project', 'Process', 'Pipelines', 'Step', 'Template',       # Major modules
+           'methods', 'itksnap', 'fslview', 'TempFile', 'messages',     # Utility modules
+           'Signal',                                                    # Processing modules
+           'Viewer', 'Plot',                                            # Visualization modules
+           'Preprocess', 'Interface', 'Analysis',                       # Modules will be deprecated
+           ]
