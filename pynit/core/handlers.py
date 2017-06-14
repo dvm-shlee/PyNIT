@@ -223,7 +223,7 @@ class Project(object):
 
         :return: None
         """
-        self.reset(True)
+        self.reset(rescan=True)
         self.apply()
 
     def reset(self, rescan=False, verbose=False):
@@ -248,10 +248,31 @@ class Project(object):
             try:
                 with open(prj_file, 'r') as f:
                     self.__df = pickle.load(f)
+                if self.__dc_idx == 0:
+                    if len(self.__df.columns) == 4:
+                        self.single_session = True
+                    else:
+                        self.single_session = False
+                else:
+                    if len(self.__df.columns) == 5:
+                        self.single_session = True
+                    else:
+                        self.single_session = False
             except:
                 self.scan_prj()
         if len(self.__df):
             self.__empty_project = False
+
+    # def import_data(self, step_path, filters, group_name): #TODO: need to design to initiate group project
+    #     """ Import data from other Project instance
+    #     Convert empty project to grouped project for multiple cohort data analysis
+    #     :return:
+    #     """
+    #     if self._groupprj:
+    #         pass
+    #     else:
+    #         print('This method only allows to use gruop projects')
+    #     return
 
     def save_df(self, dc_idx):
         """Save Dataframe to pickle file
@@ -260,6 +281,8 @@ class Project(object):
         :return: None
         """
         dc_df = os.path.join(self.__path, self.ds_type[dc_idx], '.class_dataframe')
+        if os.path.exists(dc_df):
+            os.remove(dc_df)
         with open(dc_df, 'wb') as f:
             pickle.dump(self.__df, f, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -645,10 +668,32 @@ class Process(object):
         :param input_path: str, name of the Processing step folder
         :return: str, Absolute path of the step
         """
+        if isinstance(input_path, int):
+            input_path = self.steps[input_path]
         if input_path in self.executed:
             return self._history[input_path]
         else:
             return input_path
+
+    def check_filters(self, **kwargs):
+        """Check filters for input datasets
+
+        :param kwargs:
+        :return:
+        """
+        avail = ['file_tag', 'ignore', 'ext']
+        filters = None
+        subj = None
+        sess = None
+        if kwargs:
+            if any(key in avail for key in kwargs.keys()):
+                filters = dict([(key, value) for key, value in kwargs.items()
+                                if any([key in avail])])
+            if 'subj' in kwargs.keys():
+                subj = kwargs['subj']
+            if 'sess' in kwargs.keys():
+                sess = kwargs['sess']
+        return filters, subj, sess
 
     def afni_MeanImgCalc(self, func, cbv=False, surfix='func'):
         """Mean image calculation for functional image : Initial preparation
@@ -702,7 +747,7 @@ class Process(object):
         step.set_input(name='func', input_path=func, static=False)
         cmd = "3dTshift -prefix {output}"
         if tr:
-            options += " -tr {0}".format(tr)
+            options += " -TR {0}".format(tr)
         if tpattern:
             options += " -tpattern {0}".format(tpattern)
         else:
@@ -713,24 +758,31 @@ class Process(object):
         output_path = step.run('SliceTmCorrect', surfix)
         return dict(func=output_path)
 
-    def afni_MotionCorrection(self, func, surfix='func'):
+    def afni_MotionCorrection(self, func, base, surfix='func'):
         """
 
         :param func:
+        :param base:
         :param surfix:
         :return:
         """
         display(title(value='** Processing motion correction.....'))
         func = self.check_input(func)
+        base = self.check_input(base)
         step = Step(self)
         step.set_input(name='func', input_path=func, static=False)
         try:
-            mimg_path = self.steps[0]
-            if '-CBV-' in mimg_path:
-                mimg_filters = {'file_tag': '_CBV'}
-                step.set_input(name='base', input_path=mimg_path, filters=mimg_filters, static=True, side=True)
+            if '-CBV-' in base:
+                mimg_filters = {'file_tag': '_CBV', 'ignore': 'BOLD'}
+                step.set_input(name='base', input_path=base, filters=mimg_filters, static=True, side=True)
             else:
-                step.set_input(name='base', input_path=mimg_path, static=True, side=True)
+                step.set_input(name='base', input_path=base, static=True, side=True)
+            # mimg_path = self.steps[0]
+            # if '-CBV-' in mimg_path:
+            #     mimg_filters = {'file_tag': '_CBV'}
+            #     step.set_input(name='base', input_path=mimg_path, filters=mimg_filters, static=True, side=True)
+            # else:
+            #     step.set_input(name='base', input_path=mimg_path, static=True, side=True)
         except:
             methods.raiseerror(messages.Errors.MissingPipeline,
                                'Initial Mean image calculation step has not been executed!')
@@ -747,7 +799,7 @@ class Process(object):
         output_path = step.run('MotionCorrection', surfix)
         return dict(func=output_path)
 
-    def afni_MaskPrep(self, anat, tmpobj):
+    def afni_MaskPrep(self, anat, tmpobj, func=None, surfix='func'):
         """
 
         :param anat:
@@ -774,7 +826,10 @@ class Process(object):
         anat_mask = step.run('MaskPrep', 'anat')
         step = Step(self)
         try:
-            mimg_path = self.steps[0]
+            if func:
+                mimg_path = self.check_input(func)
+            else:
+                mimg_path = self.steps[0]
             if '-CBV-' in mimg_path:
                 mimg_filters = {'file_tag': '_BOLD'}
                 step.set_input(name='func', input_path=mimg_path, filters=mimg_filters, static=True)
@@ -792,7 +847,7 @@ class Process(object):
         cmd02 = '3dcalc -prefix {output} -expr "astep(a, 0.5)" -a {temp1}'
         step.set_command(cmd01, idx=0)
         step.set_command(cmd02)
-        func_mask = step.run('MaskPrep', 'func')
+        func_mask = step.run('MaskPrep', surfix)
         if jupyter_env:
             if self._viewer == 'itksnap':
                 display(widgets.VBox([title(value='-'*43 + ' Anatomical images ' + '-'*43),
@@ -810,7 +865,7 @@ class Process(object):
         else:
             return dict(anat_mask=anat_mask, func_mask=func_mask)
 
-    def afni_SkullStrip(self, anat, func):
+    def afni_SkullStrip(self, anat, func, surfix='func'):
         """ The pre-defined step for skull stripping with AFNI
 
         :param anat:
@@ -822,7 +877,7 @@ class Process(object):
         func = self.check_input(func)
         anat_mask = [self.steps[idx] for idx, step in self.executed.items() if 'MaskPrep-anat' in step][0]
         anat_mask = self.check_input(anat_mask)
-        func_mask = [self.steps[idx] for idx, step in self.executed.items() if 'MaskPrep-func' in step][0]
+        func_mask = [self.steps[idx] for idx, step in self.executed.items() if 'MaskPrep-{}'.format(surfix) in step][0]
         func_mask = self.check_input(func_mask)
         step = Step(self)
         step.set_input(name='anat', input_path=anat, static=True)
@@ -839,7 +894,7 @@ class Process(object):
         step.set_input(name='func_mask', input_path=func_mask, static=True, side=True)
         cmd02 = '3dcalc -prefic {output} -expr "a*step(b)" -a {func} -b {func_mask}'
         step.set_command(cmd02, idx=0)
-        func_path = step.run('SkullStrip', 'func')
+        func_path = step.run('SkullStrip', surfix)
         return dict(anat=anat_path, func=func_path)
 
     def afni_Coreg(self, anat, meanfunc, surfix='func'):
@@ -949,7 +1004,7 @@ class Process(object):
         output_path = step.run('ApplySpatialNorm', surfix)
         return dict(normfunc=output_path)
 
-    def afni_SpatialSmoothing(self, func, fwhm=0.5, tmpobj=None, surfix='func'):
+    def afni_SpatialSmoothing(self, func, fwhm=0.5, tmpobj=None, surfix='func', **kwargs):
         """
 
         :param func:
@@ -960,8 +1015,9 @@ class Process(object):
         """
         display(title(value='** Processing spatial smoothing.....'))
         func = self.check_input(func)
-        step = Step(self)
-        step.set_input(name='func', input_path=func)
+        filters, subj, sess = self.check_filters(**kwargs)
+        step = Step(self, subjects=subj, sessions=sess)
+        step.set_input(name='func', input_path=func, filters=filters)
         if not fwhm:
             methods.raiseerror(messages.Errors.InputValueError, 'the FWHM value have to specified')
         else:
@@ -975,47 +1031,47 @@ class Process(object):
         output_path = step.run('SpatialSmoothing', surfix)
         return dict(func=output_path)
 
-    def afni_GLManalysis(self, func, paradigm, crop=None, surfix='func'):
+    def afni_GLManalysis(self, func, paradigm, clip_range=None, surfix='func', **kwargs):
         """
 
         :param func:
         :param paradigm:
-        :param crop:
+        :param clip_range:
         :param surfix:
         :return:
         """
         display(title(value='** Processing General Linear Analysis'))
         func = self.check_input(func)
-        step = Step(self)
-        step.set_input(name='func', input_path=func)
+        filters, subj, sess = self.check_filters(**kwargs)
+        step = Step(self, subjects=subj, sessions=sess)
+        step.set_input(name='func', input_path=func, filters=filters)
         step.set_variable(name='paradigm', value=paradigm)
         step.set_staticinput(name='param', value='" ".join(map(str, paradigm[idx][0]))')
         step.set_staticinput(name='model', value='paradigm[idx][1][0]')
         step.set_staticinput(name='mparam', value='" ".join(map(str, paradigm[idx][1][1]))')
-        if crop:
+        if clip_range:
             cmd01 = '3dDeconvolve -input {func}'
-            cmd01 += '"[{}..{}]" '.format(crop[0], crop[1])
+            cmd01 += '"[{}..{}]" '.format(clip_range[0], clip_range[1])
             cmd01 += '-num_stimts 1 -polort 2 -stim_times 1 "1D: {param}" ' \
                     '"{model}({mparam})" -stim_label 1 STIM -tout -bucket {output}'
         else:
             cmd01 = '3dDeconvolve -input {func} -num_stimts 1 -polort 2 -stim_times 1 "1D: {param}" ' \
-                    '"{model}({mparam})" -stim_label 1 STIM -tout -bucket {output}'
+                    '"{model}({mparam})" -stim_label 1 STIM -tout -bucket {output} -x1D {prefix}'
         step.set_command(cmd01)
-        # step.get_executefunc('test', verbose=True)
-        glm = step.run('GLMAnalysis', surfix)
+        glm = step.run('GLMAnalysis', surfix, debug=False)
         display(title(value='** Estimating the temporal auto-correlation structure'))
-        step = Step(self)
-        step.set_input(name='func', input_path=func)
+        step = Step(self, subjects=subj, sessions=sess)
+        step.set_input(name='func', input_path=func, filters=filters)
         filter = dict(ext='.xmat.1D')
         step.set_input(name='glm', input_path=glm, filters=filter, side=True)
-        if crop:
+        if clip_range:
             cmd02 = '3dREMLfit -matrix {glm} -input {func}'
-            cmd02 += '"[{}..{}]" '.format(crop[0], crop[1])
+            cmd02 += '"[{}..{}]" '.format(clip_range[0], clip_range[1])
             cmd02 += '-tout -Rbuck {output} -verb'
         else:
             cmd02 = '3dREMLfit -matrix {glm} -input {func} -tout -Rbuck {output} -verb'
         step.set_command(cmd02)
-        output_path = step.run('REMLfit', surfix)
+        output_path = step.run('REMLfit', surfix, debug=False)
         return dict(GLM=output_path)
 
     def afni_ClusterMap(self, glm, func, tmpobj, pval=0.01, cluster_size=40, surfix='func'):
@@ -1060,8 +1116,8 @@ class Process(object):
         else:
             return dict(mask=output_path)
 
-    def afni_SignalProcessing(self, func, norm=True, ort=None, range=None, mask=None, bpass=None,
-                              fwhm=None, dt=None, surfix='func'):
+    def afni_SignalProcessing(self, func, norm=True, ort=None, clip_range=None, mask=None, bpass=None,
+                              fwhm=None, dt=None, surfix='func', **kwargs):
         """Wrapper method of afni's 3dTproject for signal processing of resting state data
 
         :param func:
@@ -1075,31 +1131,44 @@ class Process(object):
         :return:
         """
         display(title(value='** Run signal processing for resting state data'))
-        step = Step(self)
+        filters, subj, sess = self.check_filters(**kwargs)
+        step = Step(self, subjects=subj, sessions=sess)
         func = self.check_input(func)
-        step.set_input(name='func', input_path=func)
+        ort = self.check_input(ort)
+        step.set_input(name='func', input_path=func, filters=filters)
         cmd = ['3dTproject -prefix {output}']
-        orange, irange = None, None
-        if bpass:
+        orange, irange = None, None         # orange= range of ort file, irange= range of image file
+        if bpass:                           # set bandpass filter
             if isinstance(bpass, list) and len(bpass) == 2:
                 cmd.append('-passband {} {}'.format(*bpass))
             else:
                 pass
-        if norm:
+        if norm:                            # set signal normalization
             cmd.append('-norm')
-        if ort:
-            if range:
-                if isinstance(range, list):
-                    if len(range) == 2:
-                        orange = "'{" + "{}..{}".format(*range) + "}'"
-                        irange = "'[" + "{}..{}".format(*range) + "]'"
+        if ort:                             # set ort (nuisance signal regression)
+            if clip_range:
+                if isinstance(clip_range, list):
+                    if len(clip_range) == 2:
+                        orange = "'{" + "{}..{}".format(*clip_range) + "}'"
+                        irange = "'[" + "{}..{}".format(*clip_range) + "]'"
                         step.set_staticinput(name='orange', value=orange)
                         step.set_staticinput(name='irange', value=irange)
-            ort_filter = {'ext': '.1D', 'ignore': '.aff12'}
+
+            ort_filter = {'ext': '.1D', 'ignore': ['.aff12']}
+            if filters:
+                for key in filters.keys():
+                    if 'ignore' in key:
+                        if isinstance(filters['ignore'], list):
+                            ort_filter['ignore'].extend(filters.pop('ignore'))
+                        else:
+                            ort_filter['ignore'].append(filters.pop('ignore'))
+                    if 'ext' in key:
+                        filters.pop('ext')
+                ort_filter.update(filters)
             if isinstance(ort, dict):
                 for key, value in ort.items():
                     ortpath = self.check_input(value)
-                    if range:
+                    if clip_range:
                         cmd.append('-ort {{}}'.format(key)+'{orange}')
                     else:
                         cmd.append('-ort {{}}'.format(key))
@@ -1108,47 +1177,44 @@ class Process(object):
                 for i, o in enumerate(ort):
                     exec('ort_{} = self.check_input({})'.format(str(i), o))
                     ort_name = 'ort_{}'.format(str(i))
-                    if range:
+                    if clip_range:
                         cmd.append('-ort {}'.format(ort_name)+'{orange}')
                     else:
                         cmd.append('-ort {}'.format(ort_name))
-                    ort_filter = {'ext': '.1D', 'ignore': '.aff12'}
                     step.set_input(name=ort_name, input_path=o, filters=ort_filter, side=True)
             elif isinstance(ort, str):
                 ort = self.check_input(ort)
-                if range:
+                if clip_range:
                     cmd.append('-ort {ort}"{orange}"')
                 else:
                     cmd.append('-ort {ort}')
-                ort_filter = {'ext': '.1D', 'ignore': '.aff12'}
                 step.set_input(name='ort', input_path=ort, filters=ort_filter, side=True)
             else:
                 self.logger.debug('TypeError on input ort.')
-        if mask:
+        if mask:                            # set mask
             step.set_staticinput(name='mask', value=mask)
             cmd.append('-mask {mask}')
-        if fwhm:
+        if fwhm:                            # set smoothness
             step.set_staticinput(name='fwhm', value=fwhm)
             cmd.append('-blur {fwhm}')
-        if dt:
+        if dt:                              # set sampling rate (TR)
             step.set_staticinput(name='dt', value=dt)
             cmd.append('-dt {dt}')
-        if range:
+        if clip_range:                           # set range
             cmd.append('-input {func}"{irange}"')
         else:
             cmd.append('-input {func}')
         step.set_command(" ".join(cmd))
-        # step.get_executefunc('test', verbose=True)
-        output_path = step.run('SignalProcess', surfix=surfix)
+        output_path = step.run('SignalProcess', surfix=surfix, debug=False)
         return dict(signalprocess=output_path)
 
-    def afni_ROIStats(self, func, rois, cbv=None, crop=None, option=None, surfix='func'):
+    def afni_ROIStats(self, func, rois, cbv=None, clip_range=None, option=None, surfix='func', **kwargs):
         """Extracting time-course data from ROIs
 
         :param func:    Input path for functional data
         :param roi:     Template instance or mask path
         :param cbv:     [echotime, number of volumes (TR) to average]
-        :param crop:
+        :param clip_range:
         :param option:  bilateral or merge if roi is Template instance
         :param surfix:
         :type func:     str
@@ -1186,7 +1252,8 @@ class Process(object):
         rois = self.check_input(rois)
 
         # Initiate step instance
-        step = Step(self)
+        filters, subj, sess = self.check_filters(**kwargs)
+        step = Step(self, subjects=subj, sessions=sess)
 
         # If given roi path is single file
         if os.path.isfile(rois):
@@ -1203,8 +1270,8 @@ class Process(object):
         # If CBV parameters are given, parsing the CBV infusion file path from json file
         if cbv:
             step.set_input(name='cbv', input_path=func, side=True, filters=dict(ext='.json'))
-        if crop:
-            cmd += '"[{}..{}]"'.format(crop[0], crop[1])
+        if clip_range:
+            cmd += '"[{}..{}]"'.format(clip_range[0], clip_range[1])
         step.set_command(cmd, stdout='out')
         step.set_execmethod('temp_outputs.append([out, err])')
         step.set_execmethod('pd.read_table(StringIO(out))', var='df')
@@ -1248,11 +1315,197 @@ class Process(object):
             tmp.close()
         return dict(timecourse=output_path)
 
+    def afni_TemporalClipping(self, func, clip_range, surfix='func', **kwargs):
+        """
+
+        :param func:
+        :param clip_range:
+        :param surfix:
+        :param kwargs:
+        :return:
+        """
+        display(title(value='** Temporal clipping of functional image'))
+        filters, subj, sess = self.check_filters(**kwargs)
+        step = Step(self, subjects=subj, sessions=sess)
+        func = self.check_input(func)
+        step.set_input(name='func', input_path=func, filters=filters)
+        if clip_range:
+            if isinstance(clip_range, list):
+                if len(clip_range) == 2:
+                    irange = "'[" + "{}..{}".format(*clip_range) + "]'"
+                    step.set_staticinput(name='irange', value=irange)
+        cmd = '3dcalc -prefix {output} -expr "a" -a {func}"{irange}"'
+        step.set_command(cmd)
+        output_path = step.run('TemporalClipping', surfix, debug=False)
+        return dict(clippedfunc=output_path)
+
     def ants_Coreg(self):
         pass
 
-    def ants_SpatialNorm(self):
+    def ants_ApplyCoreg(self):
         pass
+
+    def ants_SpatialNorm(self, anat, tmpobj, surfix='anat'):
+        """This step align the anatomical data to given template brain space using ANTs non-linear SyN algorithm
+
+        :param anat     :   str or int
+            Folder name of anatomical data in Data class or absolute path
+            If you put integer, the path will inputted by indexing the executed path with given integer
+        :param tmpobj:
+        :param surfix:
+        :return:
+        This step applying the non-linear transform matrix from the anatomical image to functional images
+
+        :param func     :   str or int
+            Folder name of functional data in Data class or absolute path
+            If you put integer, the path will inputted by indexing the executed path with given integer
+
+        :param warped   :   str or int
+            Folder name of anatomical data in Data class or absolute path
+            If you put integer, the path will inputted by indexing the executed path with given integer
+
+        :param surfix   :   str
+            The given string will be set as surfix of output folder
+
+        :param kwargs   :   dict
+            This arguments will be used for filtering the input data, available keywords are as below
+            'subs', 'sess', 'file_tag', 'ignore', 'ext'
+
+        :return:
+            Output path as dictionary format
+        """
+
+
+        parallel = False
+        if self._parallel:
+            parallel = True
+        self._parallel = False          # turn of parallel processing mode
+
+        display(title(value='** Processing spatial normalization.....'))
+        anat = self.check_input(anat)
+        step = Step(self)
+        step.set_input(name='anat', input_path=anat, static=True)
+        step.set_staticinput(name='tmpobj', value=tmpobj.template_path)
+        step.set_staticinput(name='thread', value=multiprocessing.cpu_count())
+        cmd = 'antsSyN -f {tmpobj} -m {anat} -o {prefix} -n {thread}'
+        step.set_command(cmd)
+        output_path = step.run('SpatialNorm', surfix, debug=False)
+
+        if parallel:
+            self._parallel = True
+        return dict(normanat=output_path)
+
+    def ants_ApplySpatialNorm(self, func, warped, surfix='func', **kwargs):
+        """This step applying the non-linear transform matrix from the anatomical image to functional images
+
+        :param func     :   str or int
+            Folder name of functional data in Data class or absolute path of one of executed step
+            If you put integer, the path will inputted by indexing the executed path with given integer
+
+        :param warped   :   str or int
+            Absolute path that ANTs SyN based spatial normalization registration is applied
+            If you put integer, the path will inputted by indexing the executed path with given integer
+
+        :param surfix   :   str
+            The given string will be set as surfix of output folder
+
+        :param kwargs   :   dict
+            This arguments will be used for filtering the input data, available keywords are as below
+            'subs', 'sess', 'file_tag', 'ignore', 'ext'
+
+        :return:
+            Output path as dictionary format
+        """
+        display(title(value='** Processing spatial normalization.....'))
+
+        # Check and correct inputs
+        func = self.check_input(func)
+        warped = self.check_input(warped)
+        filters, subj, sess = self.check_filters(**kwargs)
+        step = Step(self, subjects=subj, sessions=sess)
+
+        # Set filters for input transform data
+        baseimg_filter = dict(ignore=['_1InverseWarp', '_1Warp', '_inversed'])
+        dmorph_filter = dict(file_tag='_1Warp')
+        tmatrix_filter = dict(ext='.mat')
+
+        # Set inputs
+        step.set_input(name='func', input_path=func, filters=filters)
+        step.set_input(name='base', input_path=warped, static=True, filters=baseimg_filter, side=True)
+        step.set_input(name='morph', input_path=warped, static=True, filters=dmorph_filter, side=True)
+        step.set_input(name='mat', input_path=warped, static=True, filters=tmatrix_filter, side=True)
+
+        # Set commend that need to executes for all subjects
+        cmd = 'WarpTimeSeriesImageMultiTransform 4 {func} {output} -R {base} {morph} {mat}'
+        step.set_command(cmd)
+        output_path = step.run('ApplySpatialNorm', surfix, debug=False)
+        return dict(normfunc=output_path)
+
+    def pn_MaskPrep(self, anat, tmpobj, func=None, surfix='func'): #TODO: Need to develop own skullstrip alrorithm
+        """
+
+        :param anat:
+        :return:
+        """
+        display(title(value='** Processing mask image preparation.....'))
+        anat = self.check_input(anat)
+        step = Step(self)
+        mimg_path = None
+        try:
+            step.set_input(name='anat', input_path=anat, static=True)
+        except:
+            methods.raiseerror(messages.Errors.MissingPipeline,
+                               'No anatomy file!')
+        try:
+            step.set_staticinput(name='mask', value=str(tmpobj.mask))
+        except:
+            methods.raiseerror(messages.InputPathError,
+                               'No mask template file!')
+        cmd01 = "mask_prep 10 {anat} {temp1}"
+        cmd02 = 'mask_reg -o {output} -f {temp1} -m {mask} -n 1'
+        step.set_command(cmd01)
+        step.set_command(cmd02)
+        anat_mask = step.run('MaskPrep', 'anat')
+        step = Step(self)
+        try:
+            if func:
+                mimg_path = self.check_input(func)
+            else:
+                mimg_path = self.steps[0]
+            if '-CBV-' in mimg_path:
+                mimg_filters = {'file_tag': '_BOLD'}
+                step.set_input(name='func', input_path=mimg_path, filters=mimg_filters, static=True)
+            else:
+                step.set_input(name='func', input_path=mimg_path, static=True)
+        except:
+            methods.raiseerror(messages.Errors.MissingPipeline,
+                               'Initial Mean image calculation step has not been executed!')
+        try:
+            step.set_staticinput(name='mask', value=str(tmpobj.mask))
+        except:
+            methods.raiseerror(messages.InputPathError,
+                               'No mask template file!')
+        cmd01 = "mask_prep -f 10 {func} {temp1}"
+        cmd02 = 'mask_reg -o {output} -f {temp1} -m {mask} -n 1'
+        step.set_command(cmd01)
+        step.set_command(cmd02)
+        func_mask = step.run('MaskPrep', surfix)
+        if jupyter_env:
+            if self._viewer == 'itksnap':
+                display(widgets.VBox([title(value='-' * 43 + ' Anatomical images ' + '-' * 43),
+                                      tools.itksnap(self, anat_mask, anat),
+                                      title(value='<br>' + '-' * 43 + ' Functional images ' + '-' * 43),
+                                      tools.itksnap(self, func_mask, mimg_path)]))
+            elif self._viewer == 'fslview':
+                display(widgets.VBox([title(value='-' * 43 + ' Anatomical images ' + '-' * 43),
+                                      tools.fslview(self, anat_mask, anat),
+                                      title(value='<br>' + '-' * 43 + ' Functional images ' + '-' * 43),
+                                      tools.fslview(self, func_mask, mimg_path)]))
+            else:
+                methods.raiseerror(messages.Errors.InputValueError,
+                                   '"{}" is not available'.format(self._viewer))
+        else:
+            return dict(anat_mask=anat_mask, func_mask=func_mask)
 
     def ants_MotionCorrection(self, func, surfix='func', debug=False):
         display(title(value='** Extracting time-course data from ROIs'))
@@ -1284,8 +1537,54 @@ class Process(object):
         func_path = step2.run('BiasField', 'func')
         return dict(anat=anat_path, func=func_path)
 
-    def fsl_Melodic(self, func, surfix='func'):
-        cmd = 'melodic -i {input} -n 30 -m {mask} --tr={tr} -o {out_path}'
+    def fsl_IndividualICA(self, func, tr=2.0, alpha=0.5, bgthreshold=10, surfix='func'):
+        func = self.check_input(func)
+        step = Step(self)
+        step.set_input(name='func', input_path=func)
+        cmd = ['melodic -i {func} -o {sub_path}', '--tr={}'.format(tr), '--mmthresh={}'.format(alpha),
+               '--bgthreshold={} --nobet --nomask'.format(bgthreshold)]
+        step.set_command(' '.join(cmd))
+        func_path = step.run('IndividualICA', 'func')
+        return dict(func=func_path)
+
+    def fsl_BiasFieldCalculation(self, anat, func, n_class=3, smoothing=2, image_type=2, debug=False):
+        anat = self.check_input(anat)
+        func = self.check_input(func)
+        step1 = Step(self)
+        step2 = Step(self)
+        step1.set_input(name='anat', input_path=anat, static=True)
+        step2.set_input(name='func', input_path=func)
+        cmd1 = ['fast --class={} --lowpass={} --type={} -b'.format(n_class, smoothing, image_type),
+                '--out={prefix} {anat}']
+        cmd2 = ['fast --class={} --lowpass={} --type={} -b'.format(n_class, smoothing, image_type),
+                '--out={prefix} {func}']
+        step1.set_command(' '.join(cmd1))
+        step2.set_command(' '.join(cmd2))
+        anat_path = step1.run('BiasFieldCalculation', 'anat', debug=debug)
+        func_path = step2.run('BiasFieldCalculation', 'func', debug=debug)
+        return dict(anat=anat_path, func=func_path)
+
+    def fsl_BiasFieldCorrection(self, anat, anat_bias, func, func_bias, debug=False):
+        anat = self.check_input(anat)
+        anat_bias = self.check_input(anat_bias)
+        func = self.check_input(func)
+        func_bias = self.check_input(func_bias)
+        step1 = Step(self)
+        step2 = Step(self)
+        step1.set_input(name='anat', input_path=anat, static=True)
+        step2.set_input(name='func', input_path=func)
+        step1.set_input(name='anat_bias', input_path=anat_bias, static=True, filters=dict(file_tag='_bias'), side=True)
+        step2.set_input(name='func_bias', input_path=func_bias, filters=dict(file_tag='_bias'), side=True)
+        cmd1 = '3dcalc -prefix {output} -expr "a/b" -a {anat} -b {anat_bias}'
+        cmd2 = '3dcalc -prefix {output} -expr "a/b" -a {func} -b {func_bias}'
+        step1.set_command(cmd1)
+        step2.set_command(cmd2)
+        anat_path = step1.run('BiasFieldCorrection', 'anat', debug=debug)
+        func_path = step2.run('BiasFieldCorrection', 'func', debug=debug)
+        return dict(anat=anat_path, func=func_path)
+
+    def fsl_DualRegression(self, func, surfix='func'): #TODO: Implant DualRegression
+        pass
 
     def itksnap(self, idx, base_idx=None):
         """Launch ITK-snap
@@ -1295,9 +1594,9 @@ class Process(object):
         :return:
         """
         if base_idx:
-            tools.itksnap(self, self.steps[idx], self.steps[base_idx])
+            display(tools.itksnap(self, self.steps[idx], self.steps[base_idx]))
         else:
-            tools.itksnap(self, self.steps[idx])
+            display(tools.itksnap(self, self.steps[idx]))
 
     def afni(self, idx, tmpobj=None):
         """Launch AFNI gui
@@ -1365,15 +1664,20 @@ class Process(object):
         :return: None
         """
         if self._prjobj(1).subjects:
-            datasubj = set(self._prjobj(0).subjects)
-            procsubj = set(self._prjobj(1).subjects)
-            if datasubj.issubset(procsubj):
-                if not procsubj.issubset(datasubj):
-                    try:
-                        self._subjects = sorted(self._prjobj(1, self.processing).subjects[:])
-                        if not self._prjobj.single_session:
-                            self._sessions = sorted(self._prjobj(1, self.processing).sessions[:])
-                    except:
+            if self._prjobj(0).subjects:
+                datasubj = set(list(self._prjobj(0).subjects))
+                procsubj = set(list(self._prjobj(1).subjects))
+                if datasubj.issubset(procsubj):
+                    if not procsubj.issubset(datasubj):
+                        try:
+                            self._subjects = sorted(self._prjobj(1, self.processing).subjects[:])
+                            if not self._prjobj.single_session:
+                                self._sessions = sorted(self._prjobj(1, self.processing).sessions[:])
+                        except:
+                            self._subjects = sorted(self._prjobj(0).subjects[:])
+                            if not self._prjobj.single_session:
+                                self._sessions = sorted(self._prjobj(0).sessions[:])
+                    else:
                         self._subjects = sorted(self._prjobj(0).subjects[:])
                         if not self._prjobj.single_session:
                             self._sessions = sorted(self._prjobj(0).sessions[:])
@@ -1382,9 +1686,7 @@ class Process(object):
                     if not self._prjobj.single_session:
                         self._sessions = sorted(self._prjobj(0).sessions[:])
             else:
-                self._subjects = sorted(self._prjobj(0).subjects[:])
-                if not self._prjobj.single_session:
-                    self._sessions = sorted(self._prjobj(0).sessions[:])
+                self._subjects = sorted(self._prjobj(1).subjects[:])
         else:
             self._subjects = sorted(self._prjobj(0).subjects[:])
             if not self._prjobj.single_session:
@@ -1453,7 +1755,7 @@ class Step(object):
     cmdset = namedtuple('Command', ['name', 'command', 'option'])           # command template
     mthset = namedtuple('Method', ['name', 'args', 'kwargs'])               # method template
 
-    def __init__(self, procobj):
+    def __init__(self, procobj, subjects=None, sessions=None):
         """Initiate Step class
 
         :param procobj:
@@ -1466,10 +1768,26 @@ class Step(object):
         self._staticinput = {}                          # static input handler
         self._outparam = {}                             # output_param handler
         self._cmdstdout = []                            # cmdstdout handler
-        self._subjects = procobj.subjects[:]            # load all subject list from process object
+        if subjects:
+            residuals = [subj for subj in subjects if subj not in procobj.subjects]
+            if len(residuals):
+                methods.raiseerror(messages.Errors.InputValueError,
+                                   '{} is(are) not available subject(s)')
+            else:
+                self._subjects = subjects
+        else:
+            self._subjects = procobj.subjects[:]            # load all subject list from process object
         self._outputs = {}                              # output handler
         try:
-            self._sessions = procobj.sessions[:]        # check single session or not
+            if sessions:
+                residuals = [sess for sess in sessions if sess not in procobj.sessions]
+                if len(residuals):
+                    methods.raiseerror(messages.Errors.InputValueError,
+                                       '{} is(are) not available session(s)')
+                else:
+                    self._sessions = sessions
+            else:
+                self._sessions = procobj.sessions[:]        # check single session or not
         except:
             self._sessions = None
         self._commands = []                             # executing commands handler
@@ -1507,7 +1825,6 @@ class Step(object):
 
         :param name:
         :param value:
-        :return:
         """
         if isinstance(value, str):
             if os.path.exists(value):
@@ -1517,22 +1834,26 @@ class Step(object):
         self._staticinput[name] = value
 
     def set_outparam(self, name, ext, prefix=None):
-        """Set parameter output files on out_param handler
+        """This method set file name of output parameters
 
-        :param name: str, variables for parameter output file
-        :param ext: str, for setting extension of the file
-        :param prefix:
-        :return: None
+        :param name     : str
+            Variables for parameter output file
+        :param ext      : str
+            Extension of the output file
+        :param prefix   : str
+            If prefix has value, add prefix to output file
         """
         self._outparam[name] = (self.oppset(name=name, prefix=prefix, ext=ext))
 
     def set_execmethod(self, command, var=None, idx=None):
         """Set structured command on command handler
 
-        :param command: str, structured command with input and output variables
-        :param var: name of variable
-        :param idx: int, Index for replacing the commands on handler
-
+        :param command  : str
+            Structured command with input and output variables
+        :param var      : str
+            Name of variable
+        :param idx      : int
+            Index for replacing the commands on handler
         :return:
         """
         if idx:
@@ -1543,10 +1864,13 @@ class Step(object):
     def set_command(self, command, verbose=False, idx=None, stdout=None ):
         """Set structured command on command handler
 
-        :param command: str, Structured command with input and output variables
-        :param verbose: boolean
-        :param idx: int, Index for replacing the commands on handler
-        :param stdout: str or None, if True, the input string can be used the variable for stand output results of a command
+        :param command  : str
+            Structured command with input and output variables
+        :param verbose  : boolean
+        :param idx      : int
+            Index for replacing the commands on handler
+        :param stdout   : str or None
+            if True, the input string can be used the variable for stand output results of a command
         :return:
         """
         tmpobjs = [obj.strip('{}') for obj in re.findall(r"[{\w'}]+", command) if obj[0] == '{' and obj[-1] == '}']
@@ -1668,7 +1992,9 @@ class Step(object):
         else:
             output_filters.extend(['subj'])
         if isinstance(filters, dict):
-            kwargs = ['{key}="{value}"'.format(key=k, value=v) for k, v in filters.items()]
+            kwargs = ['{key}="{value}"'.format(key=k, value=v) for k, v in filters.items() if isinstance(v, str)]
+            output_filters.extend(kwargs)
+            kwargs = ['{key}={value}'.format(key=k, value=v) for k, v in filters.items() if isinstance(v, list)]
             output_filters.extend(kwargs)
         else:
             pass
@@ -1734,6 +2060,7 @@ class Step(object):
                         body += ['\t\t\t{0}'.format(cmd)]
                 else:
                     body += ['\t\t\ttemp_outputs.append(methods.shell({0}))'.format(cmd)]
+                self._procobj.logger.info('"{}" command is executed for subjects'.format(cmd))
             body += ['\t\toutputs.append(temp_outputs)']
             if self._tempfiles:
                 temp = ['\t\ttemppath = mkdtemp()',

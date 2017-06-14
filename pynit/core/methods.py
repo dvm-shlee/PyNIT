@@ -5,7 +5,7 @@ import shutil
 import sys
 import logging
 import logging.handlers
-from pandas import DataFrame, Series, read_table
+from pandas import Panel, DataFrame, Series, read_table, read_excel
 import nibabel as nib
 import numpy as np
 from scipy import ndimage
@@ -15,6 +15,12 @@ import objects
 import messages
 import shlex
 from subprocess import PIPE, Popen
+from matplotlib import colors
+
+# Network analysis
+import networkx as nx
+import bct
+import community
 
 try:
     import SimpleITK as sitk
@@ -242,7 +248,7 @@ def parsing_atlas(path):
             pass
         else:
             roi_mask = (data == i)*1.0
-            com[roi] = map(round, ndimage.center_of_mass(roi_mask))
+            com[roi] = np.array(map(round, ndimage.center_of_mass(roi_mask)))
     return atlas, label, com
 
 
@@ -395,14 +401,14 @@ def check_atals_datatype(atlas):
     return atlas, tempobj
 
 
-def get_warp_matrix(preproc, *args, **kwargs):
+def get_warp_matrix(preproc, *args, **kwargs): #TODO: will be deprecated
     if 'inverse' in kwargs.keys():
         inverse = kwargs['inverse']
     else:
         inverse = None
     if inverse:
-        mats = preproc._prjobj(1, preproc._processing, os.path.basename(args[0]),
-                               *args[1:], ext='.mat').df.Abspath.loc[0]
+        mats = preproc._prjobj(1, preproc._processing, os.path.basename(args[0]),   # path name
+                               *args[1:], ext='.mat').df.Abspath.loc[0]             # subject or session
         warps = preproc._prjobj(1, preproc._processing, os.path.basename(args[0]),
                                 *args[1:], file_tag='_1InverseWarp').df.Abspath.loc[0]
         warped = preproc._prjobj(1, preproc._processing, os.path.basename(args[0]),
@@ -792,3 +798,31 @@ def copyfile(output_path, input_path, *args):
     """ Copy File
     """
     shutil.copyfile(input_path, output_path)
+
+
+# Networks
+def get_graph(dset, tmpobj, louvain=False):
+    G = nx.Graph()
+    G.add_nodes_from(zip(*tmpobj.label.values())[0][1:])
+    for roi in dset.columns:
+        for i, value in enumerate(dset[roi]):
+            if not np.isnan(value):
+                if value:
+                    G.add_edge(roi, dset.index[i], weight=value)
+    edges, weights = zip(*nx.get_edge_attributes(G, 'weight').items())
+
+    if louvain:
+        modules = dict(zip(dset.columns, bct.modularity_louvain_und(bct.binarize(dset.values, copy=True))[0]))
+    else:
+        modules = dict(zip(dset.columns, bct.modularity_und(dset.values)[0]))
+    comm_idx = dict()
+    for node, comm in modules.items():
+        if comm not in comm_idx.keys():
+            comm_idx[comm] = [node]
+        else:
+            comm_idx[comm].append(node)
+    colors_set = colors.XKCD_COLORS.keys()[::-1]
+    node_color_map = []
+    for node in G.nodes():
+        node_color_map.append(colors_set[modules[node]])
+    return G, edges, weights, modules, node_color_map, comm_idx, colors_set

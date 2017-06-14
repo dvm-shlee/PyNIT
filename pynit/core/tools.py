@@ -69,20 +69,28 @@ def itksnap(procobj, input_path, temp_path=None):
         subj_path = os.path.join(input_path, subj)
         if procobj._sessions:
             list_of_items[subj] = {}
-            for sess in [s for s in os.listdir(subj_path) if os.path.isdir(os.path.join(subj_path, s))]:
-                sess_path = os.path.join(subj_path, sess)
-                scan_list = []
-                for scan in os.listdir(sess_path):
-                    if any(ext in scan for ext in img_ext):
-                        scan_list.append(scan)
-                    list_of_items[subj][sess] = scan_list
+            try:
+                for sess in [s for s in os.listdir(subj_path) if os.path.isdir(os.path.join(subj_path, s))]:
+                    sess_path = os.path.join(subj_path, sess)
+                    scan_list = []
+                    for scan in os.listdir(sess_path):
+                        if all(ext in scan for ext in img_ext):
+                            scan_list.append(scan)
+                        list_of_items[subj][sess] = scan_list
+            except:
+                pass
         else:
             scan_list = []
-            for scan in os.listdir(subj_path):
-                if any(ext in scan for ext in img_ext):
-                    scan_list.append(scan)
-                list_of_items[subj] = scan_list
-    sub_toggle = widgets.Dropdown(options=sorted(procobj._subjects), description='Subjects:',
+            try:
+                for scan in os.listdir(subj_path):
+                    if all(ext in scan for ext in img_ext):
+                        scan_list.append(scan)
+                    list_of_items[subj] = scan_list
+            except:
+                pass
+    # sub_toggle = widgets.Dropdown(options=sorted(procobj._subjects), description='Subjects:',
+    #                               layout=widgets.Layout(width='600px', ))
+    sub_toggle = widgets.Dropdown(options=sorted(list_of_items.keys()), description='Subjects:',
                                   layout=widgets.Layout(width='600px', ))
     if procobj._sessions:
         ses_toggle = widgets.Dropdown(options=sorted(procobj._sessions), description='Sessions:',
@@ -178,6 +186,32 @@ def fslview(procobj, input_path, temp_path=None):
                 list_of_items[subj] = scan_list
     sub_toggle = widgets.Dropdown(options=sorted(procobj._subjects), description='Subjects:',
                                   layout=widgets.Layout(width='600px', ))
+    # for subj in procobj._subjects:
+    #     subj_path = os.path.join(input_path, subj)
+    #     if procobj._sessions:
+    #         list_of_items[subj] = {}
+    #         try:
+    #             for sess in [s for s in os.listdir(subj_path) if os.path.isdir(os.path.join(subj_path, s))]:
+    #                 sess_path = os.path.join(subj_path, sess)
+    #                 scan_list = []
+    #                 for scan in os.listdir(sess_path):
+    #                     if any(ext in scan for ext in img_ext):
+    #                         scan_list.append(scan)
+    #                     list_of_items[subj][sess] = scan_list
+    #         except:
+    #             pass
+    #     else:
+    #         scan_list = []
+    #         try:
+    #             for scan in os.listdir(subj_path):
+    #                 if any(ext in scan for ext in img_ext):
+    #                     scan_list.append(scan)
+    #                 list_of_items[subj] = scan_list
+    #         except:
+    #             pass
+    # sub_toggle = widgets.Dropdown(options=sorted(list_of_items.keys()), description='Subjects:',
+    #                               layout=widgets.Layout(width='600px', ))
+
     if procobj._sessions:
         ses_toggle = widgets.Dropdown(options=sorted(procobj._sessions), description='Sessions:',
                                       layout=widgets.Layout(width='600px'))

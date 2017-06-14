@@ -4,16 +4,19 @@ import scipy.ndimage as ndimage
 from skimage import feature
 
 # Import internal packages
-from .methods import np
+from .methods import np, nx
 import messages
 import methods
 
 # Import matplotlib for visualization
+import matplotlib.patches as patches
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import colors
+import matplotlib.gridspec as gridspec
 import seaborn as sns
-from IPython import display
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+# from IPython import display
 
 # Set error bar as standard deviation and standard error
 
@@ -158,11 +161,11 @@ class Viewer(object):
                 interact(imshow, slice_num=(0, imageobj.shape[axis]-1), ax=fixed(ax), frame=fixed(0), stat=fixed(0))
             elif len(data.shape) == 4:
                 if data.shape[-1] == 1:
-                    interact(imshow, slice_num=(0, imageobj.shape[axis] - 1), ax=fixed(ax), frame=fixed(0),
+                    interact(imshow, slice_num=(0, imageobj.shape[axis]-1), ax=fixed(ax), frame=fixed(0),
                              stat=fixed(0))
                 else:
                     interact(imshow, slice_num=(0, imageobj.shape[axis]-1), ax=fixed(ax),
-                             frame=(0, imageobj.shape[axis+1]-1), stat=fixed(0))
+                             frame=(0, imageobj.shape[-1]-1), stat=fixed(0))
             elif len(data.shape) == 5:
                 interact(imshow, slice_num=(0, imageobj.shape[axis] - 1), ax=fixed(ax),
                          frame=(0, imageobj.shape[axis+1]-1), stat=(0, imageobj.shape[axis+2]-1))
@@ -390,6 +393,103 @@ class Viewer(object):
         else:
             return fig
 
+    @staticmethod
+    def plot_brain(G, node_color_mapped, comm_idx, weights, tmpobj, colors_set, alpha=0.4,
+                   vmin=-0.8, vmax=0.8, node_size=50):
+        resol = np.array(tmpobj.image.dataobj.shape)
+        edge_cmap = plt.cm.coolwarm
+        coronal = dict()
+        axial = dict()
+        sagital = dict()
+        for key, value in tmpobj.atlas.coordinates.items():
+            if key == 'Clear Label':
+                pass
+            else:
+                coronal[key] = value[:2][::-1]
+                axial[key] = value[[0, 2]]
+                sagital[key] = value[[1, 2]]
+        figsize = [(resol[0] + resol[1]) / 20,
+                   (resol[1] + resol[2]) / 20]
+
+        fig = plt.Figure(figsize=figsize, dpi=300)
+        canvas = FigureCanvasAgg(fig)
+        gs1 = gridspec.GridSpec(2, 2,
+                                height_ratios=[resol[2], resol[0]],
+                                width_ratios=[resol[1], resol[0]])
+                                # width_ratios=[resol[0], resol[1]],
+                                # height_ratios=[resol[1], resol[2]])
+        gs2 = gridspec.GridSpecFromSubplotSpec(4, 3, subplot_spec=gs1[1, 1],
+                                               width_ratios=[0.4, 1.5, 0.4],
+                                               height_ratios=[0.2, 0.1, 0.3, 1.5])
+        gs1.update(wspace=0.0, hspace=0.0, bottom=0.05, top=0.95, left=0.05, right=0.9)
+        cbaxes = fig.add_subplot(gs2[1, 1])
+        lgaxes = fig.add_subplot(gs2[3, 1])
+
+        cor_ax = fig.add_subplot(gs1[1, 0])
+        axl_ax = fig.add_subplot(gs1[0, 1])
+        sag_ax = fig.add_subplot(gs1[0, 0])
+        cor_ax.set_axis_off()
+        cor_ax.set_facecolor('white')
+        cor_ax.set_ylim([0, resol[0]])
+        cor_ax.set_xlim([resol[1], 0])
+        axl_ax.set_axis_off()
+        axl_ax.set_facecolor('white')
+        axl_ax.set_xlim([0, resol[0]])
+        axl_ax.set_ylim([0, resol[2]])
+        sag_ax.set_axis_off()
+        sag_ax.set_facecolor('white')
+        sag_ax.set_ylim([0, resol[2]])
+        sag_ax.set_xlim([resol[1], 0])
+
+        cor_ax.imshow(tmpobj.mask._image.dataobj.sum(axis=2),
+                      cmap='Greys', alpha=alpha, interpolation="bicubic")
+        axl_ax.imshow(tmpobj.mask._image.dataobj.sum(axis=1).T,
+                      cmap='Greys', alpha=alpha, origin='lower', interpolation="bicubic")
+        sag_ax.imshow(tmpobj.mask._image.dataobj.sum(axis=0).T,
+                      cmap='Greys', alpha=alpha, interpolation="bicubic")
+
+        nx.draw_networkx_nodes(G, nodelist=G.nodes(), pos=coronal,
+                               with_labels=False, node_size=node_size,
+                               node_color=node_color_mapped, ax=cor_ax)
+        edges = nx.draw_networkx_edges(G, pos=coronal, edge_color=weights, edge_cmap=edge_cmap,
+                                       edge_vmin=vmin, edge_vmax=vmax,
+                                       width=(np.array(weights) + 0.7) * 1.5, ax=cor_ax)
+        nx.draw_networkx_nodes(G, nodelist=G.nodes(), pos=axial,
+                               with_labels=False, node_size=node_size,
+                               node_color=node_color_mapped, ax=axl_ax)
+        nx.draw_networkx_edges(G, pos=axial, edge_color=weights, edge_cmap=edge_cmap,
+                               edge_vmin=vmin, edge_vmax=vmax,
+                               width=(np.array(weights) + 0.7) * 1.5, ax=axl_ax)
+        nx.draw_networkx_nodes(G, nodelist=G.nodes(), pos=sagital,
+                               with_labels=False, node_size=node_size,
+                               node_color=node_color_mapped, ax=sag_ax)
+        nx.draw_networkx_edges(G, pos=sagital, edge_color=weights, edge_cmap=edge_cmap,
+                               edge_vmin=vmin, edge_vmax=vmax,
+                               width=(np.array(weights) + 0.7) * 1.5, ax=sag_ax)
+
+        fig.colorbar(edges, cax=cbaxes, orientation='horizontal', ticks=[vmin, 0, vmax])
+        fig.set_facecolor('white')
+
+        # colors_set = colors.XKCD_COLORS.keys()[::-1]
+
+        n_keys = len(comm_idx.keys())
+        lgaxes.set_xlim(0, 3.5)
+        lgaxes.set_ylim(np.around(n_keys / 4.)*1.7, 0)
+        lgaxes.set_axis_off()
+
+        n_half = np.around(n_keys / 2.)
+        for i in range(0, n_keys):
+            i += 1
+            if i <= np.around(n_keys / 2.)+1:
+                lgaxes.add_patch(patches.Rectangle((0.2, i / 2.), 0.3, 0.2,
+                                                   facecolor=colors_set[i]))
+                lgaxes.text(0.7, i / 2. + 0.2 , str(i), fontsize=10)
+            else:
+                lgaxes.add_patch(patches.Rectangle((2.2, i / 2. - (n_half / 2.) - 0.5), 0.3, 0.2,
+                                                   facecolor=colors_set[i]))
+                lgaxes.text(2.7, i / 2. - 0.3 - (n_half / 2.), str(i), fontsize=10)
+        return fig
+
 
 class Plot(object):
     @staticmethod
@@ -441,7 +541,7 @@ class Plot(object):
         return fig, axes
 
     @staticmethod
-    def heatmap(dataframe, half=True, scale=1, vmin=-1.5, vmax=1.5, cmap='RdBu_r', **kwargs):
+    def heatmap(data, half=True, scale=1, vmin=-0.8, vmax=0.8, cmap='RdBu_r', **kwargs):
         """
 
         :param dataframe:
@@ -458,13 +558,20 @@ class Plot(object):
             if arg is 'figsize':
                 figsize = kwargs[arg]
         if half:
-            mask = np.zeros_like(dataframe.corr())
+            mask = np.zeros_like(data)
             mask[np.triu_indices_from(mask)] = True
         else:
             mask = None
-        fig = plt.figure(figsize=figsize)
-        with sns.axes_style("white"):
-            ax = sns.heatmap(np.arctanh(dataframe.corr()), mask=mask, vmin=vmin, vmax=vmax,
-                             cmap=cmap, square=True, **kwargs)
-            ax.set_xticklabels(ax.xaxis.get_majorticklabels(), rotation=45)
-            ax.set_yticklabels(ax.yaxis.get_majorticklabels(), rotation=45)
+        fig = plt.figure(figsize=figsize, dpi=300)
+        fig.set_facecolor('white')
+        axes = fig.add_subplot(111)
+
+        with sns.plotting_context("notebook", font_scale=1):
+            ax = sns.heatmap(data, mask=mask, vmin=vmin, vmax=vmax,
+                             cmap=cmap, square=True, ax=axes)
+            # ax.set_xticklabels(ax.xaxis.get_majorticklabels(), rotation=45)
+            ax.tick_params(labelsize=3.5, length=0)
+            # ax.set_yticklabels(ax.yaxis.get_majorticklabels(), rotation=45)
+            cbar = ax.collections[0].colorbar
+            cbar.set_ticks([vmin, 0, vmax])
+            # cbar.set_ticklabels(['low', '20%', '75%', '100%'])

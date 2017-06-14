@@ -94,9 +94,9 @@ class Postproc(object):
                     pval.iloc[j, k] = None
         qval = sm.stats.fdrcorrection(pval.values.flatten())[1].reshape(pval.shape)
         fisher = np.arctanh(rho)
-        fisher = np.tril(fisher, -1)
-        fisher[np.tril(qval) > p] = 0
-        fisher[fisher == 0] = np.nan
+        # fisher = np.tril(fisher, -1)
+        fisher[qval > p] = 0
+        # fisher[fisher == 0] = np.nan
         return pd.DataFrame(fisher, columns=rho.index, index=rho.index)
 
     @staticmethod
@@ -107,7 +107,8 @@ class Postproc(object):
         :param significant_rate:
         :return:
         """
-        zpanel = panel.fillna(0)
+        zpanel = panel.copy()
+        zpanel = zpanel.fillna(0)
         zpanel.values[zpanel.values != 0] = 1
         grpavr = zpanel.mean(axis=0)
         grpavr[grpavr < significant_rate] = 0
@@ -143,7 +144,7 @@ class TempFile(object):
             if merge:
                 self._atlas.extract('./.atlas_tmp', merge=True)
             if bilateral:
-                self._atlas.extract('./.atlas_tmp', surfix='ipsi')
+                self._atlas.extract('./.atlas_tmp')
                 obj.extract('./.atlas_tmp', contra=True)
             else:
                 self._atlas.extract('./.atlas_tmp')

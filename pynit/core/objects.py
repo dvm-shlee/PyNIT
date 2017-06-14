@@ -384,9 +384,6 @@ class Atlas(object):
                 methods.mkdir(path)
             except:
                 raise messages.InputPathError
-        else:
-            if merge:
-                self._image._dataobj += self._image._dataobj[::-1,...]
         num_of_rois = int(np.max(self._image._dataobj))
         for i in range(num_of_rois+1):
             if not i:
@@ -400,6 +397,8 @@ class Atlas(object):
                     else:
                         if merge:
                             label = 'bilateral_'+label
+                            roi._dataobj += roi._dataobj[::-1, ...]
+                            roi._dataobj[roi._dataobj > 0] = 1
                     if surfix:
                         label = "{}_{}".format(surfix, label)
                     roi.to_filename(os.path.join(path, "{}.nii".format(label)))

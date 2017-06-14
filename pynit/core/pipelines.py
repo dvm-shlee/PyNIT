@@ -66,7 +66,7 @@ class A_fMRI_preprocess(PipeTemplate):
         else:
             self.proc.afni_SliceTimingCorrection(self.func, surfix=self.surfix)
         # Motion correction
-        self.proc.afni_MotionCorrection(self.proc.steps[6], surfix=self.surfix)
+        self.proc.afni_MotionCorrection(self.proc.steps[6], 0, surfix=self.surfix)
         # Skull stripping all functional data
         self.proc.afni_SkullStripAll(self.proc.steps[7], self.proc.steps[2], surfix=self.surfix)
         # Apply coregistration transform matrix to all functional data
@@ -144,7 +144,7 @@ class B_evoked_fMRI_analysis(PipeTemplate):
 
     def pipe_01_GLM_analysis(self):
         # Perform GLM analysis
-        self.proc.afni_GLManalysis(self.proc.steps[0], self.paradigm, crop=self.crop, surfix=self.surfix)
+        self.proc.afni_GLManalysis(self.proc.steps[0], self.paradigm, clip_range=self.crop, surfix=self.surfix)
         if not self.mask:
             # Extract clusters using evoked results
             step = [step for step in self.proc.steps if self.surfix in step and 'REMLfit' in step][0]
@@ -167,9 +167,9 @@ class B_evoked_fMRI_analysis(PipeTemplate):
                     self.proc.afni_ROIStats(self.proc.steps[0], step, cbv=self.cbv, surfix='fullts')
         if self.mask:
             # If mask given, extract timecourse using the given mask
-            self.proc.afni_ROIStats(self.proc.steps[0], self.mask, cbv=self.cbv, crop=self.crop, surfix=self.surfix)
+            self.proc.afni_ROIStats(self.proc.steps[0], self.mask, cbv=self.cbv, clip_range=self.crop, surfix=self.surfix)
         # Extract timecourse using the mask you generated at step1
         else:
             step = [step for step in self.proc.steps if self.surfix in step and 'ClusteredMask' in step][0]
-            self.proc.afni_ROIStats(self.proc.steps[0], step, crop=self.crop, option=self.option,
+            self.proc.afni_ROIStats(self.proc.steps[0], step, clip_range=self.crop, option=self.option,
                                     cbv=self.cbv, surfix=self.surfix)

@@ -15,7 +15,7 @@ except:
 
 
 class BrukerRawData(object):
-    def __init__(self, path, pid):
+    def __init__(self, path, pid, ori=False):
         # parameter files
         with open(os.path.join(path, 'acqp')) as f:
             acqp = f.readlines()[:]
@@ -53,7 +53,8 @@ class BrukerRawData(object):
         self._nii = nib.Nifti1Image(self.img, self.affine)
 
         # Correct orientation
-        self.correct_orient()
+        if ori == True:
+            self.correct_orient()
 
         # Convert to Nifti
         self.set_default_header()
@@ -181,18 +182,21 @@ class BrukerRawData(object):
             matrix = [slices] + matrix
         elif self.method['PVM_SpatDimEnum'] == '3D':
             pass
+        try:
+            num_rep = self.method['PVM_NRepetitions']
+        except:
+            pass
         if self.method['PVM_NEchoImages'] > 1:
             matrix = [echo_img] + matrix
         if self.method['Method'] == 'DtiEpi':
             num_b0 = self.method['PVM_DwAoImages']
             num_dir = self.method['PVM_DwNDiffDir']
             matrix = [(num_b0 + num_dir)] + matrix
-        try:
-            num_rep = self.method['PVM_NRepetitions']
-        except:
-            pass
         if num_rep:
-            matrix = [num_rep] + matrix
+            if self.method['Method'] == 'DtiEpi':
+                matrix[0] *= num_rep
+            else:
+                matrix = [num_rep] + matrix
         else:
             pass
         return matrix
@@ -208,10 +212,12 @@ class BrukerRawData(object):
 
     def get_resol(self):
         if self.method['PVM_SpatDimEnum'] == '2D':
-            dx, dy = self.method['PVM_SpatResol']
+            # dx, dy = self.method['PVM_SpatResol']
+            dy, dx = list(np.array(self.reco['RECO_fov'])/np.array(self.reco['RECO_size'])*10)
             dz = self.acqp['ACQ_slice_thick']
         elif self.method['PVM_SpatDimEnum'] == '3D':
-            dx, dy, dz = self.method['PVM_SpatResol']
+            # dx, dy, dz = self.method['PVM_SpatResol']
+            dy, dx, dz = list(np.array(self.reco['RECO_fov'])/np.array(self.reco['RECO_size'])*10)
         else:
             dx, dy, dz = (1, 1, 1)
         return [dx, dy, dz]
@@ -245,6 +251,7 @@ class BrukerRawData(object):
         if self.method['Method'] == 'EPI':
             self.nii.header.set_xyzt_units('mm', 'sec')
             self.nii.header['pixdim'][4] = float(tr) / 1000
+            self.nii.header.set_dim_info(slice=2)
             self.nii.header['slice_duration'] = float(tr) / (1000 * self.acqp['NSLICES'])
             if self.method['PVM_ObjOrderScheme'] == 'User_defined_slice_scheme':
                 self.nii.header['slice_code'] = 0
@@ -301,9 +308,10 @@ def main():
     parser.add_argument("path", help="Folder location for the Bruker raw data", type=str)
     parser.add_argument("filename", help="Filename w/o extension to export NifTi image", type=str)
     parser.add_argument("-V", "--version", action="version", version="%(prog)s ("+__version__+")")
+    parser.add_argument("-o", "--orient", help="Reorientation to correct space", action='store_true', default=0)
     args = parser.parse_args()
 
-    img = BrukerRawData(args.path, args.pid)
+    img = BrukerRawData(args.path, args.pid, ori=args.orient)
     img.nii.to_filename(args.filename)
 
 if __name__ == '__main__':
