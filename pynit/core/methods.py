@@ -18,9 +18,9 @@ from subprocess import PIPE, Popen
 from matplotlib import colors
 
 # Network analysis
-import networkx as nx
-import bct
-import community
+# import networkx as nx
+# import bct
+# import community
 
 try:
     import SimpleITK as sitk
@@ -801,28 +801,28 @@ def copyfile(output_path, input_path, *args):
 
 
 # Networks
-def get_graph(dset, tmpobj, louvain=False):
-    G = nx.Graph()
-    G.add_nodes_from(zip(*tmpobj.label.values())[0][1:])
-    for roi in dset.columns:
-        for i, value in enumerate(dset[roi]):
-            if not np.isnan(value):
-                if value:
-                    G.add_edge(roi, dset.index[i], weight=value)
-    edges, weights = zip(*nx.get_edge_attributes(G, 'weight').items())
-
-    if louvain:
-        modules = dict(zip(dset.columns, bct.modularity_louvain_und(bct.binarize(dset.values, copy=True))[0]))
-    else:
-        modules = dict(zip(dset.columns, bct.modularity_und(dset.values)[0]))
-    comm_idx = dict()
-    for node, comm in modules.items():
-        if comm not in comm_idx.keys():
-            comm_idx[comm] = [node]
-        else:
-            comm_idx[comm].append(node)
-    colors_set = colors.XKCD_COLORS.keys()[::-1]
-    node_color_map = []
-    for node in G.nodes():
-        node_color_map.append(colors_set[modules[node]])
-    return G, edges, weights, modules, node_color_map, comm_idx, colors_set
+# def get_graph(dset, tmpobj, louvain=False):
+#     G = nx.Graph()
+#     G.add_nodes_from(zip(*tmpobj.label.values())[0][1:])
+#     for roi in dset.columns:
+#         for i, value in enumerate(dset[roi]):
+#             if not np.isnan(value):
+#                 if value:
+#                     G.add_edge(roi, dset.index[i], weight=value)
+#     edges, weights = zip(*nx.get_edge_attributes(G, 'weight').items())
+#
+#     if louvain:
+#         modules = dict(zip(dset.columns, bct.modularity_louvain_und(bct.binarize(dset.values, copy=True))[0]))
+#     else:
+#         modules = dict(zip(dset.columns, bct.modularity_und(dset.values)[0]))
+#     comm_idx = dict()
+#     for node, comm in modules.items():
+#         if comm not in comm_idx.keys():
+#             comm_idx[comm] = [node]
+#         else:
+#             comm_idx[comm].append(node)
+#     colors_set = colors.XKCD_COLORS.keys()[::-1]
+#     node_color_map = []
+#     for node in G.nodes():
+#         node_color_map.append(colors_set[modules[node]])
+#     return G, edges, weights, modules, node_color_map, comm_idx, colors_set
