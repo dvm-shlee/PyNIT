@@ -1291,7 +1291,9 @@ class Process(object):
                 step.set_command(cbv_cmd, stdout='cbv_out')
                 step.set_execmethod('temp_outputs.append([out, err])')
                 step.set_execmethod('pd.read_table(StringIO(cbv_out))', var='cbv_df')
-                step.set_execmethod('cbv_df[cbv_df.columns[:]]', var='cbv_df')
+                step.set_execmethod('cbv_df[cbv_df.columns[2:]]', var='cbv_df')
+                if list_of_roi:
+                    step.set_execmethod('list_roi', var='cbv_df.columns')
             else:
                 methods.raiseerror(messages.Errors.InputValueError, 'Please check input CBV parameters')
         step.set_execmethod('if len(df.columns):')
@@ -2222,7 +2224,7 @@ class Pipelines(object):
                                  logging=self._logging, viewer=self._viewer)
             command = 'self.selected = pipelines.{}(self._proc, self._tmpobj'.format(pipeline)
             if kwargs:
-                command += ', **{})'.format(kwargs)
+                command += ', **{})'.format('kwargs')
             else:
                 command += ')'
             exec(command)

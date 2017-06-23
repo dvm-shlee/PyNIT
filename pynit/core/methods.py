@@ -199,7 +199,7 @@ def parsing_atlas(path):
         label[0] = 'Clear Label', [.0, .0, .0]
 
         for idx, img in enumerate(list_of_rois):
-            imageobj = objects.ImageObj.load(os.path.join   (path, img))
+            imageobj = objects.ImageObj.load(os.path.join(path, img))
             affine.append(imageobj.affine)
             if not idx:
                 atlasdata = np.asarray(imageobj.dataobj)
