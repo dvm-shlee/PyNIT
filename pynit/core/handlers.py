@@ -5,7 +5,6 @@ import json
 import pickle
 import itertools
 
-# import pprint
 from shutil import rmtree, copy
 from collections import namedtuple
 import copy as ccopy
@@ -262,17 +261,6 @@ class Project(object):
                 self.scan_prj()
         if len(self.__df):
             self.__empty_project = False
-
-    # def import_data(self, step_path, filters, group_name): #TODO: need to design to initiate group project
-    #     """ Import data from other Project instance
-    #     Convert empty project to grouped project for multiple cohort data analysis
-    #     :return:
-    #     """
-    #     if self._groupprj:
-    #         pass
-    #     else:
-    #         print('This method only allows to use gruop projects')
-    #     return
 
     def save_df(self, dc_idx):
         """Save Dataframe to pickle file
@@ -1192,7 +1180,12 @@ class Process(object):
             else:
                 self.logger.debug('TypeError on input ort.')
         if mask:                            # set mask
-            step.set_staticinput(name='mask', value=mask)
+            if os.path.isfile(mask):
+                step.set_staticinput(name='mask', value=mask)
+            elif os.path.isdir(mask):
+                step.set_input(name='mask', input_path=mask, static=True, side=True)
+            else:
+                pass
             cmd.append('-mask {mask}')
         if fwhm:                            # set smoothness
             step.set_staticinput(name='fwhm', value=fwhm)

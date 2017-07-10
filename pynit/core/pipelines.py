@@ -91,11 +91,11 @@ class A_fMRI_preprocess(PipeTemplate):
         else:
             self.proc.afni_SliceTimingCorrection(self.func, surfix=self.surfix)
         # Motion correction
-        self.proc.afni_MotionCorrection(self.proc.steps[6], surfix=self.surfix) # 7
+        self.proc.afni_MotionCorrection(self.proc.steps[6], 0, surfix=self.surfix) # 7
         # Skull stripping all functional data
         self.proc.afni_SkullStripAll(self.proc.steps[7], self.proc.steps[2], surfix=self.surfix) # 8
         # Signal processing
-        self.proc.afni_SignalProcessing(self.proc.steps[8], ort=self.proc.step[7], fwhm=self.fwhm, dt=self.tr,
+        self.proc.afni_SignalProcessing(self.proc.steps[8], ort=self.proc.steps[7], fwhm=self.fwhm, dt=self.tr,
                                         mask=self.tmpobj.mask.get_filename(), bpass=self.bpass,
                                         surfix=self.surfix)  # 9
         # Apply coregistration transform matrix to all functional data
@@ -104,6 +104,34 @@ class A_fMRI_preprocess(PipeTemplate):
         self.proc.afni_SpatialNorm(self.proc.steps[3], self.tmpobj) # 11
         self.proc.afni_ApplySpatialNorm(self.proc.steps[9], self.proc.steps[11], surfix=self.surfix)  # 12
         self.proc.afni_ROIStats(self.proc.steps[12], self.tmpobj, option=self.option, surfix=self.surfix)
+        # if self.cbv:
+        #     self.proc.afni_ApplyCoregAll(self.cbv, self.proc.steps[5], surfix='cbv') # 12
+        #     self.proc.afni_ApplySpatialNorm(self.proc.steps[12], self.proc.steps[11], surfix='cbv') # 13
+
+    def pipe_04_Preprocessing_3d_restingstate_data(self):
+        # Skull stripping
+        self.proc.afni_SkullStrip(self.anat, self.proc.steps[0]) # 3, 4
+        # Coregistration
+        self.proc.afni_Coreg(self.proc.steps[3], self.proc.steps[4], surfix=self.surfix) # 5
+        # Slice timing correction
+        if self.tr or self.tpattern: # 6
+            self.proc.afni_SliceTimingCorrection(self.func, tr=self.tr, tpattern=self.tpattern, surfix=self.surfix)
+        else:
+            self.proc.afni_SliceTimingCorrection(self.func, surfix=self.surfix)
+        # Motion correction
+        self.proc.afni_MotionCorrection(self.proc.steps[6], 0, surfix=self.surfix) # 7
+        # Skull stripping all functional data
+        self.proc.afni_SkullStripAll(self.proc.steps[7], self.proc.steps[2], surfix=self.surfix) # 8
+        # Signal processing
+        self.proc.afni_SignalProcessing(self.proc.steps[8], ort=self.proc.steps[7], fwhm=self.fwhm, dt=self.tr,
+                                        mask=self.proc.steps[2], bpass=self.bpass,
+                                        surfix=self.surfix)  # 9
+        # Apply coregistration transform matrix to all functional data
+        self.proc.afni_ApplyCoregAll(self.proc.steps[9], self.proc.steps[5], surfix=self.surfix) # 10
+        # Spatial normalization
+        self.proc.ants_SpatialNorm(self.proc.steps[3], self.tmpobj) # 11
+        self.proc.ants_ApplySpatialNorm(self.proc.steps[9], self.proc.steps[11], surfix=self.surfix)  # 12
+        self.proc.afni_ROIStats(self.proc.steps[12], self.tmpobj, option='bilateral', surfix=self.surfix)
         # if self.cbv:
         #     self.proc.afni_ApplyCoregAll(self.cbv, self.proc.steps[5], surfix='cbv') # 12
         #     self.proc.afni_ApplySpatialNorm(self.proc.steps[12], self.proc.steps[11], surfix='cbv') # 13
@@ -177,24 +205,24 @@ class B_evoked_fMRI_analysis(PipeTemplate):
             step = [step for step in self.proc.steps if self.surfix in step and 'ClusteredMask' in step][0]
             self.proc.afni_ROIStats(self.proc.steps[0], step, clip_range=self.crop, option=self.option,
                                     cbv=self.cbv, surfix=self.surfix)
-
-class C_rsfMRI_analysis(PipeTemplate):
-    def __init__(self, proc, tmpobj, option=None, surfix='func'):
-        """Collection of rsfMRI analysis pipelines for Shihlab at UNC
-        Author  : SungHo Lee(shlee@unc.edu)
-        Revised : June.23rd.2017
-
-        Parameters:
-            option  : str
-                option for ROIs extraction ('bilateral', 'merge', or 'contra')
-            surfix  : str
-                """
-        # Define attributes
-        self.tmpobj = tmpobj
-        self.proc = proc
-        self.option = option
-        self.surfix = surfix
-
-    def pipe_01_Extract_Timecourse(self):
-        # Perform GLM analysis
-        self.proc.afni_ROIStats(self.proc.steps[0], self.tmpobj, option=self.option, surfix=self.surfix)
+#
+# class C_rsfMRI_analysis(PipeTemplate):
+#     def __init__(self, proc, tmpobj, option=None, surfix='func'):
+#         """Collection of rsfMRI analysis pipelines for Shihlab at UNC
+#         Author  : SungHo Lee(shlee@unc.edu)
+#         Revised : June.23rd.2017
+#
+#         Parameters:
+#             option  : str
+#                 option for ROIs extraction ('bilateral', 'merge', or 'contra')
+#             surfix  : str
+#                 """
+#         # Define attributes
+#         self.tmpobj = tmpobj
+#         self.proc = proc
+#         self.option = option
+#         self.surfix = surfix
+#
+#     def pipe_01_Extract_Timecourse(self):
+#         # Perform GLM analysis
+#         self.proc.afni_ROIStats(self.proc.steps[0], self.tmpobj, option=self.option, surfix=self.surfix)
