@@ -205,24 +205,25 @@ class B_evoked_fMRI_analysis(PipeTemplate):
             step = [step for step in self.proc.steps if self.surfix in step and 'ClusteredMask' in step][0]
             self.proc.afni_ROIStats(self.proc.steps[0], step, clip_range=self.crop, option=self.option,
                                     cbv=self.cbv, surfix=self.surfix)
-#
-# class C_rsfMRI_analysis(PipeTemplate):
-#     def __init__(self, proc, tmpobj, option=None, surfix='func'):
-#         """Collection of rsfMRI analysis pipelines for Shihlab at UNC
-#         Author  : SungHo Lee(shlee@unc.edu)
-#         Revised : June.23rd.2017
-#
-#         Parameters:
-#             option  : str
-#                 option for ROIs extraction ('bilateral', 'merge', or 'contra')
-#             surfix  : str
-#                 """
-#         # Define attributes
-#         self.tmpobj = tmpobj
-#         self.proc = proc
-#         self.option = option
-#         self.surfix = surfix
-#
-#     def pipe_01_Extract_Timecourse(self):
-#         # Perform GLM analysis
-#         self.proc.afni_ROIStats(self.proc.steps[0], self.tmpobj, option=self.option, surfix=self.surfix)
+
+
+class C_rsfMRI_analysis(PipeTemplate):
+    def __init__(self, proc, tmpobj, option=None, surfix='func'):
+        """Collection of rsfMRI analysis pipelines for Shihlab at UNC
+        Author  : SungHo Lee(shlee@unc.edu)
+        Revised : June.23rd.2017
+
+        Parameters:
+            option  : str
+                option for ROIs extraction ('bilateral', 'merge', or 'contra')
+            surfix  : str
+                """
+        # Define attributes
+        self.tmpobj = tmpobj
+        self.proc = proc
+        self.option = option
+        self.surfix = surfix
+
+    def pipe_01_Extract_Timecourse(self):
+        # Perform GLM analysis
+        self.proc.afni_ROIStats(self.proc.steps[0], self.tmpobj, option=self.option, surfix=self.surfix)

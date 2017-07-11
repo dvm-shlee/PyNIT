@@ -1,33 +1,18 @@
 import os
 import re
 import sys
-import json
 import pickle
-import itertools
-
-from shutil import rmtree, copy
 from collections import namedtuple
-import copy as ccopy
-
-# Multiprocessing module
 import multiprocessing
 from multiprocessing.pool import ThreadPool
 
-# Import pandas
-import pandas as pd
-
-# Import internal modules
-from .objects import Reference, Template
-from .processors import TempFile
-from .deprecated import Interface
-
-import messages
-import methods
-import tools
+from ..core import messages
+from ..core import methods
+from ..core import tools
+from .images import TempFile
 
 # Import hidden modules
-import pipelines
-from .methods import np
+import numpy as np
 from tempfile import mkdtemp
 from StringIO import StringIO
 from time import sleep
@@ -47,572 +32,475 @@ except:
     pass
 
 
-class Project(object):
-    """Project handler
+def check_dataclass(datatype):
+    if os.path.exists(datatype):
+        dataclass = 1
+        datatype = methods.path_splitter(datatype)
+        datatype = datatype[-1]
+    else:
+        dataclass = 0
+    return dataclass, datatype
+
+
+def get_step_name(procobj, step, results=False, verbose = None):
+    if results:
+        idx = 2
+    else:
+        idx = 1
+    processing_path = os.path.join(procobj._prjobj.path, procobj._prjobj.ds_type[idx], procobj.processing)
+    executed_steps = [f for f in os.listdir(processing_path) if os.path.isdir(os.path.join(processing_path, f))]
+    if len(executed_steps):
+        overlapped = [old_step for old_step in executed_steps if step in old_step]
+        if len(overlapped):
+            if verbose:
+                print('Notice: existing path')
+            checked_files = []
+            for f in os.walk(os.path.join(processing_path, overlapped[0])):
+                checked_files.extend(f[2])
+            if len(checked_files):
+                if verbose:
+                    print('Notice: Last step path is not empty')
+            return overlapped[0]
+        else:
+            return "_".join([str(len(executed_steps) + 1).zfill(3), step])
+    else:
+        if verbose:
+            print('The pipeline [{pipeline}] is initiated'.format(pipeline=procobj.processing))
+        return "_".join([str(1).zfill(3), step])
+
+
+class Step(object):
+    """ Template for a processing step
+
+    This class simply allows you to design processing steps, that needs to combine multiple command line tools in
+    several fMRI imaging package such as AFNI, ANTs, and FSL.
+    The fundamental mechanism is that by applying given inputs, outputs, and command, this class generating
+    customized function and executed it.
+
+    - data structure -
+    'dataset'   : the template that storing the structure of an input source
+    'oppset'    : the template that storing the structure of an output parameter, such as motion parameter
+                and transformation profiles.
+    'cmdset'    : the template that storing the structure of executing commands including variables
+
     """
+    dataset = namedtuple('Dataset', ['name', 'input_path', 'static'])       # dataset template
+    oppset = namedtuple('OutputParam', ['name', 'prefix', 'ext'])           # output_param template
+    cmdset = namedtuple('Command', ['name', 'command', 'option'])           # command template
+    mthset = namedtuple('Method', ['name', 'args', 'kwargs'])               # method template
 
-    def __init__(self, project_path, ds_ref='NIRAL', img_format='NifTi-1', **kwargs):
-        """Load and initiate the project
+    def __init__(self, procobj, subjects=None, sessions=None):
+        """Initiate Step class
 
-        :param project_path: str, Path of particular project
-        :param ds_ref: str, Reference of data structure (default: 'NIRAL')
-        :param img_format: str, Reference img format (default: 'NifTi-1')
-        :param kwargs: dict, key arguments for options
+        :param procobj:
         """
-
-        # Display options for pandasDataframe
-        max_rows = 100
-        max_colwidth = 100
-        if kwargs:
-            if 'max_rows' in kwargs.keys():
-                max_rows = kwargs['max_rows']
-            if 'max_colwidth' in kwargs.keys():
-                max_colwidth = kwargs['max_colwidth']
-        pd.options.display.max_rows = max_rows
-        pd.options.display.max_colwidth = max_colwidth
-
-        # Define default attributes
-        self.single_session = False             # True if project has single session
-        self.__empty_project = False            # True if project folder is empty
-        self.__filters = [None] * 6
-        # Each values are represented subject, session, dtype(or pipeline), step(or results) file_tags, ignores
-
-        self.__path = project_path
-
-        # Set internal objects
-        self.__df = methods.DataFrame()
-
-        # Parsing the information from the reference
-        self.__ref = [ds_ref, img_format]
-        self.ref = Reference(*self.__ref)
-        self.img_ext = self.ref.imgext
-        self.ds_type = self.ref.ref_ds
-
-        # Define default filter values
-        self.__dc_idx = 0                       # Dataclass index
-        self.__ext_filter = self.img_ext        # File extension
-        self.__residuals = None
-
-        # Generate folders for dataclasses
-        methods.mk_main_folder(self)
-
-        # Scan project folder
-
-        try:
-            self.scan_prj()
-            self.apply()
-        except:
-            methods.raiseerror(messages.Errors.ProjectScanFailure, 'Error is occurred during a scanning.')
-
-    @property
-    def df(self):
-        """Dataframe for handling data structure
-
-        :return: pandas.DataFrame
-        """
-        columns = self.__df.columns
-        return self.__df.reset_index()[columns]
-
-    @property
-    def path(self):
-        """Project path
-
-        :return: str, path
-        """
-        return self.__path
-
-    @property
-    def dataclass(self):
-        """Dataclass index
-
-        :return: int, index
-        """
-        return self.ds_type[self.__dc_idx]
-
-    @dataclass.setter
-    def dataclass(self, idx):
-        """Setter method for dataclass
-
-        :param idx: int, index of dataclass
-        :return: None
-        """
-        if idx in range(3):
-            self.__dc_idx = idx
-            self.reset()
-            self.apply()
-        else:
-            methods.raiseerror(messages.Errors.InputDataclassError, 'Wrong dataclass index.')
-
-    @property
-    def subjects(self):
-        return self.__subjects
-
-    @property
-    def sessions(self):
-        return self.__sessions
-
-    @property
-    def dtypes(self):
-        return self.__dtypes
-
-    @property
-    def pipelines(self):
-        return self.__pipelines
-
-    @property
-    def steps(self):
-        return self.__steps
-
-    @property
-    def results(self):
-        return self.__results
-
-    @property
-    def filters(self):
-        return self.__filters
-
-    @property
-    def summary(self):
-        return self.__summary()
-
-    @property
-    def ext(self):
-        return self.__ext_filter
-
-    @ext.setter
-    def ext(self, value):
-        if type(value) == str:
-            self.__ext_filter = [value]
-        elif type(value) == list:
-            self.__ext_filter = value
-        elif not value:
-            self.__ext_filter = None
-        else:
-            methods.raiseerror(messages.Errors.InputTypeError,
-                               'Please use correct type for input.')
-        self.reset()
-        self.apply()
-
-    @property
-    def ref_exts(self, type='all'):
-        """Reference extention handler
-
-        :param type: str, Choose one of 'all', 'img' or 'txt'
-        :return: list, list of extensions
-        """
-        img_ext = self.ref.img.values()
-        txt_ext = self.ref.txt.values()
-        all_ext = img_ext+txt_ext
-        if type in ['all', 'img', 'txt']:
-            if type == 'all':
-                output = all_ext
-            elif type == 'img':
-                output = img_ext
-            elif type == 'txt':
-                output = txt_ext
+        self._procobj = procobj                         # load Process object
+        self._processing = procobj.processing           # read Process name
+        self._tempfiles = []                            # temp file handler
+        self._mainset = None                            # main input handler
+        self._sidesets = []                             # side inputs handler
+        self._staticinput = {}                          # static input handler
+        self._outparam = {}                             # output_param handler
+        self._cmdstdout = []                            # cmdstdout handler
+        if subjects:
+            residuals = [subj for subj in subjects if subj not in procobj.subjects]
+            if len(residuals):
+                methods.raiseerror(messages.Errors.InputValueError,
+                                   '{} is(are) not available subject(s)')
             else:
-                output = None
-            return list(itertools.chain.from_iterable(output))
+                self._subjects = subjects
         else:
-            methods.raiseerror(messages.Errors.InputTypeError,
-                               "only one of the value in ['all'.'img'.'txt'] is available for type.\n")
-
-    def reload(self):
-        """Reload dataset
-
-        :return: None
-        """
-        self.reset(rescan=True)
-        self.apply()
-
-    def reset(self, rescan=False, verbose=False):
-        """Reset DataFrame
-
-        :param rescan: boolean, Choose if you want to re-scan all dataset
-        :param verbose: boolean
-        :return: None
-        """
-
-        if rescan:
-            for i in range(2):
-                self.__dc_idx = i+1
-                self.scan_prj()
-                if self.__empty_project:
-                    if verbose:
-                        print("Dataclass '{}' is Empty".format(self.ds_type[self.__dc_idx]))
-            self.__dc_idx = 0
-            self.scan_prj()
-        else:
-            prj_file = os.path.join(self.__path, self.ds_type[self.__dc_idx], '.class_dataframe')
-            try:
-                with open(prj_file, 'r') as f:
-                    self.__df = pickle.load(f)
-                if self.__dc_idx == 0:
-                    if len(self.__df.columns) == 4:
-                        self.single_session = True
-                    else:
-                        self.single_session = False
+            self._subjects = procobj.subjects[:]            # load all subject list from process object
+        self._outputs = {}                              # output handler
+        try:
+            if sessions:
+                residuals = [sess for sess in sessions if sess not in procobj.sessions]
+                if len(residuals):
+                    methods.raiseerror(messages.Errors.InputValueError,
+                                       '{} is(are) not available session(s)')
                 else:
-                    if len(self.__df.columns) == 5:
-                        self.single_session = True
-                    else:
-                        self.single_session = False
-            except:
-                self.scan_prj()
-        if len(self.__df):
-            self.__empty_project = False
+                    self._sessions = sessions
+            else:
+                self._sessions = procobj.sessions[:]        # check single session or not
+        except:
+            self._sessions = None
+        self._commands = []                             # executing commands handler
+        self._filters = {'main':[], 'sides':{}, 'extra':{}}         # handler for project obj filtering
 
-    def save_df(self, dc_idx):
-        """Save Dataframe to pickle file
+    def set_variable(self, name, value=None):
+        """
 
-        :param dc_idx: idx, index in range(3)
+        :param name:
+        :param value:
+        :return:
+        """
+        self._filters['extra'][name] = value
+
+    def set_input(self, name, input_path, filters=None, static=False, side=False):
+        """Import input dataset
+
+        :param name: str, datatype or absolute path
+        :param input_path: str
+        :param filters: dict, kw_argment filters
+        :param static: boolean, True, if this object need to be looped, if not, only use first index
+        :param side: boolean, True, if this object is side prjobj
         :return: None
         """
-        dc_df = os.path.join(self.__path, self.ds_type[dc_idx], '.class_dataframe')
-        if os.path.exists(dc_df):
-            os.remove(dc_df)
-        with open(dc_df, 'wb') as f:
-            pickle.dump(self.__df, f, protocol=pickle.HIGHEST_PROTOCOL)
-
-    def reset_filters(self, ext=None):
-        """Reset filter - Clear all filter information and extension
-
-        :param ext: str, Filter parameter for file extension
-        :return: None
-        """
-        self.__filters = [None] * 6
-        if not ext:
-            self.ext = self.img_ext
+        dc, ipath = check_dataclass(input_path)
+        if side:
+            self._sidesets.append(self.dataset(name=name, input_path=ipath, static=static))
+            self._filters['sides'][name] = self.get_filtercode(str(dc), ipath, filters)
         else:
-            self.ext = ext
+            self._mainset = self.dataset(name=name, input_path=input_path, static=static)
+            self._filters['main'] = self.get_filtercode(str(dc), ipath, filters)
 
-    def scan_prj(self):
-        """Reload the Dataframe based on current set data class and extension
+    def set_staticinput(self, name, value):
+        """Import static file
 
-        :return: None
+        :param name:
+        :param value:
         """
-        # Parsing command works
-        self.__df, self.single_session, empty_prj = methods.parsing(self.path, self.ds_type, self.__dc_idx)
-        if not empty_prj:
-            self.__df = methods.initial_filter(self.__df, self.ds_type, self.ref_exts)
-            if len(self.__df):
-                self.__df = self.__df[methods.reorder_columns(self.__dc_idx, self.single_session)]
-            self.__empty_project = False
-            self.__update()
+        if isinstance(value, str):
+            if os.path.exists(value):
+                value = '"{}"'.format(value)
+            else:
+                value = '{}'.format(value)
+        self._staticinput[name] = value
+
+    def set_outparam(self, name, ext, prefix=None):
+        """This method set file name of output parameters
+
+        :param name     : str
+            Variables for parameter output file
+        :param ext      : str
+            Extension of the output file
+        :param prefix   : str
+            If prefix has value, add prefix to output file
+        """
+        self._outparam[name] = (self.oppset(name=name, prefix=prefix, ext=ext))
+
+    def set_execmethod(self, command, var=None, idx=None):
+        """Set structured command on command handler
+
+        :param command  : str
+            Structured command with input and output variables
+        :param var      : str
+            Name of variable
+        :param idx      : int
+            Index for replacing the commands on handler
+        :return:
+        """
+        if idx:
+            self._commands[idx] = (command, [var])
         else:
-            self.__empty_project = True
-        self.save_df(self.__dc_idx)
+            self._commands.append((command, [var]))
 
-    def set_filters(self, *args, **kwargs):
-        """Set filters
+    def set_command(self, command, verbose=False, idx=None, stdout=None ):
+        """Set structured command on command handler
 
-        :param args: str[, ], String arguments regarding hierarchical data structures
-        :param kwargs: key=value pair[, ], Key and value pairs for the filtering parameter on filename
-            :subparam file_tag: str or list of str, Keywords of interest for filename
-            :subparam ignore: str or list of str, Keywords of neglect for filename
-        :return: None
+        :param command  : str
+            Structured command with input and output variables
+        :param verbose  : boolean
+        :param idx      : int
+            Index for replacing the commands on handler
+        :param stdout   : str or None
+            if True, the input string can be used the variable for stand output results of a command
+        :return:
         """
-        self.reset_filters(self.ext)
-        pipe_filter = None
-        if kwargs:
-            for key in kwargs.keys():
-                if key == 'dataclass':
-                    self.dataclass = kwargs['dataclass']
-                elif key == 'ext':
-                    self.ext = kwargs['ext']
-                elif key == 'file_tag':
-                    if type(kwargs['file_tag']) == str:
-                        self.__filters[4] = [kwargs['file_tag']]
-                    elif type(kwargs['file_tag']) == list:
-                        self.__filters[4] = kwargs['file_tag']
+        tmpobjs = [obj.strip('{}') for obj in re.findall(r"[{\w'}]+", command) if obj[0] == '{' and obj[-1] == '}']
+        objs = []
+        for o in tmpobjs:
+            if "}{" in o:
+                objs.extend(o.split('}{'))
+            else:
+                objs.append(o)
+        total = dict([(sideobj.name, sideobj.static) for sideobj in self._sidesets])
+        total[self._mainset.name] = self._mainset.static
+        if stdout:
+            total[stdout] = False
+        self._cmdstdout.append(stdout)
+        try:
+            totalobjs = total.keys()[:]
+        except:
+            totalobjs = []
+
+        # Get list of residual inputs
+        residuals = [obj for obj in sorted(list(set(objs))) if obj not in totalobjs]
+        residuals = [obj for obj in residuals if 'temp' not in obj]
+        residuals = [obj for obj in residuals if 'output' not in obj]
+        residuals = [obj for obj in residuals if 'prefix' not in obj]
+        residuals = [obj for obj in residuals if 'sub_path' not in obj]
+        residuals = [obj for obj in residuals if obj not in self._staticinput.keys()]
+        residuals = [obj for obj in residuals if obj not in self._outparam.keys()]
+        residuals = [obj for obj in residuals if obj not in self._cmdstdout]
+
+        # Check accuracy
+        if len(residuals):
+            methods.raiseerror(ValueError, 'Too many inputs :{0}'.format(str(residuals)))
+        output = "'{0}'.format(".format(command)
+        str_format = []
+        for obj in objs:
+            if obj == 'output' or obj == 'prefix' or obj == 'sub_path':
+                str_format.append("{0}={0}".format(obj))
+            else:
+                if 'temp' in obj:
+                    str_format.append("{0}=os.path.join(temppath, '{0}.nii')".format(obj))
+                    self._tempfiles.append(obj)
+                elif obj in self._staticinput.keys():
+                    str_format.append("{0}={1}".format(obj, self._staticinput[obj]))
+                elif obj in self._outparam.keys():
+                    if self._outparam[obj].prefix:
+                        str_format.append("{0}='{1}_'+ methods.splitnifti(output)+'{2}'".format(obj,
+                                                                                                self._outparam[obj].prefix,
+                                                                                                self._outparam[obj].ext))
                     else:
-                        methods.raiseerror(messages.Errors.InputTypeError,
-                                                 'Please use correct input type for FileTag')
-                elif key == 'ignore':
-                    if type(kwargs['ignore']) == str:
-                        self.__filters[5] = [kwargs['ignore']]
-                    elif type(kwargs['ignore']) == list:
-                        self.__filters[5] = kwargs['ignore']
-                    else:
-                        methods.raiseerror(messages.Errors.InputTypeError,
-                                                 'Please use correct input type for FileTag to ignore')
+                        str_format.append("{0}=methods.splitnifti(output)+'{1}'".format(obj, self._outparam[obj].ext))
                 else:
-                    methods.raiseerror(messages.Errors.KeywordError,
-                                             "'{key}' is not correct kwarg")
+                    try:
+                        if total[obj]:
+                            str_format.append("{0}={1}.Abspath".format(obj, obj))
+                        else:
+                            str_format.append("{0}={1}[i].Abspath".format(obj, obj))
+                    except:
+                        if obj in self._cmdstdout:
+                            str_format.append("{0}={1}".format(obj, obj))
+                        else:
+                            methods.raiseerror(messages.Errors.InputValueError, "Something wrong")
+
+        output = "{0}{1})".format(output, ", ".join(list(set(str_format))))
+        if idx:
+            self._commands[idx] = (output, stdout)
+        else:
+            self._commands.append((output, stdout))
+        if self._tempfiles:
+            self._tempfiles = sorted(list(set(self._tempfiles)))
+        if verbose:
+            return output
+
+    def get_inputcode(self):
+        """Put the set inputs values on the lists as a building block of customized function
+
+        :return: str
+        """
+        inputcode = []
+        mainobj = self._mainset
+        try:
+            sideobjs = self._sidesets[:]
+        except:
+            sideobjs = None
+        try:
+            if mainobj.static:
+                inputcode = ['{0} = self._prjobj({1})[0]'.format(mainobj.name, self._filters['main'])]
+            else:
+                inputcode = ['{0} = self._prjobj({1})'.format(mainobj.name, self._filters['main'])]
+        except:
+            methods.raiseerror(NameError, 'Main input is not defined')
+        if sideobjs:
+            for sideobj in sideobjs:
+                name = sideobj.name
+                if sideobj.static:
+                    inputcode.append('{0} = self._prjobj({1})[0]'.format(name, self._filters['sides'][name]))
+                else:
+                    inputcode.append('{0} = self._prjobj({1})'.format(name, self._filters['sides'][name]))
         else:
             pass
-        if args:
-            residuals = list(set(args))
-            if self.subjects:
-                subj_filter, residuals = methods.check_arguments(args, residuals, self.subjects)
-                if self.__filters[0]:
-                    self.__filters[0].extend(subj_filter)
-                else:
-                    self.__filters[0] = subj_filter[:]
-                if not self.single_session:
-                    sess_filter, residuals = methods.check_arguments(args, residuals, self.sessions)
-                    if self.__filters[1]:
-                        self.__filters[1].extend(sess_filter)
+        if self._filters['extra']:
+            for extra in sorted(self._filters['extra'].keys()):
+                inputcode.append('{0} = {1}'.format(extra, self._filters['extra'][extra]))
+        return inputcode
+
+    def get_filtercode(self, dataclass, input_path, filters):
+        """Generate list of filtering based keywords based on set input values
+
+        :param dataclass:
+        :param input_path:
+        :param filters:
+        :return: str
+        """
+        if dataclass == '0':
+            output_filters = [dataclass, '"{0}"'.format(input_path)]
+        else:
+            output_filters = [dataclass, '"{0}"'.format(self._processing), '"{0}"'.format(input_path)]
+        if self._sessions:
+            output_filters.extend(['subj', 'sess'])
+        else:
+            output_filters.extend(['subj'])
+        if isinstance(filters, dict):
+            kwargs = ['{key}="{value}"'.format(key=k, value=v) for k, v in filters.items() if isinstance(v, str)]
+            output_filters.extend(kwargs)
+            kwargs = ['{key}={value}'.format(key=k, value=v) for k, v in filters.items() if isinstance(v, list)]
+            output_filters.extend(kwargs)
+        else:
+            pass
+        return ', '.join(output_filters)
+
+    def get_executefunc(self, name, verbose=False):
+        """Step function generator
+
+        :param name: str
+        :param verbose: boolean
+        :return: str
+        """
+        # Define inputs
+        filters = ['\t{}'.format(input) for input in self.get_inputcode()]
+
+        # Depends on the main input type (static or multiple), different structure of function are generated
+        if self._mainset.static:    # if main input datasets only need to process first files for each subject
+            body = ['\toutputs = []',
+                    '\toutput = os.path.join(sub_path, {0}.Filename)'.format(self._mainset.name),
+                    '\tprefix_filter = methods.splitnifti(os.path.basename(output))',
+                    '\tprefix = methods.splitnifti(output)',
+                    '\tflist = [f for f in os.listdir(sub_path)]',
+                    '\tif len([f for f in flist if prefix_filter in f]):',
+                    '\t\tself.logger.info("The File[{0}] is already exist.".format(output))',
+                    '\telse:']
+            for cmd, stdout in self._commands:
+                if isinstance(stdout, str):
+                    body += ['\t\t{0}, err = methods.shell({1})'.format(stdout, cmd)]
+                elif isinstance(stdout, list):
+                    if stdout[0]:
+                        body += ['\t\t{0} = {1}'.format(stdout[0], cmd)]
                     else:
-                        self.__filters[1] = sess_filter[:]
+                        body += ['\t\t{0}'.format(cmd)]
                 else:
-                    self.__filters[1] = None
+                    body += ['\t\toutputs.append(methods.shell({0}))'.format(cmd)]
+            if self._tempfiles:
+                temp = ['\ttemppath = mkdtemp()',
+                        '\tself.logger.info("TempFolder[{0}] is generated".format(temppath))']
+                close = ['\trmtree(temppath)',
+                         '\tself.logger.info("TempFolder[{0}] is closed".format(temppath))']
+                body = temp + body + close
             else:
-                self.__filters[0] = None
-                self.__filters[1] = None
-            if self.__dc_idx == 0:
-                if self.dtypes:
-                    dtyp_filter, residuals = methods.check_arguments(args, residuals, self.dtypes)
-                    if self.__filters[2]:
-                        self.__filters[2].extend(dtyp_filter)
+                pass
+        else:   # if main input datasets need to be looped for each subject
+            loop = ['\toutputs = []',
+                    '\tfor i in progressbar(range(len({0})), desc="Files", leave=False):'.format(self._mainset.name)]
+            body = ['\t\ttemp_outputs = []',
+                    '\t\toutput = os.path.join(sub_path, {0}[i].Filename)'.format(self._mainset.name),
+                    '\t\tprefix_filter = methods.splitnifti(os.path.basename(output))',
+                    '\t\tprefix = methods.splitnifti(output)',
+                    '\t\tflist = [f for f in os.listdir(sub_path)]',
+                    '\t\tif len([f for f in flist if prefix_filter in f]):',
+                    '\t\t\tself.logger.info("The File[{0}] is already exist.".format(output))',
+                    '\t\t\tsleep(0.08)',
+                    '\t\telse:']
+            for cmd, stdout in self._commands:
+                if isinstance(stdout, str):
+                    body += ['\t\t\t{0}, err = methods.shell({1})'.format(stdout, cmd)]
+                elif isinstance(stdout, list):
+                    if stdout[0]:
+                        body += ['\t\t\t{0} = {1}'.format(stdout[0], cmd)]
                     else:
-                        self.__filters[2] = dtyp_filter[:]
+                        body += ['\t\t\t{0}'.format(cmd)]
                 else:
-                    self.__filters[2] = None
-                self.__filters[3] = None
-            elif self.__dc_idx == 1:
-                if self.pipelines:
-                    pipe_filter, residuals = methods.check_arguments(args, residuals, self.pipelines)
-                    if self.__filters[2]:
-                        self.__filters[2].extend(pipe_filter)
-                    else:
-                        self.__filters[2] = pipe_filter[:]
-                else:
-                    self.__filters[2] = None
-                if self.steps:
-                    step_filter, residuals = methods.check_arguments(args, residuals, self.steps)
-                    if self.__filters[3]:
-                        self.__filters[3].extend(step_filter)
-                    else:
-                        self.__filters[3] = step_filter
-                else:
-                    self.__filters[3] = None
+                    body += ['\t\t\ttemp_outputs.append(methods.shell({0}))'.format(cmd)]
+                self._procobj.logger.info('"{}" command is executed for subjects'.format(cmd))
+            body += ['\t\toutputs.append(temp_outputs)']
+            if self._tempfiles:
+                temp = ['\t\ttemppath = mkdtemp()',
+                        '\t\tself.logger.info("TempFolder[{0}] is generated".format(temppath))']
+                close = ['\t\trmtree(temppath)',
+                         '\t\tself.logger.info("TempFolder[{0}] is closed".format(temppath))']
+                body = loop + temp + body + close
             else:
-                if self.pipelines:
-                    pipe_filter, residuals = methods.check_arguments(args, residuals, self.pipelines)
-                    if self.__filters[2]:
-                        self.__filters[2].extend(pipe_filter)
-                    else:
-                        self.__filters[2] = pipe_filter[:]
-                else:
-                    self.__filters[2] = None
-                if self.results:
-                    rslt_filter, residuals = methods.check_arguments(args, residuals, self.results)
-                    if self.__filters[3]:
-                        self.__filters[3].extend(rslt_filter)
-                    else:
-                        self.__filters[3] = rslt_filter[:]
-                else:
-                    self.__filters[3] = None
+                body = loop + body
 
-            if len(residuals):
-                if self.dataclass == self.ds_type[1]:
-                    if len(pipe_filter) == 1:
-                        dc_path = os.path.join(self.path, self.dataclass, pipe_filter[0])
-                        processed = os.listdir(dc_path)
-                        if len([step for step in processed if step in residuals]):
-                            methods.raiseerror(messages.Errors.NoFilteredOutput,
-                                               'Cannot find any results from [{residuals}]\n'
-                                               '\t\t\tPlease take a look if you had applied correct filter inputs'
-                                               ''.format(residuals=residuals))
-                    else:
-                        if not os.path.exists(os.path.join(self.path, self.dataclass, residuals[0])):
-                            # Unexpected error
-                            methods.raiseerror(messages.Errors.NoFilteredOutput,
-                                               'Uncertain exception occured, please report to Author (shlee@unc.edu)')
-                        else:
-                            # When Processing folder is empty
-                            self.__filters[2] = residuals
-                else:
-                    methods.raiseerror(messages.Errors.NoFilteredOutput,
-                                       'Wrong filter input:{residuals}'.format(residuals=residuals))
-            else:
-                self.__residuals = None
-
-    def apply(self):
-        """Applying all filters to current dataframe
-
-        :return: None
-        """
-        self.__df = self.applying_filters(self.__df)
-        self.__update()
-
-    def applying_filters(self, df):
-        """Applying current filters to the given dataframe
-
-        :param df: pandas.DataFrame
-        :return: pandas.DataFrame
-        """
-        if len(df):
-            if self.__filters[0]:
-                df = df[df.Subject.isin(self.__filters[0])]
-            if self.__filters[1]:
-                df = df[df.Session.isin(self.__filters[1])]
-            if self.__filters[2]:
-                if self.__dc_idx == 0:
-                    df = df[df.DataType.isin(self.__filters[2])]
-                else:
-                    df = df[df.Pipeline.isin(self.__filters[2])]
-            if self.__filters[3]:
-                if self.__dc_idx == 1:
-                    df = df[df.Step.isin(self.__filters[3])]
-                elif self.__dc_idx == 2:
-                    df = df[df.Result.isin(self.__filters[3])]
-                else:
-                    pass
-            if self.__filters[4] is not None:
-                file_tag = list(self.__filters[4])
-                df = df[df.Filename.str.contains('|'.join(file_tag))]
-            if self.__filters[5] is not None:
-                ignore = list(self.__filters[5])
-                df = df[~df.Filename.str.contains('|'.join(ignore))]
-            if self.ext:
-                df = df[df['Filename'].str.contains('|'.join([r"{ext}$".format(ext=ext) for ext in self.ext]))]
-            return df
+        if self._sessions: # Check the project is multi-session
+            header = ['def {0}(self, output_path, idx, subj, sess):'.format(name),
+                      '\tsub_path = os.path.join(output_path, subj, sess)',
+                      '\tmethods.mkdir(sub_path)']
         else:
-            return df
-
-    def run(self, command, *args, **kwargs): #TODO: This method will be deprecated
-        """Execute processing tools
-        """
-        if command in dir(Interface):
-            try:
-                if os.path.exists(args[0]):
-                    pass
-                else:
-                    getattr(Interface, command)(*args, **kwargs)
-            except:
-                exec('help(Interface.{})'.format(command))
-                print(Interface, command, args, kwargs)
-                raise messages.CommandExecutionFailure
-        else:
-            raise messages.NotExistingCommand
-
-    def __summary(self):
-        """Print summary of current project
-        """
-        summary = '** Project summary'
-        summary = '{}\nProject: {}'.format(summary, os.path.basename(self.path))
-        if self.__empty_project:
-            summary = '{}\n[Empty project]'.format(summary)
-        else:
-            summary = '{}\nSelected DataClass: {}\n'.format(summary, self.dataclass)
-            if self.pipelines:
-                summary = '{}\nApplied Pipeline(s): {}'.format(summary, self.pipelines)
-            if self.steps:
-                summary = '{}\nApplied Step(s): {}'.format(summary, self.steps)
-            if self.results:
-                summary = '{}\nProcessed Result(s): {}'.format(summary, self.results)
-            if self.subjects:
-                summary = '{}\nSubject(s): {}'.format(summary, self.subjects)
-            if self.sessions:
-                summary = '{}\nSession(s): {}'.format(summary, self.sessions)
-            if self.dtypes:
-                summary = '{}\nDataType(s): {}'.format(summary, self.dtypes)
-            if self.single_session:
-                summary = '{}\nSingle session dataset'.format(summary)
-            summary = '{}\n\nApplied filters'.format(summary)
-            if self.__filters[0]:
-                summary = '{}\nSet subject(s): {}'.format(summary, self.__filters[0])
-            if self.__filters[1]:
-                summary = '{}\nSet session(s): {}'.format(summary, self.__filters[1])
-            if self.__dc_idx == 0:
-                if self.__filters[2]:
-                    summary = '{}\nSet datatype(s): {}'.format(summary, self.__filters[2])
-            else:
-                if self.__filters[2]:
-                    summary = '{}\nSet Pipeline(s): {}'.format(summary, self.__filters[2])
-                if self.__filters[3]:
-                    if self.__dc_idx == 1:
-                        summary = '{}\nSet Step(s): {}'.format(summary, self.__filters[3])
-                    else:
-                        summary = '{}\nSet Result(s): {}'.format(summary, self.__filters[3])
-            if self.__ext_filter:
-                summary = '{}\nSet file extension(s): {}'.format(summary, self.__ext_filter)
-            if self.__filters[4]:
-                summary = '{}\nSet file tag(s): {}'.format(summary, self.__filters[4])
-            if self.__filters[5]:
-                summary = '{}\nSet ignore(s): {}'.format(summary, self.__filters[5])
-        print(summary)
-
-    def __update(self):
-        """Update attributes of Project object based on current set filter information
-        """
-        if len(self.df):
-            try:
-                self.__subjects = sorted(list(set(self.df.Subject.tolist())))
-                if self.single_session:
-                    self.__sessions = None
-                else:
-                    self.__sessions = sorted(list(set(self.df.Session.tolist())))
-                if self.__dc_idx == 0:
-                    self.__dtypes = sorted(list(set(self.df.DataType.tolist())))
-                    self.__pipelines = None
-                    self.__steps = None
-                    self.__results = None
-                elif self.__dc_idx == 1:
-                    self.__dtypes = None
-                    self.__pipelines = sorted(list(set(self.df.Pipeline.tolist())))
-                    self.__steps = sorted(list(set(self.df.Step.tolist())))
-                    self.__results = None
-                elif self.__dc_idx == 2:
-                    self.__dtypes = None
-                    self.__pipelines = sorted(list(set(self.df.Pipeline.tolist())))
-                    self.__results = sorted(list(set(self.df.Result.tolist())))
-                    self.__steps = None
-            except:
-                methods.raiseerror(messages.Errors.UpdateAttributesFailed,
-                                   "Error occured during update project's attributes")
-        else:
-            self.__subjects = None
-            self.__sessions = None
-            self.__dtypes = None
-            self.__pipelines = None
-            self.__steps = None
-            self.__results = None
-            self.__empty_project = True
-
-    def __call__(self, dc_id, *args, **kwargs):
-        """Return DataFrame followed applying filters
-        """
-        prj = ccopy.copy(self)
-        prj.dataclass = dc_id
-        prj.set_filters(*args, **kwargs)
-        prj.apply()
-        return prj
-
-    def __repr__(self):
-        """Return absolute path for current filtered dataframe
-        """
-        if self.__empty_project:
-            return str(self.summary)
-        else:
-            return str(self.df.Abspath)
-
-    def __getitem__(self, index):
-        """Return particular data based on input index
-        """
-        if self.__empty_project:
+            header = ['def {0}(self, output_path, idx, subj):'.format(name),
+                      '\tsub_path = os.path.join(output_path, subj)',
+                      '\tmethods.mkdir(sub_path)']
+        footer = ['\treturn outputs\n']
+        output = header + filters + body + footer
+        output = '\n'.join(output)
+        if verbose:
+            print(unicode(output, "utf-8"))
             return None
         else:
-            return self.df.loc[index]
+            return output
 
-    def __iter__(self):
-        """Iterator for dataframe
-        """
-        if self.__empty_project:
-            raise messages.EmptyProject
-        else:
-            for row in self.df.iterrows():
-                yield row
+    def run(self, step_name, surfix, debug=False):
+        """Generate loop commands for step
 
-    def __len__(self):
-        """Return number of data
+        :param step_name: str
+        :param surfix: str
+        :return: None
         """
-        if self.__empty_project:
-            return 0
+        if debug:
+            return self.get_executefunc('debug', verbose=True)
         else:
-            return len(self.df)
+            self._procobj._prjobj.reload()
+            if self._procobj._parallel:
+                thread = multiprocessing.cpu_count()
+            else:
+                thread = 1
+            pool = ThreadPool(thread)
+            self._procobj.logger.info("Step:[{0}] is executed with {1} thread(s).".format(step_name, thread))
+            output_path = self._procobj.init_step("{0}-{1}".format(step_name, surfix))
+            if self._sessions:
+                for idx, subj in enumerate(progressbar(self._subjects, desc='Subjects')):
+                    methods.mkdir(os.path.join(output_path, subj))
+                    iteritem = [(self._procobj, output_path, idx, subj, sess) for sess in self._sessions]
+                    for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Sessions',
+                                              leave=False, total=len(iteritem)):
+                        if len(outputs):
+                            if isinstance(outputs[0], list):
+                                all_outputs = []
+                                for output in outputs:
+                                    all_outputs.extend(['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in output])
+                                outputs = all_outputs[:]
+                            else:
+                                outputs = ['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in outputs if outputs]
+                            with open(os.path.join(output_path, 'stephistory.log'), 'a') as f:
+                                f.write('\n\n'.join(outputs))
+                        else:
+                            pass
+            else:
+                dirs = [os.path.join(output_path, subj) for subj in self._subjects]
+                methods.mkdir(dirs)
+                iteritem = [(self._procobj, output_path, idx, subj) for idx, subj in enumerate(self._subjects)]
+                for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Subjects',
+                                          total=len(iteritem)):
+                    if outputs != None:
+                        if len(outputs):
+                            if isinstance(outputs[0], list):
+                                all_outputs = []
+                                for output in outputs:
+                                    all_outputs.extend(['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in output])
+                                outputs = all_outputs[:]
+                            else:
+                                outputs = ['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in outputs]
+                            with open(os.path.join(output_path, 'stephistory.log'), 'a') as f:
+                                f.write('\n\n'.join(outputs))
+                        else:
+                            pass
+                    else:
+                        pass
+            self._procobj._history[os.path.basename(output_path)] = output_path
+            self._procobj.save_history()
+            self._procobj._prjobj.reload()
+            return output_path
+
+    def worker(self, args):
+        """The worker for parallel computing
+
+        :param args: list, Arguments for step execution
+        :return: str
+        """
+        funccode = self.get_executefunc('stepexec')
+        output = None
+        exec(funccode)    # load step function on memory
+        try:
+            exec('output = stepexec(*args)')    # execute function
+        except Exception as e:
+            print(e)
+        # except IndexError as e:
+        #     methods.raiseerror(ImportError,
+        #                        '[{}] Parsing input dataset Failed, Please check you put the correct inputs'.format(e))
+        return output
 
 
 class Process(object):
@@ -1349,27 +1237,7 @@ class Process(object):
         :param tmpobj:
         :param surfix:
         :return:
-        This step applying the non-linear transform matrix from the anatomical image to functional images
-
-        :param func     :   str or int
-            Folder name of functional data in Data class or absolute path
-            If you put integer, the path will inputted by indexing the executed path with given integer
-
-        :param warped   :   str or int
-            Folder name of anatomical data in Data class or absolute path
-            If you put integer, the path will inputted by indexing the executed path with given integer
-
-        :param surfix   :   str
-            The given string will be set as surfix of output folder
-
-        :param kwargs   :   dict
-            This arguments will be used for filtering the input data, available keywords are as below
-            'subs', 'sess', 'file_tag', 'ignore', 'ext'
-
-        :return:
-            Output path as dictionary format
         """
-
 
         parallel = False
         if self._parallel:
@@ -1653,7 +1521,7 @@ class Process(object):
     def steps(self):
         return [self._history[step] for step in self.executed.values()]
 
-    def reset(self): #TODO: This is not work when new subjects are added
+    def reset(self):
         """reset subject and session information
 
         :return: None
@@ -1715,8 +1583,9 @@ class Process(object):
         :param name: str
         :return: str
         """
+
         if self._processing:
-            path = methods.get_step_name(self, name)
+            path = get_step_name(self, name)
             path = os.path.join(self._prjobj.path, self._prjobj.ds_type[1], self._processing, path)
             methods.mkdir(path)
             return path
@@ -1729,604 +1598,3 @@ class Process(object):
             pickle.dump(self._history, f)
         self.logger.info("History file is saved at '{0}'".format(history))
 
-
-class Step(object):
-    """ Template for a processing step
-
-    This class simply allows you to design processing steps, that needs to combine multiple command line tools in
-    several fMRI imaging package such as AFNI, ANTs, and FSL.
-    The fundamental mechanism is that by applying given inputs, outputs, and command, this class generating
-    customized function and executed it.
-
-    - data structure -
-    'dataset'   : the template that storing the structure of an input source
-    'oppset'    : the template that storing the structure of an output parameter, such as motion parameter
-                and transformation profiles.
-    'cmdset'    : the template that storing the structure of executing commands including variables
-
-    """
-    dataset = namedtuple('Dataset', ['name', 'input_path', 'static'])       # dataset template
-    oppset = namedtuple('OutputParam', ['name', 'prefix', 'ext'])           # output_param template
-    cmdset = namedtuple('Command', ['name', 'command', 'option'])           # command template
-    mthset = namedtuple('Method', ['name', 'args', 'kwargs'])               # method template
-
-    def __init__(self, procobj, subjects=None, sessions=None):
-        """Initiate Step class
-
-        :param procobj:
-        """
-        self._procobj = procobj                         # load Process object
-        self._processing = procobj.processing           # read Process name
-        self._tempfiles = []                            # temp file handler
-        self._mainset = None                            # main input handler
-        self._sidesets = []                             # side inputs handler
-        self._staticinput = {}                          # static input handler
-        self._outparam = {}                             # output_param handler
-        self._cmdstdout = []                            # cmdstdout handler
-        if subjects:
-            residuals = [subj for subj in subjects if subj not in procobj.subjects]
-            if len(residuals):
-                methods.raiseerror(messages.Errors.InputValueError,
-                                   '{} is(are) not available subject(s)')
-            else:
-                self._subjects = subjects
-        else:
-            self._subjects = procobj.subjects[:]            # load all subject list from process object
-        self._outputs = {}                              # output handler
-        try:
-            if sessions:
-                residuals = [sess for sess in sessions if sess not in procobj.sessions]
-                if len(residuals):
-                    methods.raiseerror(messages.Errors.InputValueError,
-                                       '{} is(are) not available session(s)')
-                else:
-                    self._sessions = sessions
-            else:
-                self._sessions = procobj.sessions[:]        # check single session or not
-        except:
-            self._sessions = None
-        self._commands = []                             # executing commands handler
-        self._filters = {'main':[], 'sides':{}, 'extra':{}}         # handler for project obj filtering
-
-    def set_variable(self, name, value=None):
-        """
-
-        :param name:
-        :param value:
-        :return:
-        """
-        self._filters['extra'][name] = value
-
-    def set_input(self, name, input_path, filters=None, static=False, side=False):
-        """Import input dataset
-
-        :param name: str, datatype or absolute path
-        :param input_path: str
-        :param filters: dict, kw_argment filters
-        :param static: boolean, True, if this object need to be looped, if not, only use first index
-        :param side: boolean, True, if this object is side prjobj
-        :return: None
-        """
-        dc, ipath = methods.check_dataclass(input_path)
-        if side:
-            self._sidesets.append(self.dataset(name=name, input_path=ipath, static=static))
-            self._filters['sides'][name] = self.get_filtercode(str(dc), ipath, filters)
-        else:
-            self._mainset = self.dataset(name=name, input_path=input_path, static=static)
-            self._filters['main'] = self.get_filtercode(str(dc), ipath, filters)
-
-    def set_staticinput(self, name, value):
-        """Import static file
-
-        :param name:
-        :param value:
-        """
-        if isinstance(value, str):
-            if os.path.exists(value):
-                value = '"{}"'.format(value)
-            else:
-                value = '{}'.format(value)
-        self._staticinput[name] = value
-
-    def set_outparam(self, name, ext, prefix=None):
-        """This method set file name of output parameters
-
-        :param name     : str
-            Variables for parameter output file
-        :param ext      : str
-            Extension of the output file
-        :param prefix   : str
-            If prefix has value, add prefix to output file
-        """
-        self._outparam[name] = (self.oppset(name=name, prefix=prefix, ext=ext))
-
-    def set_execmethod(self, command, var=None, idx=None):
-        """Set structured command on command handler
-
-        :param command  : str
-            Structured command with input and output variables
-        :param var      : str
-            Name of variable
-        :param idx      : int
-            Index for replacing the commands on handler
-        :return:
-        """
-        if idx:
-            self._commands[idx] = (command, [var])
-        else:
-            self._commands.append((command, [var]))
-
-    def set_command(self, command, verbose=False, idx=None, stdout=None ):
-        """Set structured command on command handler
-
-        :param command  : str
-            Structured command with input and output variables
-        :param verbose  : boolean
-        :param idx      : int
-            Index for replacing the commands on handler
-        :param stdout   : str or None
-            if True, the input string can be used the variable for stand output results of a command
-        :return:
-        """
-        tmpobjs = [obj.strip('{}') for obj in re.findall(r"[{\w'}]+", command) if obj[0] == '{' and obj[-1] == '}']
-        objs = []
-        for o in tmpobjs:
-            if "}{" in o:
-                objs.extend(o.split('}{'))
-            else:
-                objs.append(o)
-        total = dict([(sideobj.name, sideobj.static) for sideobj in self._sidesets])
-        total[self._mainset.name] = self._mainset.static
-        if stdout:
-            total[stdout] = False
-        self._cmdstdout.append(stdout)
-        try:
-            totalobjs = total.keys()[:]
-        except:
-            totalobjs = []
-
-        # Get list of residual inputs
-        residuals = [obj for obj in sorted(list(set(objs))) if obj not in totalobjs]
-        residuals = [obj for obj in residuals if 'temp' not in obj]
-        residuals = [obj for obj in residuals if 'output' not in obj]
-        residuals = [obj for obj in residuals if 'prefix' not in obj]
-        residuals = [obj for obj in residuals if 'sub_path' not in obj]
-        residuals = [obj for obj in residuals if obj not in self._staticinput.keys()]
-        residuals = [obj for obj in residuals if obj not in self._outparam.keys()]
-        residuals = [obj for obj in residuals if obj not in self._cmdstdout]
-
-        # Check accuracy
-        if len(residuals):
-            methods.raiseerror(ValueError, 'Too many inputs :{0}'.format(str(residuals)))
-        output = "'{0}'.format(".format(command)
-        str_format = []
-        for obj in objs:
-            if obj == 'output' or obj == 'prefix' or obj == 'sub_path':
-                str_format.append("{0}={0}".format(obj))
-            else:
-                if 'temp' in obj:
-                    str_format.append("{0}=os.path.join(temppath, '{0}.nii')".format(obj))
-                    self._tempfiles.append(obj)
-                elif obj in self._staticinput.keys():
-                    str_format.append("{0}={1}".format(obj, self._staticinput[obj]))
-                elif obj in self._outparam.keys():
-                    if self._outparam[obj].prefix:
-                        str_format.append("{0}='{1}_'+ methods.splitnifti(output)+'{2}'".format(obj,
-                                                                                                self._outparam[obj].prefix,
-                                                                                                self._outparam[obj].ext))
-                    else:
-                        str_format.append("{0}=methods.splitnifti(output)+'{1}'".format(obj, self._outparam[obj].ext))
-                else:
-                    try:
-                        if total[obj]:
-                            str_format.append("{0}={1}.Abspath".format(obj, obj))
-                        else:
-                            str_format.append("{0}={1}[i].Abspath".format(obj, obj))
-                    except:
-                        if obj in self._cmdstdout:
-                            str_format.append("{0}={1}".format(obj, obj))
-                        else:
-                            methods.raiseerror(messages.Errors.InputValueError, "Something wrong")
-
-        output = "{0}{1})".format(output, ", ".join(list(set(str_format))))
-        if idx:
-            self._commands[idx] = (output, stdout)
-        else:
-            self._commands.append((output, stdout))
-        if self._tempfiles:
-            self._tempfiles = sorted(list(set(self._tempfiles)))
-        if verbose:
-            return output
-
-    def get_inputcode(self):
-        """Put the set inputs values on the lists as a building block of customized function
-
-        :return: str
-        """
-        inputcode = []
-        mainobj = self._mainset
-        try:
-            sideobjs = self._sidesets[:]
-        except:
-            sideobjs = None
-        try:
-            if mainobj.static:
-                inputcode = ['{0} = self._prjobj({1})[0]'.format(mainobj.name, self._filters['main'])]
-            else:
-                inputcode = ['{0} = self._prjobj({1})'.format(mainobj.name, self._filters['main'])]
-        except:
-            methods.raiseerror(NameError, 'Main input is not defined')
-        if sideobjs:
-            for sideobj in sideobjs:
-                name = sideobj.name
-                if sideobj.static:
-                    inputcode.append('{0} = self._prjobj({1})[0]'.format(name, self._filters['sides'][name]))
-                else:
-                    inputcode.append('{0} = self._prjobj({1})'.format(name, self._filters['sides'][name]))
-        else:
-            pass
-        if self._filters['extra']:
-            for extra in sorted(self._filters['extra'].keys()):
-                inputcode.append('{0} = {1}'.format(extra, self._filters['extra'][extra]))
-        return inputcode
-
-    def get_filtercode(self, dataclass, input_path, filters):
-        """Generate list of filtering based keywords based on set input values
-
-        :param dataclass:
-        :param input_path:
-        :param filters:
-        :return: str
-        """
-        if dataclass == '0':
-            output_filters = [dataclass, '"{0}"'.format(input_path)]
-        else:
-            output_filters = [dataclass, '"{0}"'.format(self._processing), '"{0}"'.format(input_path)]
-        if self._sessions:
-            output_filters.extend(['subj', 'sess'])
-        else:
-            output_filters.extend(['subj'])
-        if isinstance(filters, dict):
-            kwargs = ['{key}="{value}"'.format(key=k, value=v) for k, v in filters.items() if isinstance(v, str)]
-            output_filters.extend(kwargs)
-            kwargs = ['{key}={value}'.format(key=k, value=v) for k, v in filters.items() if isinstance(v, list)]
-            output_filters.extend(kwargs)
-        else:
-            pass
-        return ', '.join(output_filters)
-
-    def get_executefunc(self, name, verbose=False):
-        """Step function generator
-
-        :param name: str
-        :param verbose: boolean
-        :return: str
-        """
-        # Define inputs
-        filters = ['\t{}'.format(input) for input in self.get_inputcode()]
-
-        # Depends on the main input type (static or multiple), different structure of function are generated
-        if self._mainset.static:    # if main input datasets only need to process first files for each subject
-            body = ['\toutputs = []',
-                    '\toutput = os.path.join(sub_path, {0}.Filename)'.format(self._mainset.name),
-                    '\tprefix_filter = methods.splitnifti(os.path.basename(output))',
-                    '\tprefix = methods.splitnifti(output)',
-                    '\tflist = [f for f in os.listdir(sub_path)]',
-                    '\tif len([f for f in flist if prefix_filter in f]):',
-                    '\t\tself.logger.info("The File[{0}] is already exist.".format(output))',
-                    '\telse:']
-            for cmd, stdout in self._commands:
-                if isinstance(stdout, str):
-                    body += ['\t\t{0}, err = methods.shell({1})'.format(stdout, cmd)]
-                elif isinstance(stdout, list):
-                    if stdout[0]:
-                        body += ['\t\t{0} = {1}'.format(stdout[0], cmd)]
-                    else:
-                        body += ['\t\t{0}'.format(cmd)]
-                else:
-                    body += ['\t\toutputs.append(methods.shell({0}))'.format(cmd)]
-            if self._tempfiles:
-                temp = ['\ttemppath = mkdtemp()',
-                        '\tself.logger.info("TempFolder[{0}] is generated".format(temppath))']
-                close = ['\trmtree(temppath)',
-                         '\tself.logger.info("TempFolder[{0}] is closed".format(temppath))']
-                body = temp + body + close
-            else:
-                pass
-        else:   # if main input datasets need to be looped for each subject
-            loop = ['\toutputs = []',
-                    '\tfor i in progressbar(range(len({0})), desc="Files", leave=False):'.format(self._mainset.name)]
-            body = ['\t\ttemp_outputs = []',
-                    '\t\toutput = os.path.join(sub_path, {0}[i].Filename)'.format(self._mainset.name),
-                    '\t\tprefix_filter = methods.splitnifti(os.path.basename(output))',
-                    '\t\tprefix = methods.splitnifti(output)',
-                    '\t\tflist = [f for f in os.listdir(sub_path)]',
-                    '\t\tif len([f for f in flist if prefix_filter in f]):',
-                    '\t\t\tself.logger.info("The File[{0}] is already exist.".format(output))',
-                    '\t\t\tsleep(0.08)',
-                    '\t\telse:']
-            for cmd, stdout in self._commands:
-                if isinstance(stdout, str):
-                    body += ['\t\t\t{0}, err = methods.shell({1})'.format(stdout, cmd)]
-                elif isinstance(stdout, list):
-                    if stdout[0]:
-                        body += ['\t\t\t{0} = {1}'.format(stdout[0], cmd)]
-                    else:
-                        body += ['\t\t\t{0}'.format(cmd)]
-                else:
-                    body += ['\t\t\ttemp_outputs.append(methods.shell({0}))'.format(cmd)]
-                self._procobj.logger.info('"{}" command is executed for subjects'.format(cmd))
-            body += ['\t\toutputs.append(temp_outputs)']
-            if self._tempfiles:
-                temp = ['\t\ttemppath = mkdtemp()',
-                        '\t\tself.logger.info("TempFolder[{0}] is generated".format(temppath))']
-                close = ['\t\trmtree(temppath)',
-                         '\t\tself.logger.info("TempFolder[{0}] is closed".format(temppath))']
-                body = loop + temp + body + close
-            else:
-                body = loop + body
-
-        if self._sessions: # Check the project is multi-session
-            header = ['def {0}(self, output_path, idx, subj, sess):'.format(name),
-                      '\tsub_path = os.path.join(output_path, subj, sess)',
-                      '\tmethods.mkdir(sub_path)']
-        else:
-            header = ['def {0}(self, output_path, idx, subj):'.format(name),
-                      '\tsub_path = os.path.join(output_path, subj)',
-                      '\tmethods.mkdir(sub_path)']
-        footer = ['\treturn outputs\n']
-        output = header + filters + body + footer
-        output = '\n'.join(output)
-        if verbose:
-            print(unicode(output, "utf-8"))
-            return None
-        else:
-            return output
-
-    def run(self, step_name, surfix, debug=False):
-        """Generate loop commands for step
-
-        :param step_name: str
-        :param surfix: str
-        :return: None
-        """
-        if debug:
-            return self.get_executefunc('debug', verbose=True)
-        else:
-            self._procobj._prjobj.reload()
-            if self._procobj._parallel:
-                thread = multiprocessing.cpu_count()
-            else:
-                thread = 1
-            pool = ThreadPool(thread)
-            self._procobj.logger.info("Step:[{0}] is executed with {1} thread(s).".format(step_name, thread))
-            output_path = self._procobj.init_step("{0}-{1}".format(step_name, surfix))
-            if self._sessions:
-                for idx, subj in enumerate(progressbar(self._subjects, desc='Subjects')):
-                    methods.mkdir(os.path.join(output_path, subj))
-                    iteritem = [(self._procobj, output_path, idx, subj, sess) for sess in self._sessions]
-                    for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Sessions',
-                                              leave=False, total=len(iteritem)):
-                        if len(outputs):
-                            if isinstance(outputs[0], list):
-                                all_outputs = []
-                                for output in outputs:
-                                    all_outputs.extend(['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in output])
-                                outputs = all_outputs[:]
-                            else:
-                                outputs = ['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in outputs if outputs]
-                            with open(os.path.join(output_path, 'stephistory.log'), 'a') as f:
-                                f.write('\n\n'.join(outputs))
-                        else:
-                            pass
-            else:
-                dirs = [os.path.join(output_path, subj) for subj in self._subjects]
-                methods.mkdir(dirs)
-                iteritem = [(self._procobj, output_path, idx, subj) for idx, subj in enumerate(self._subjects)]
-                for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Subjects',
-                                          total=len(iteritem)):
-                    if outputs != None:
-                        if len(outputs):
-                            if isinstance(outputs[0], list):
-                                all_outputs = []
-                                for output in outputs:
-                                    all_outputs.extend(['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in output])
-                                outputs = all_outputs[:]
-                            else:
-                                outputs = ['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in outputs]
-                            with open(os.path.join(output_path, 'stephistory.log'), 'a') as f:
-                                f.write('\n\n'.join(outputs))
-                        else:
-                            pass
-                    else:
-                        pass
-            self._procobj._history[os.path.basename(output_path)] = output_path
-            self._procobj.save_history()
-            self._procobj._prjobj.reload()
-            return output_path
-
-    def worker(self, args):
-        """The worker for parallel computing
-
-        :param args: list, Arguments for step execution
-        :return: str
-        """
-        funccode = self.get_executefunc('stepexec')
-        output = None
-        exec(funccode)    # load step function on memory
-        try:
-            exec('output = stepexec(*args)')    # execute function
-        except Exception as e:
-            print(e)
-        # except IndexError as e:
-        #     methods.raiseerror(ImportError,
-        #                        '[{}] Parsing input dataset Failed, Please check you put the correct inputs'.format(e))
-        return output
-
-
-class Pipelines(object):
-    """ Pipeline handler
-
-    This class is the major features of PyNIT project (for most of general users)
-    You can either use default pipeline packages we provide or load custom designed pipelines
-    """
-    def __init__(self, prj_path, tmpobj, parallel=True, logging=True, viewer='itksnap'):
-        """Initiate class
-
-        :param prj_path:
-        :param tmpobj:
-        :param parallel:
-        :param logging:
-        """
-        # Define default attributes
-        self._prjobj = Project(prj_path)
-        self._avail = self._prjobj.ref.avail
-        self._proc = None
-        self._tmpobj = tmpobj
-        self._parallel = parallel
-        self._logging = logging
-        self.selected = None
-        self.preprocessed = None
-        self._viewer = viewer
-
-        # Print out project summary
-        self._prjobj.summary
-
-        # Print out available pipeline packages
-        avails = ["\t{} : {}".format(*item) for item in self._avail.items()]
-        output = ["\nList of available packages:"] + avails
-        print("\n".join(output))
-
-    @property
-    def avail(self):
-        return self._avail
-
-    def initiate(self, pipeline, verbose=False, listing=True, **kwargs):
-        """Initiate pipeline
-
-        :param pipeline:
-        :param verbose:
-        :param kwargs:
-        :return:
-        """
-        self._prjobj.reload()
-        if isinstance(pipeline, int):
-            pipeline = self.avail[pipeline]
-        if pipeline in self.avail.values():
-            self._proc = Process(self._prjobj, pipeline, parallel=self._parallel,
-                                 logging=self._logging, viewer=self._viewer)
-            command = 'self.selected = pipelines.{}(self._proc, self._tmpobj'.format(pipeline)
-            if kwargs:
-                command += ', **{})'.format('kwargs')
-            else:
-                command += ')'
-            exec(command)
-        else:
-            methods.raiseerror(messages.PipelineNotSet, "Incorrect package is selected")
-        if verbose:
-            print(self.selected.__init__.__doc__)
-        if listing:
-            avails = ["\t{} : {}".format(*item) for item in self.selected.avail.items()]
-            output = ["List of available pipelines:"] + avails
-            print("\n".join(output))
-
-    def afni(self, idx):
-        self._proc.afni(idx, self._tmpobj)
-
-    def help(self, pipeline):
-        """ Print help function
-
-        :param pipeline:
-        :return:
-        """
-        selected = None
-        if isinstance(pipeline, int):
-            pipeline = self.avail[pipeline]
-        if pipeline in self.avail.values():
-            command = 'selected = pipelines.{}(self._proc, self._tmpobj)'.format(pipeline)
-            exec(command)
-            print(selected.__init__.__doc__)
-            avails = ["\t{} : {}".format(*item) for item in selected.avail.items()]
-            output = ["List of available pipelines:"] + avails
-            print("\n".join(output))
-
-    def run(self, idx, **kwargs):
-        """Execute selected pipeline
-
-        :param idx:
-        :return:
-        """
-        display(title(value='---=[[[ Running "{}" pipeline ]]]=---'.format(self.selected.avail[idx])))
-        exec('self.selected.pipe_{}(**kwargs)'.format(self.selected.avail[idx]))
-
-    def load(self, pipeline):
-        """Load custom pipeline
-
-        :param pipeline:
-        :return:
-        """
-        pass
-
-    def group_organizer(self, group_filters, i_pipe_id, i_step_id, o_pipe_id, cbv=None, **kwargs):
-        """Organizing groups for 2nd level analysis
-
-        :param group_filters:
-        :param i_pipe_id:
-        :param i_step_id:
-        :param o_pipe_id:
-        :param cbv:
-        :param kwargs:
-        :return:
-        """
-        display(title(value='---=[[[ Move subject to group folder ]]]=---'))
-        self.initiate(o_pipe_id, listing=False, **kwargs)
-        input_proc = Process(self._prjobj, self.avail[i_pipe_id])
-        init_path = self._proc.init_step('GroupOrganizing')
-        groups = sorted(group_filters.keys())
-        for group in progressbar(sorted(groups), desc='Subjects'):
-            grp_path = os.path.join(init_path, group)
-            methods.mkdir(grp_path)
-            if self._prjobj.single_session:
-                if group_filters[group][2]:
-                    dset = self._prjobj(1, input_proc.processing, input_proc.executed[i_step_id],
-                                        *group_filters[group][0], **group_filters[group][2])
-                else:
-                    dset = self._prjobj(1, input_proc.processing, input_proc.executed[i_step_id],
-                                        *group_filters[group][0])
-
-            else:
-                grp_path = os.path.join(init_path, group, 'files')
-                methods.mkdir(grp_path)
-                if group_filters[group][2]:
-                    dset = self._prjobj(1, input_proc.processing, input_proc.executed[i_step_id],
-                                        *(group_filters[group][0] + group_filters[group][1]),
-                                        **group_filters[group][2])
-                else:
-                    dset = self._prjobj(1, input_proc.processing, input_proc.executed[i_step_id],
-                                        *(group_filters[group][0] + group_filters[group][1]))
-            for i, finfo in dset:
-                output_path = os.path.join(grp_path, finfo.Filename)
-                if os.path.exists(output_path):
-                    pass
-                else:
-                    if self._prjobj.single_session:
-                        cbv_file = self._prjobj(1, input_proc.processing, input_proc.executed[cbv], finfo.Subject)
-                    else:
-                        cbv_file = self._prjobj(1, input_proc.processing, input_proc.executed[cbv],
-                                                finfo.Subject, finfo.Session)
-                    copy(finfo.Abspath, os.path.join(grp_path, finfo.Filename))
-                    with open(methods.splitnifti(output_path)+'.json', 'wb') as f:
-                        json.dump(dict(cbv=cbv_file[0].Abspath), f)
-        self._proc._subjects = groups[:]
-        self._proc._history[os.path.basename(init_path)] = init_path
-        self._proc.save_history()
-        self._proc._prjobj.reload()
-        self.help(o_pipe_id)
-
-    @property
-    def executed(self):
-        """Listing out executed steps
-
-        :return:
-        """
-        return self._proc.executed

@@ -5,7 +5,7 @@ PyNIT (Python NeuroImaging Toolkit)
 from distutils.core import setup
 from setuptools import find_packages
 
-__version__ = '0.3.0'
+__version__ = '0.1.1'
 __author__ = 'SungHo Lee'
 __email__ = 'shlee@unc.edu'
 __url__ = 'https://dvm-shlee.github.io/pynit'
@@ -18,9 +18,9 @@ setup(name='PyNIT',
       url=__url__,
       license='GNLv3',
       packages=find_packages(),
-      install_requires=['numpy', 'scipy', 'matplotlib', 'pandas', 'nibabel',
-                        'jupyter', 'seaborn', 'scikit-learn', 'scikit-image',
-                        'bctpy', 'statsmodels', 'tqdm', 'openpyxl', 'xlrd',
+      install_requires=['jupyter', 'tqdm', 'pandas', 'openpyxl', 'xlrd', 'nibabel', #platform
+                        'matplotlib', 'seaborn', 'scikit-image',                    #visulaization
+                        'numpy', 'scipy', 'scikit-learn', 'bctpy', 'statsmodels'    #computation
                         ],
       classifier=[
             # How mature is this project? Common values are

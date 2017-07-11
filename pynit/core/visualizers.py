@@ -1,26 +1,20 @@
 # Import external packages
+import numpy as np
+import nibabel as nib
 import sys
 import scipy.ndimage as ndimage
-from skimage import feature
+from skimage import feature, exposure
 
 # Import internal packages
-from .methods import np #, nx
 import messages
-import methods
 
-# Import matplotlib for visualization
-import matplotlib.patches as patches
+# matplotlib
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import colors
-import matplotlib.gridspec as gridspec
 import seaborn as sns
-from matplotlib.backends.backend_agg import FigureCanvasAgg
-# from IPython import display
 
 # Set error bar as standard deviation and standard error
-
-
 def _plot_std_bars(central_data=None, ci=None, data=None, *args, **kwargs):
     std = data.std(axis=0)
     ci = np.asarray((central_data - std, central_data + std))
@@ -56,18 +50,13 @@ sns.timeseries._plot_sterr_band = _plot_sterr_band
 # Import interactive plot in jupyter notebook
 if len([key for key in sys.modules.keys() if key == 'ipykernel']):
     from ipywidgets import interact, fixed
-    from IPython.display import Image, display
+    from IPython.display import display
     jupyter_env = True
 else:
     jupyter_env = False
 
-# The commented codes below are used for save figure later (maybe?)
-# import matplotlib.patches as mpatches
-# from matplotlib.backends.backend_agg import FigureCanvasAgg
-
 # Set figure style here
 mpl.rcParams['figure.dpi'] = 120
-# plt.style.use('ggplot')
 plt.style.use('classic')
 plt.style.use('seaborn-notebook')
 
@@ -88,6 +77,119 @@ cdict = {'red': ((0.0, 0.0, 0.0),
          }
 
 plt.register_cmap(name='shihlab', data=cdict)
+
+
+def set_viewaxes(axes):
+    """ Set View Axes
+
+    :param axes:
+    :return:
+    """
+    ylim = axes.get_ylim()
+    xlim = axes.get_xlim()
+    axes.set_ylabel('L', rotation=0, fontsize=20)
+    axes.set_xlabel('I', fontsize=20)
+    axes.set_facecolor('white')
+    axes.tick_params(labeltop=True, labelright=True, labelsize=8)
+    axes.grid(False)
+    axes.text(xlim[1]/2, ylim[1] * 1.1, 'P', fontsize=20)
+    axes.text(xlim[1]*1.1, sum(ylim)/2*1.05, 'R', fontsize=20)
+    return axes
+
+
+def check_invert(kwargs):
+    """ Check image invertion
+    """
+    invertx = False
+    inverty = False
+    invertz = False
+    if kwargs:
+        for arg in kwargs.keys():
+            if arg == 'invertx':
+                invertx = kwargs[arg]
+            if arg == 'inverty':
+                inverty = kwargs[arg]
+            if arg == 'invertz':
+                invertz = kwargs[arg]
+    return invertx, inverty, invertz
+
+
+def apply_invert(data, *invert):
+    """ Apply image invertion
+    """
+    if invert[0]:
+        data = nib.orientations.flip_axis(data, axis=0)
+    if invert[1]:
+        data = nib.orientations.flip_axis(data, axis=1)
+    if invert[2]:
+        data = nib.orientations.flip_axis(data, axis=2)
+    return data
+
+
+def convert_to_3d(imageobj):
+    """ Reduce demension to 3D
+    """
+    dim = len(imageobj.shape)
+    if dim == 4:
+        data = np.asarray(imageobj.dataobj)[..., 0]
+    elif dim == 3:
+        data = np.asarray(imageobj.dataobj)
+    elif dim == 5:
+        data = np.asarray(imageobj.dataobj)[..., 0, 0]
+    else:
+        raise messages.ImageDimentionMismatched
+    return data
+
+
+def apply_p2_98(data):
+    """ Image normalization
+    """
+    p2 = np.percentile(data, 2)
+    p98 = np.percentile(data, 98)
+    data = exposure.rescale_intensity(data, in_range=(p2, p98))
+    return data
+
+
+def set_mosaic_fig(data, dim, resol, slice_axis, scale):
+    """ Set environment for mosaic figure
+    """
+    num_of_slice = dim[slice_axis]
+    num_height = int(np.sqrt(num_of_slice))
+    num_width = int(round(num_of_slice / num_height))
+    # Swap axis
+    data = np.swapaxes(data, slice_axis, 2)
+    resol[2], resol[slice_axis] = resol[slice_axis], resol[2]
+    dim[2], dim[slice_axis] = dim[slice_axis], dim[2]
+    # Check the size of each slice
+    size_height = num_height * dim[1] * resol[1] * scale / max(dim)
+    size_width = num_width * dim[0] * resol[0] * scale / max(dim)
+    # Figure generation
+    slice_grid = [num_of_slice, num_height, num_width]
+    size = [size_width, size_height]
+    return data, slice_grid, size
+
+
+def check_sliceaxis_cmap(imageobj, kwargs):
+    """ Check sliceaxis (minimal number os slice) and cmap
+    """
+    slice_axis = int(np.argmin(imageobj.shape[:3]))
+    cmap = 'gray'
+    for arg in kwargs.keys():
+        if arg == 'slice_axis':
+            slice_axis = kwargs[arg]
+        if arg == 'cmap':
+            cmap = kwargs[arg]
+    return slice_axis, cmap
+
+
+def check_slice(dataobj, axis, slice_num):
+    """ Check initial slice number to show
+    """
+    if slice_num:
+        slice_num = slice_num
+    else:
+        slice_num = dataobj.shape[axis]/2
+    return slice_num
 
 
 class Viewer(object):
@@ -119,18 +221,18 @@ class Viewer(object):
         # Swap the affine matrix
         resol[axis], resol[2] = resol[2], resol[axis]
         # Parsing arguments
-        slice_num = methods.check_slice(imageobj, slice_num, axis)
+        slice_num = check_slice(imageobj, slice_num, axis)
         # Image normalization if norm is True
         if norm:
-            data = methods.apply_p2_98(data)
+            data = apply_p2_98(data)
         else:
             pass
         # Check invert states using given kwargs and apply
-        invert = methods.check_invert(kwargs)
-        data = methods.apply_invert(data, *invert)
+        invert = check_invert(kwargs)
+        data = apply_invert(data, *invert)
 
         # Internal show slice function for interact python
-        def imshow(slice_num, ax, frame=0, stat=0):
+        def imshow(slice_num, frame=0, stat=0):
             plt.clf()
             if len(data.shape) == 3:
                 plt.imshow(data[..., int(slice_num)].T, origin='lower',
@@ -143,7 +245,7 @@ class Viewer(object):
                            interpolation='nearest', cmap='gray')
             else:
                 raise messages.ImageDimentionMismatched
-            ax = methods.set_viewaxes(plt.axes())
+            ax = set_viewaxes(plt.axes())
             ax.set_facecolor('white')
             if resol[1] != resol[0]:
                 ax.set_aspect(abs(resol[1] / resol[0]))
@@ -174,14 +276,14 @@ class Viewer(object):
                 raise messages.ImageDimentionMismatched
         else:
             fig, axes = plt.subplots()
-            data = methods.convert_to_3d(imageobj)
+            data = convert_to_3d(imageobj)
             axes.imshow(data[..., int(slice_num)].T, origin='lower', cmap='gray')
             axes.set_axis_off()
             if jupyter_env:
                 display(fig)
 
     @staticmethod
-    def orthogonal(imageobj, norm=True, **kwargs):
+    def orthogonal(imageobj, norm=True, **kwargs):                  #TODO: someday...
         pass
 
     @staticmethod
@@ -189,20 +291,20 @@ class Viewer(object):
         dim = list(moved_img.shape)
         resol = list(moved_img.header['pixdim'][1:4])
         # Convert 4D image to 3D or raise error
-        data = methods.convert_to_3d(moved_img)
+        data = convert_to_3d(moved_img)
         # Check normalization
         if norm:
-            data = methods.apply_p2_98(data)
+            data = apply_p2_98(data)
         # Set slice axis for mosaic grid
-        slice_axis, cmap = methods.check_sliceaxis_cmap(data, kwargs)
+        slice_axis, cmap = check_sliceaxis_cmap(data, kwargs)
         cmap = 'YlOrRd'
         # Set grid shape
-        data, slice_grid, size = methods.set_mosaic_fig(data, dim, resol, slice_axis, scale)
+        data, slice_grid, size = set_mosaic_fig(data, dim, resol, slice_axis, scale)
         fig, axes = Viewer.mosaic(fixed_img, scale=scale, norm=norm, cmap='bone', **kwargs)
         fig.set_facecolor('black')
         # Applying inversion
-        invert = methods.check_invert(kwargs)
-        data = methods.apply_invert(data, *invert)
+        invert = check_invert(kwargs)
+        data = apply_invert(data, *invert)
         # Plot image
         for i in range(slice_grid[1] * slice_grid[2]):
             ax = axes.flat[i]
@@ -227,7 +329,6 @@ class Viewer(object):
     def mosaic(imageobj, scale=15, norm=True, **kwargs):
         """function for generating mosaic figure
 
-        :param img: nibabel object
         :param scale
         :param norm
         :param kwargs
@@ -236,19 +337,19 @@ class Viewer(object):
         dim = list(imageobj.shape)
         resol = list(imageobj.header['pixdim'][1:4])
         # Convert 4D image to 3D or raise error
-        data = methods.convert_to_3d(imageobj)
+        data = convert_to_3d(imageobj)
         # Check normalization
         if norm:
-            data = methods.apply_p2_98(data)
+            data = apply_p2_98(data)
         # Set slice axis for mosaic grid
-        slice_axis, cmap = methods.check_sliceaxis_cmap(imageobj, kwargs)
+        slice_axis, cmap = check_sliceaxis_cmap(imageobj, kwargs)
         # Set grid shape
-        data, slice_grid, size = methods.set_mosaic_fig(data, dim, resol, slice_axis, scale)
+        data, slice_grid, size = set_mosaic_fig(data, dim, resol, slice_axis, scale)
         fig, axes = plt.subplots(slice_grid[1], slice_grid[2], figsize=(size[0], size[1]))
         fig.set_facecolor('black')
         # Applying inversion
-        invert = methods.check_invert(kwargs)
-        data = methods.apply_invert(data, *invert)
+        invert = check_invert(kwargs)
+        data = apply_invert(data, *invert)
         # Plot image
         for i in range(slice_grid[1] * slice_grid[2]):
             ax = axes.flat[i]
@@ -276,14 +377,14 @@ class Viewer(object):
         # Parsing the information
         dim = list(maskobj.shape)
         resol = list(maskobj.header['pixdim'][1:4])
-        num_roi = np.max(maskobj.dataobj)
+        # num_roi = np.max(maskobj.dataobj)
         # Set slice axis for mosaic grid
-        slice_axis, cmap = methods.check_sliceaxis_cmap(maskobj, kwargs)
+        slice_axis, cmap = check_sliceaxis_cmap(maskobj, kwargs)
         # Set grid shape
-        data, slice_grid, size = methods.set_mosaic_fig(maskobj.dataobj, dim, resol, slice_axis, scale)
+        data, slice_grid, size = set_mosaic_fig(maskobj.dataobj, dim, resol, slice_axis, scale)
         # Applying inversion
-        invert = methods.check_invert(kwargs)
-        data = methods.apply_invert(data, *invert)
+        invert = check_invert(kwargs)
+        data = apply_invert(data, *invert)
         try:
             fig, axes = Viewer.mosaic(imageobj, scale=scale, **kwargs)
         except:
@@ -329,12 +430,12 @@ class Viewer(object):
         dim = list(atlas.shape)
         resol = list(atlas.header['pixdim'][1:4])
         # Set slice axis for mosaic grid
-        slice_axis, cmap = methods.check_sliceaxis_cmap(atlas, kwargs)
+        slice_axis, cmap = check_sliceaxis_cmap(atlas, kwargs)
         # Set grid shape
-        data, slice_grid, size = methods.set_mosaic_fig(atlas.dataobj, dim, resol, slice_axis, scale)
+        data, slice_grid, size = set_mosaic_fig(atlas.dataobj, dim, resol, slice_axis, scale)
         # Applying inversion
-        invert = methods.check_invert(kwargs)
-        data = methods.apply_invert(data, *invert)
+        invert = check_invert(kwargs)
+        data = apply_invert(data, *invert)
         try:
             fig, axes = Viewer.mosaic(tempobj, scale=scale, **kwargs)
         except:
@@ -393,103 +494,6 @@ class Viewer(object):
         else:
             return fig
 
-    # @staticmethod
-    # def plot_brain(G, node_color_mapped, comm_idx, weights, tmpobj, colors_set, alpha=0.4,
-    #                vmin=-0.8, vmax=0.8, node_size=50):
-    #     resol = np.array(tmpobj.image.dataobj.shape)
-    #     edge_cmap = plt.cm.coolwarm
-    #     coronal = dict()
-    #     axial = dict()
-    #     sagital = dict()
-    #     for key, value in tmpobj.atlas.coordinates.items():
-    #         if key == 'Clear Label':
-    #             pass
-    #         else:
-    #             coronal[key] = value[:2][::-1]
-    #             axial[key] = value[[0, 2]]
-    #             sagital[key] = value[[1, 2]]
-    #     figsize = [(resol[0] + resol[1]) / 20,
-    #                (resol[1] + resol[2]) / 20]
-    #
-    #     fig = plt.Figure(figsize=figsize, dpi=300)
-    #     canvas = FigureCanvasAgg(fig)
-    #     gs1 = gridspec.GridSpec(2, 2,
-    #                             height_ratios=[resol[2], resol[0]],
-    #                             width_ratios=[resol[1], resol[0]])
-    #                             # width_ratios=[resol[0], resol[1]],
-    #                             # height_ratios=[resol[1], resol[2]])
-    #     gs2 = gridspec.GridSpecFromSubplotSpec(4, 3, subplot_spec=gs1[1, 1],
-    #                                            width_ratios=[0.4, 1.5, 0.4],
-    #                                            height_ratios=[0.2, 0.1, 0.3, 1.5])
-    #     gs1.update(wspace=0.0, hspace=0.0, bottom=0.05, top=0.95, left=0.05, right=0.9)
-    #     cbaxes = fig.add_subplot(gs2[1, 1])
-    #     lgaxes = fig.add_subplot(gs2[3, 1])
-    #
-    #     cor_ax = fig.add_subplot(gs1[1, 0])
-    #     axl_ax = fig.add_subplot(gs1[0, 1])
-    #     sag_ax = fig.add_subplot(gs1[0, 0])
-    #     cor_ax.set_axis_off()
-    #     cor_ax.set_facecolor('white')
-    #     cor_ax.set_ylim([0, resol[0]])
-    #     cor_ax.set_xlim([resol[1], 0])
-    #     axl_ax.set_axis_off()
-    #     axl_ax.set_facecolor('white')
-    #     axl_ax.set_xlim([0, resol[0]])
-    #     axl_ax.set_ylim([0, resol[2]])
-    #     sag_ax.set_axis_off()
-    #     sag_ax.set_facecolor('white')
-    #     sag_ax.set_ylim([0, resol[2]])
-    #     sag_ax.set_xlim([resol[1], 0])
-    #
-    #     cor_ax.imshow(tmpobj.mask._image.dataobj.sum(axis=2),
-    #                   cmap='Greys', alpha=alpha, interpolation="bicubic")
-    #     axl_ax.imshow(tmpobj.mask._image.dataobj.sum(axis=1).T,
-    #                   cmap='Greys', alpha=alpha, origin='lower', interpolation="bicubic")
-    #     sag_ax.imshow(tmpobj.mask._image.dataobj.sum(axis=0).T,
-    #                   cmap='Greys', alpha=alpha, interpolation="bicubic")
-    #
-    #     nx.draw_networkx_nodes(G, nodelist=G.nodes(), pos=coronal,
-    #                            with_labels=False, node_size=node_size,
-    #                            node_color=node_color_mapped, ax=cor_ax)
-    #     edges = nx.draw_networkx_edges(G, pos=coronal, edge_color=weights, edge_cmap=edge_cmap,
-    #                                    edge_vmin=vmin, edge_vmax=vmax,
-    #                                    width=(np.array(weights) + 0.7) * 1.5, ax=cor_ax)
-    #     nx.draw_networkx_nodes(G, nodelist=G.nodes(), pos=axial,
-    #                            with_labels=False, node_size=node_size,
-    #                            node_color=node_color_mapped, ax=axl_ax)
-    #     nx.draw_networkx_edges(G, pos=axial, edge_color=weights, edge_cmap=edge_cmap,
-    #                            edge_vmin=vmin, edge_vmax=vmax,
-    #                            width=(np.array(weights) + 0.7) * 1.5, ax=axl_ax)
-    #     nx.draw_networkx_nodes(G, nodelist=G.nodes(), pos=sagital,
-    #                            with_labels=False, node_size=node_size,
-    #                            node_color=node_color_mapped, ax=sag_ax)
-    #     nx.draw_networkx_edges(G, pos=sagital, edge_color=weights, edge_cmap=edge_cmap,
-    #                            edge_vmin=vmin, edge_vmax=vmax,
-    #                            width=(np.array(weights) + 0.7) * 1.5, ax=sag_ax)
-    #
-    #     fig.colorbar(edges, cax=cbaxes, orientation='horizontal', ticks=[vmin, 0, vmax])
-    #     fig.set_facecolor('white')
-    #
-    #     # colors_set = colors.XKCD_COLORS.keys()[::-1]
-    #
-    #     n_keys = len(comm_idx.keys())
-    #     lgaxes.set_xlim(0, 3.5)
-    #     lgaxes.set_ylim(np.around(n_keys / 4.)*1.7, 0)
-    #     lgaxes.set_axis_off()
-    #
-    #     n_half = np.around(n_keys / 2.)
-    #     for i in range(0, n_keys):
-    #         i += 1
-    #         if i <= np.around(n_keys / 2.)+1:
-    #             lgaxes.add_patch(patches.Rectangle((0.2, i / 2.), 0.3, 0.2,
-    #                                                facecolor=colors_set[i]))
-    #             lgaxes.text(0.7, i / 2. + 0.2 , str(i), fontsize=10)
-    #         else:
-    #             lgaxes.add_patch(patches.Rectangle((2.2, i / 2. - (n_half / 2.) - 0.5), 0.3, 0.2,
-    #                                                facecolor=colors_set[i]))
-    #             lgaxes.text(2.7, i / 2. - 0.3 - (n_half / 2.), str(i), fontsize=10)
-    #     return fig
-
 
 class Plot(object):
     @staticmethod
@@ -537,7 +541,7 @@ class Plot(object):
         if err:
             sns.tsplot(df.T.values, err_style='sterr_band', ax=axes, **kwargs)
         else:
-            sns.tsplot(df.T.values, err_style='std_band', ax = axes, **kwargs)
+            sns.tsplot(df.T.values, err_style='std_band', ax=axes, **kwargs)
         return fig, axes
 
     @staticmethod
