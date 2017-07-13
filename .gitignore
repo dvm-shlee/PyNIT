@@ -1,3 +1,9 @@
 *.pyc
 .idea/
 .idea/*
+build/
+build/*
+PyNIT.egg-info/
+PyNIT.egg-info/*
+docs/
+docs/*

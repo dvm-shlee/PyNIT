@@ -1,4 +1,0 @@
-Tutorials
-=========
-
-*HeyHey! Follow Me!*

@@ -9,6 +9,11 @@ from ..core import methods
 
 
 def set_display_option(**kwargs):
+    """ Method for setting display options of pandas DataFrame
+
+    :param kwargs:
+    :return:
+    """
     # Display options for pandasDataframe
     max_rows = 100
     max_colwidth = 100
