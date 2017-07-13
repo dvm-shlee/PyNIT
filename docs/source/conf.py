@@ -19,7 +19,7 @@
 # import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
-import alabaster
+import sphinx_rtd_theme
 
 # -- General configuration ------------------------------------------------
 
@@ -88,8 +88,8 @@ todo_include_todos = True
 # a list of builtin themes.
 #
 
-html_theme_path = [alabaster.get_path()]
-html_theme = 'alabaster'
+html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+html_theme = 'sphinx_rtd_theme'
 
 
 # Theme options are theme-specific and customize the look and feel of a theme
