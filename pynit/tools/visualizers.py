@@ -175,7 +175,7 @@ def check_sliceaxis_cmap(imageobj, kwargs):
     slice_axis = int(np.argmin(imageobj.shape[:3]))
     cmap = 'gray'
     for arg in kwargs.keys():
-        if arg == 'slice_axis':
+        if arg == 'axis':
             slice_axis = kwargs[arg]
         if arg == 'cmap':
             cmap = kwargs[arg]
@@ -192,7 +192,7 @@ def check_slice(dataobj, axis, slice_num):
     return slice_num
 
 
-class Viewer(object):
+class BrainPlot(object):
     @staticmethod
     def slice(imageobj, slice_num=None, norm=True, **kwargs):
         """ Image single slice viewer
@@ -300,7 +300,7 @@ class Viewer(object):
         cmap = 'YlOrRd'
         # Set grid shape
         data, slice_grid, size = set_mosaic_fig(data, dim, resol, slice_axis, scale)
-        fig, axes = Viewer.mosaic(fixed_img, scale=scale, norm=norm, cmap='bone', **kwargs)
+        fig, axes = BrainPlot.mosaic(fixed_img, scale=scale, norm=norm, cmap='bone', **kwargs)
         fig.set_facecolor('black')
         # Applying inversion
         invert = check_invert(kwargs)
@@ -386,7 +386,7 @@ class Viewer(object):
         invert = check_invert(kwargs)
         data = apply_invert(data, *invert)
         try:
-            fig, axes = Viewer.mosaic(imageobj, scale=scale, **kwargs)
+            fig, axes = BrainPlot.mosaic(imageobj, scale=scale, **kwargs)
         except:
             raise messages.InputObjectError
         # Make transparent
@@ -437,7 +437,7 @@ class Viewer(object):
         invert = check_invert(kwargs)
         data = apply_invert(data, *invert)
         try:
-            fig, axes = Viewer.mosaic(tempobj, scale=scale, **kwargs)
+            fig, axes = BrainPlot.mosaic(tempobj, scale=scale, **kwargs)
         except:
             raise messages.InputObjectError
         # Check side to present, default is usually right side

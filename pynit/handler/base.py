@@ -1,7 +1,7 @@
 import numpy as np
 from nibabel import Nifti1Image, affines
-from ..core.visualizers import check_invert, apply_invert
-from ..core.visualizers import Viewer
+from ..tools.visualizers import check_invert, apply_invert
+from ..tools.visualizers import BrainPlot
 
 
 def reset_orient(imageobj, affine):
@@ -202,12 +202,12 @@ class ImageObj(Nifti1Image):
     def show(self, **kwargs):
         """ Plotting slice of the object
         """
-        Viewer.slice(self, **kwargs)
+        BrainPlot.slice(self, **kwargs)
 
     def mosaic(self, *args, **kwargs):                          #TODO: update needed
         """ Mosaic view for the object
         """
-        fig = Viewer.mosaic(self, *args, **kwargs)
+        fig = BrainPlot.mosaic(self, *args, **kwargs)
 
     def swap_axis(self, axis1, axis2):
         """ Swap input axis with given axis of the object
@@ -259,10 +259,10 @@ class ImageObj(Nifti1Image):
         self._dataobj = np.swapaxes(dataobj, axis, 2)
 
     def check_reg(self, imageobj, scale=10, **kwargs):          #TODO: update needed
-        fig = Viewer.check_reg(imageobj, self, scale=scale, norm=True, **kwargs)
+        fig = BrainPlot.check_reg(imageobj, self, scale=scale, norm=True, **kwargs)
 
     def check_mask(self, maskobj, scale=15, **kwargs):          #TODO: update needed
-        fig = Viewer.check_mask(self, maskobj, scale=scale, **kwargs)
+        fig = BrainPlot.check_mask(self, maskobj, scale=scale, **kwargs)
 
     @property
     def affine(self):

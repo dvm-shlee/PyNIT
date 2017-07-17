@@ -4,74 +4,57 @@ import pickle
 import pandas as pd
 import copy as ccopy
 from .base import Reference
-from ..core import messages
-from ..core import methods
+from ..tools import messages
+from ..tools import methods
 
 
-def set_display_option(**kwargs):
-    """ Method for setting display options of pandas DataFrame
+def set_display_option(max_rows=100, max_colwidth=100):
+    """Method for setting display options of pandas DataFrame
 
-    :param kwargs:
-    :return:
+    :param max_rows: Maximum number of rows
+    :param max_colwidth: Maximum width of column
+    :type max_rows: int
+    :type max_colwidth: int
     """
-    # Display options for pandasDataframe
-    max_rows = 100
-    max_colwidth = 100
-
-    if kwargs:
-        if 'max_rows' in kwargs.keys():
-            max_rows = kwargs['max_rows']
-        if 'max_colwidth' in kwargs.keys():
-            max_colwidth = kwargs['max_colwidth']
     pd.options.display.max_rows = max_rows
     pd.options.display.max_colwidth = max_colwidth
 
 
 def mk_main_folder(prj):
-    """ Make processing and results folders
+    """Initiating project sub-folders
 
-    Parameters
-    ----------
-    prj         : pynit.Project
-
-    Returns
-    -------
-    None
+    :param prj: Project handler instance
+    :type prj: pynit.handler.Project
     """
     methods.mkdir(os.path.join(prj.path, prj.ds_type[0]),
                   os.path.join(prj.path, prj.ds_type[1]),
                   os.path.join(prj.path, prj.ds_type[2]))
 
 
-def check_arguments(args, residuals, lists):
-    """ Parse the values in the list to be used as filter
+def check_arguments(args, residuals, reference):
+    """The method that retrieves the value in the 'reference' from the 'args',
+    removes the corresponding value from the input 'residuals' arguments,
+    and returns these values and the remaining residuals argument.
 
-    Parameters
-    ----------
-    args        : tuple
-        Input arguments for filtering
-    residuals   : list
-        Residual values
-    lists       : list
-        Attributes of project object
-
-    Returns
-    -------
-    filter      : list
-        Values need to be filtered
-    residuals   : list
-        Residual values
+    :param args: Input arguments
+    :param residuals: Residual arguments
+    :param reference: Reference arguments
+    :type args: list
+    :type residuals: list
+    :type reference: list
+    :return: list of retrieved arguments and residuals, separately
+    :rtype: list, list
     """
-    filter = [arg for arg in args if arg in lists]
+    retrieved = [arg for arg in args if arg in reference]
     residuals = list(residuals)
-    if len(filter):
-        for comp in filter:
+    if len(retrieved):
+        for comp in retrieved:
             if comp in residuals:
                 residuals.remove(comp)
-    return list(set(filter)), list(set(residuals))
+    return list(set(retrieved)), list(set(residuals))
 
 
-def parsing(path, ds_type, idx):
+def parsing_dataclass(path, ds_type, idx):
     """ Parsing the information of dataset from the pointed data class
 
     Parameters
@@ -119,6 +102,7 @@ def parsing(path, ds_type, idx):
         return pd.DataFrame(), single_session, empty_prj
     else:
         return df.sort_values('Abspath'), single_session, empty_prj
+
 
 def initial_filter(df, data_class, exts):
     """ Filtering out only selected file type in the project folder
@@ -214,6 +198,7 @@ def reorder_columns(idx, single_session):
             return ['Pipeline', 'Result', 'Subject', 'Session', 'Filename', 'Abspath']
     else:
         return None
+
 
 class Project(object):
     """Project handler
@@ -451,7 +436,7 @@ class Project(object):
         :return: None
         """
         # Parsing command works
-        self.__df, self.single_session, empty_prj = parsing(self.path, self.ds_type, self.__dc_idx)
+        self.__df, self.single_session, empty_prj = parsing_dataclass(self.path, self.ds_type, self.__dc_idx)
         if not empty_prj:
             self.__df = initial_filter(self.__df, self.ds_type, self.ref_exts)
             if len(self.__df):

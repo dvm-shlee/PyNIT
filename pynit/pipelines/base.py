@@ -1,12 +1,13 @@
-import sys
-import os
 import json
-from ..core import methods
-from ..core import messages
-from .project import Project
-from .process import Process
-from ..pipelines import pipelines
+import os
+import sys
 from shutil import copy
+
+from pynit.tools import messages
+from pynit.tools import methods
+from pynit.handler.project import Project
+from pynit.pipelines import pipelines
+from pynit.process import Process
 
 jupyter_env = False
 try:

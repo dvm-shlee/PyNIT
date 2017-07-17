@@ -4,8 +4,8 @@ import sys
 import numpy as np
 import copy as ccopy
 from .base import ImageObj
-from .base import Viewer
-from ..core import messages, methods
+from .base import BrainPlot
+from ..tools import messages, methods
 from scipy import ndimage
 from shutil import rmtree
 from nibabel import affines
@@ -274,9 +274,9 @@ class Template(object):
 
     def show(self, scale=15, **kwargs):
         if self._atlas:
-            fig = Viewer.atlas(self.image, self._atlas, scale=scale, **kwargs)
+            fig = BrainPlot.atlas(self.image, self._atlas, scale=scale, **kwargs)
         else:
-            fig = Viewer.mosaic(self.image, scale=scale, **kwargs)
+            fig = BrainPlot.mosaic(self.image, scale=scale, **kwargs)
         try:
             fig, legend = fig
             display(fig)
