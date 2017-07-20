@@ -22,6 +22,9 @@ setup(name='PyNIT',
                         'matplotlib', 'seaborn', 'scikit-image',                    #visulaization
                         'numpy', 'scipy', 'scikit-learn', 'bctpy', 'statsmodels'    #computation
                         ],
+      scripts=['bin/brk2nifti',
+               'bin/checkscans',
+               ],
       classifier=[
             # How mature is this project? Common values are
             #  3 - Alpha

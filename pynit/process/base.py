@@ -1,11 +1,10 @@
 import os
 import sys
 import pickle
-import multiprocessing
 from pynit.tools import messages
 from pynit.tools import methods
 from pynit.tools import viewer
-from pynit.handler.step import Step, get_step_name
+from pynit.handler.step import get_step_name
 
 # Import modules for interfacing with jupyter notebook
 jupyter_env = False
@@ -22,7 +21,7 @@ except:
     pass
 
 
-class Process(object):
+class BaseProcess(object):
     """Collections of step components for pipelines
     """
     def __init__(self, prjobj, name, parallel=True, logging=True, viewer='itksnap'):
@@ -114,10 +113,10 @@ class Process(object):
     def fslview(self, idx, base_idx=None):
         """Launch fslview
 
-                :param idx:
-                :param base_idx:
-                :return:
-                """
+        :param idx:
+        :param base_idx:
+        :return:
+        """
         if base_idx:
             viewer.fslview(self, self.steps[idx], self.steps[base_idx])
         else:
@@ -196,10 +195,10 @@ class Process(object):
             if not self._prjobj.single_session:
                 self._sessions = sorted(self._prjobj(0).sessions[:])
 
-        self.logger.info('Attributes [subjects, sessions] are reset to default value.')
-        self.logger.info('Subject is defined as [{}]'.format(",".join(self._subjects)))
+        self.logger.info('Proc::Attributes [subjects, sessions] are reset to default value.')
+        self.logger.info('Proc::Subject is defined as [{}]'.format(",".join(self._subjects)))
         if self._sessions:
-            self.logger.info('Session is defined as [{}]'.format(",".join(self._sessions)))
+            self.logger.info('Proc::Session is defined as [{}]'.format(",".join(self._sessions)))
 
     def init_proc(self):
         """Initiate process folder
@@ -207,12 +206,12 @@ class Process(object):
         :return: None
         """
         methods.mkdir(self._path)
-        self.logger.info('Process object is initiated with {0}'.format(self.processing))
+        self.logger.info('Proc::Initiating instance {0}'.format(self.processing))
         history = os.path.join(self._path, '.proc_hisroty')
         if os.path.exists(history):
             with open(history, 'r') as f:
                 self._history = pickle.load(f)
-            self.logger.info("History file is loaded".format(history))
+            self.logger.info("Proc::History file is loaded".format(history))
         else:
             self.save_history()
         self.reset()
@@ -237,4 +236,4 @@ class Process(object):
         history = os.path.join(self._path, '.proc_hisroty')
         with open(history, 'w') as f:
             pickle.dump(self._history, f)
-        self.logger.info("History file is saved at '{0}'".format(history))
+        self.logger.info("Proc::History file '{0}' is saved".format(history))

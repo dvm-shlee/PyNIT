@@ -7,15 +7,10 @@ from multiprocessing.pool import ThreadPool
 from ..tools import messages
 from ..tools import methods
 
-# Import modules for Step class
-import numpy as np
-from tempfile import mkdtemp
-from StringIO import StringIO
-from time import sleep
-from shutil import rmtree
-import pandas as pd
-
-# Import modules for interfacing with jupyter notebook
+#########################################
+# The imported modules belows           #
+# check jupyter notebook environment    #
+#########################################
 jupyter_env = False
 try:
     if len([key for key in sys.modules.keys() if 'ipykernel' in key]):
@@ -29,31 +24,60 @@ try:
 except:
     pass
 
+#########################################
+# The imported modules belows are       #
+# utilized in Step instance             #
+#########################################
+import json
+import numpy as np
+from tempfile import mkdtemp
+from StringIO import StringIO
+from time import sleep
+from shutil import rmtree
+import pandas as pd
 
-def check_dataclass(datatype):
-    if os.path.exists(datatype):
+
+def check_dataclass(path):
+    """ This method checks the dataclass of input path and
+    return the dataclass classifier and basepath name of the input path
+
+    :param path: input path
+    :type path: str
+    :return: dataclass, path
+    :rtype: int, str
+    """
+    if os.path.exists(path):
         dataclass = 1
-        datatype = methods.path_splitter(datatype)
-        datatype = datatype[-1]
+        path = methods.path_splitter(path)
+        path = path[-1]
     else:
         dataclass = 0
-    return dataclass, datatype
+    return dataclass, path
 
 
 def get_step_name(procobj, step, results=False, verbose=None):
-    """
+    """ This method checks if the input step had been executed or not.
+    If the step already executed, return the name of existing folder,
+    if not, the number of order is attached as prefix and will be returned
 
-    :param procobj:
-    :param step:
+    :param procobj: process class instance
+    :param step: name of the step
     :param results:
-    :param verbose:
-    :return:
+    :param verbose: print information
+    :type procobj: pynit.Process instance
+    :type step: str
+    :type results: bool
+    :type verbose: bool
+    :return: name of the step
+    :rtype: str
     """
     if results:
         idx = 2
     else:
         idx = 1
-    processing_path = os.path.join(procobj._prjobj.path, procobj._prjobj.ds_type[idx], procobj.processing)
+    processing_path = os.path.join(procobj._prjobj.path,
+                                   procobj._prjobj.ds_type[idx],
+                                   procobj.processing)
     executed_steps = [f for f in os.listdir(processing_path) if os.path.isdir(os.path.join(processing_path, f))]
     if len(executed_steps):
         overlapped = [old_step for old_step in executed_steps if step in old_step]
@@ -187,32 +211,28 @@ class Step(object):
     def set_outparam(self, name, ext, prefix=None):
         """This method set file name of output parameters
 
-        :param name     : str
-            Variables for parameter output file
-        :param ext      : str
-            Extension of the output file
-        :param prefix   : str
-            If prefix has value, add prefix to output file
+        :param name: Variables for parameter output file
+        :param ext: Extension of the output file
+        :param prefix: If prefix has value, add prefix to output file
+        :type name: str
+        :type ext: str
+        :type prefix: str
         """
         self._outparam[name] = (self.oppset(name=name, prefix=prefix, ext=ext))
 
-    def set_execmethod(self, command, var=None, idx=None):
+    def set_execmethod(self, command, var=None):
         """Set structured command on command handler
 
-        :param command  : str
-            Structured command with input and output variables
-        :param var      : str
-            Name of variable
-        :param idx      : int
-            Index for replacing the commands on handler
-        :return:
+        :param command: Structured command with input and output variables
+        :param var: Name of variable
+        :param idx: Index for replacing the commands on handler
+        :type command: str
+        :type var: str
+        :type idx: idx
         """
-        if idx:
-            self._commands[idx] = (command, [var])
-        else:
-            self._commands.append((command, [var]))
+        self._commands.append((command, [var]))
 
-    def set_command(self, command, verbose=False, idx=None, stdout=None ):
+    def set_command(self, command, verbose=False, stdout=None ):
         """Set structured command on command handler
 
         :param command  : str
@@ -224,17 +244,7 @@ class Step(object):
             if True, the input string can be used the variable for stand output results of a command
         :return:
         """
-
-        # tmpobjs = [obj.strip('{}') for obj in re.findall(r"[{\w'}]+", command) if obj[0] == '{' and obj[-1] == '}']
-        # objs = []
-        # for o in tmpobjs:
-        #     if "}{" in o:
-        #         objs.extend(o.split('}{'))
-        #     else:
-        #         objs.append(o)
-
         objs = retreive_obj_from_command(command)
-
         total = dict([(sideobj.name, sideobj.static) for sideobj in self._sidesets])
         total[self._mainset.name] = self._mainset.static
         if stdout:
@@ -286,13 +296,10 @@ class Step(object):
                         if obj in self._cmdstdout:
                             str_format.append("{0}={1}".format(obj, obj))
                         else:
-                            methods.raiseerror(messages.Errors.InputValueError, "Something wrong")
+                            methods.raiseerror(messages.Errors.InputValueError, "Exception case occured!")
 
         output = "{0}{1})".format(output, ", ".join(list(set(str_format))))
-        if idx:
-            self._commands[idx] = (output, stdout)
-        else:
-            self._commands.append((output, stdout))
+        self._commands.append((output, stdout))
         if self._tempfiles:
             self._tempfiles = sorted(list(set(self._tempfiles)))
         if verbose:
@@ -373,7 +380,7 @@ class Step(object):
                     '\tprefix = methods.splitnifti(output)',
                     '\tflist = [f for f in os.listdir(sub_path)]',
                     '\tif len([f for f in flist if prefix_filter in f]):',
-                    '\t\tself.logger.info("The File[{0}] is already exist.".format(output))',
+                    '\t\tself.logger.info("Step::Skipped because the file[{0}] is exist.".format(output))',
                     '\telse:']
             for cmd, stdout in self._commands:
                 if isinstance(stdout, str):
@@ -387,9 +394,9 @@ class Step(object):
                     body += ['\t\toutputs.append(methods.shell({0}))'.format(cmd)]
             if self._tempfiles:
                 temp = ['\ttemppath = mkdtemp()',
-                        '\tself.logger.info("TempFolder[{0}] is generated".format(temppath))']
+                        '\tself.logger.info("SYS::TempFolder[{0}] is generated".format(temppath))']
                 close = ['\trmtree(temppath)',
-                         '\tself.logger.info("TempFolder[{0}] is closed".format(temppath))']
+                         '\tself.logger.info("SYS::TempFolder[{0}] is closed".format(temppath))']
                 body = temp + body + close
             else:
                 pass
@@ -402,7 +409,7 @@ class Step(object):
                     '\t\tprefix = methods.splitnifti(output)',
                     '\t\tflist = [f for f in os.listdir(sub_path)]',
                     '\t\tif len([f for f in flist if prefix_filter in f]):',
-                    '\t\t\tself.logger.info("The File[{0}] is already exist.".format(output))',
+                    '\t\t\tself.logger.info("Step::Skipped because the file[{0}] is exist.".format(output))',
                     '\t\t\tsleep(0.08)',
                     '\t\telse:']
             for cmd, stdout in self._commands:
@@ -419,9 +426,9 @@ class Step(object):
             body += ['\t\toutputs.append(temp_outputs)']
             if self._tempfiles:
                 temp = ['\t\ttemppath = mkdtemp()',
-                        '\t\tself.logger.info("TempFolder[{0}] is generated".format(temppath))']
+                        '\t\tself.logger.info("SYS::TempFolder[{0}] is generated".format(temppath))']
                 close = ['\t\trmtree(temppath)',
-                         '\t\tself.logger.info("TempFolder[{0}] is closed".format(temppath))']
+                         '\t\tself.logger.info("SYS::TempFolder[{0}] is closed".format(temppath))']
                 body = loop + temp + body + close
             else:
                 body = loop + body
@@ -443,7 +450,7 @@ class Step(object):
         else:
             return output
 
-    def run(self, step_name, surfix, debug=False):
+    def run(self, step_name, surfix, results=False, debug=False):
         """Generate loop commands for step
 
         :param step_name: str
@@ -459,7 +466,7 @@ class Step(object):
             else:
                 thread = 1
             pool = ThreadPool(thread)
-            self._procobj.logger.info("Step:[{0}] is executed with {1} thread(s).".format(step_name, thread))
+            self._procobj.logger.info("Step::[{0}] is executed with {1} thread(s).".format(step_name, thread))
             output_path = self._procobj.init_step("{0}-{1}".format(step_name, surfix))
             if self._sessions:
                 for idx, subj in enumerate(progressbar(self._subjects, desc='Subjects')):
@@ -471,10 +478,10 @@ class Step(object):
                             if isinstance(outputs[0], list):
                                 all_outputs = []
                                 for output in outputs:
-                                    all_outputs.extend(['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in output])
+                                    all_outputs.extend(['STDOUT:\n{0}\nMessage:\n{1}\n\n'.format(out, err) for out, err in output])
                                 outputs = all_outputs[:]
                             else:
-                                outputs = ['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in outputs if outputs]
+                                outputs = ['STDOUT:\n{0}\nMessage:\n{1}\n\n'.format(out, err) for out, err in outputs if outputs]
                             with open(os.path.join(output_path, 'stephistory.log'), 'a') as f:
                                 f.write('\n\n'.join(outputs))
                         else:
@@ -490,10 +497,10 @@ class Step(object):
                             if isinstance(outputs[0], list):
                                 all_outputs = []
                                 for output in outputs:
-                                    all_outputs.extend(['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in output])
+                                    all_outputs.extend(['STDOUT:\n{0}\nMessage:\n{1}\n\n'.format(out, err) for out, err in output])
                                 outputs = all_outputs[:]
                             else:
-                                outputs = ['STDOUT:\n{0}\nMessage:\n{1}'.format(out, err) for out, err in outputs]
+                                outputs = ['STDOUT:\n{0}\nMessage:\n{1}\n\n'.format(out, err) for out, err in outputs]
                             with open(os.path.join(output_path, 'stephistory.log'), 'a') as f:
                                 f.write('\n\n'.join(outputs))
                         else:
@@ -518,8 +525,5 @@ class Step(object):
             exec('output = stepexec(*args)')    # execute function
         except Exception as e:
             print(e)
-        # except IndexError as e:
-        #     methods.raiseerror(ImportError,
-        #                        '[{}] Parsing input dataset Failed, Please check you put the correct inputs'.format(e))
         return output
 

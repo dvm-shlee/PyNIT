@@ -14,6 +14,7 @@ try:
     if len([key for key in sys.modules.keys() if 'ipykernel' in key]):
         from ipywidgets.widgets import HTML as title
         from IPython.display import display
+        from tqdm import tqdm_notebook as progressbar
         jupyter_env = True
     else:
         from tqdm import tqdm as progressbar

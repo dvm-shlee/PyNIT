@@ -1,7 +1,8 @@
 from base import *
 from pynit.handler.images import TempFile
+from pynit.handler.step import Step
 
-class AFNI_Process(Process):
+class AFNI_Process(BaseProcess):
     def __init__(self, *args, **kwargs):
         super(AFNI_Process, self).__init__(*args, **kwargs)
 
@@ -590,11 +591,11 @@ class AFNI_Process(Process):
         step.set_command(cmd, stdout='out')
         step.set_execmethod('temp_outputs.append([out, err])')
         step.set_execmethod('pd.read_table(StringIO(out))', var='df')
-        step.set_execmethod('df[df.columns[3:]]', var='df')
+        step.set_execmethod('df[df.columns[2:]]', var='df')
         # If given roi is Template instance
-        if list_of_roi:
-            step.set_variable(name='list_roi', value=list_of_roi)
-            step.set_execmethod('list_roi', var='df.columns')
+        # if list_of_roi:
+        #     step.set_variable(name='list_roi', value=list_of_roi)
+        #     step.set_execmethod('list_roi', var='df.columns')
         # again, if CBV parameter are given, put commends and methods into custom build function
         if cbv:
             if isinstance(cbv, list) and len(cbv) == 2:

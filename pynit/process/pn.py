@@ -1,6 +1,7 @@
 from base import *
+from pynit.handler.step import Step
 
-class PN_Process(Process):
+class PN_Process(BaseProcess):
     def __init__(self, *args, **kwargs):
         super(PN_Process, self).__init__(*args, **kwargs)
 

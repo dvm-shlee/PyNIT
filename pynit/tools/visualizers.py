@@ -283,10 +283,6 @@ class BrainPlot(object):
                 display(fig)
 
     @staticmethod
-    def orthogonal(imageobj, norm=True, **kwargs):                  #TODO: someday...
-        pass
-
-    @staticmethod
     def check_reg(fixed_img, moved_img, scale=15, norm=True, sigma=0.8, **kwargs):
         dim = list(moved_img.shape)
         resol = list(moved_img.header['pixdim'][1:4])

@@ -1,6 +1,8 @@
 from base import *
+from pynit.handler.step import Step
+import multiprocessing
 
-class ANTs_Process(Process):
+class ANTs_Process(BaseProcess):
     def __init__(self, *args, **kwargs):
         super(ANTs_Process, self).__init__(*args, **kwargs)
 
