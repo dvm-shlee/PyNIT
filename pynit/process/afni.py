@@ -2,60 +2,85 @@ from base import *
 from pynit.handler.images import TempFile
 from pynit.handler.step import Step
 
+
 class AFNI_Process(BaseProcess):
     def __init__(self, *args, **kwargs):
         super(AFNI_Process, self).__init__(*args, **kwargs)
 
-    def afni_MeanImgCalc(self, func, cbv=False, surfix='func'):
-        """Mean image calculation for functional image : Initial preparation
+    def afni_MeanImgCalc(self, func, cbv=False, surfix='func', debug=False):
+        """ Calculate mean image through time axis using '3dcalc' to get better SNR image
+        this process do motion correction before calculate mean image
 
-        :param func: str, Name of functional data folder at source location (eg. 'func')
-        :param cbv: boolean, True if MION contrast agent is infused
-        :param surfix: str, Output folder surfix
-        :return: output_path: dict, Absolute path of outputs
+        :param func:        input path, three type of path can be used
+                            1. datatype path from the raw data (e.g. 'func' or 'cbv')
+                            2. absolute path
+                            3. index of path which is shown on 'executed' method
+        :param cbv:         set True if the input path MION infusion image for CBV (default: False)
+        :param surfix:      surfix for output path
+        :param debug:       set True if you want to print out the executing function of this process (default: False)
+        :type func:         str
+        :type cbv:          bool
+        :type surfix:       str
+        :type debug:        bool
+        :return:            output path
+        :rtype:             dict
         """
         display(title(value='** Processing mean image calculation.....'))
         func = self.check_input(func)
         step = Step(self)
-        step.set_input(name='func', input_path=func, static=True)
-        step.set_outparam(name='mparam', ext='.1D')
+        step.set_input(name='func', path=func, idx=0)
+        step.set_output(name='output', type=0)
+        step.set_output(name='mparam', ext='1D', type=0)
+        step.set_output(name='temp_01', type=3)
         cmd01 = "3dvolreg -prefix {temp_01} -1Dfile {mparam} -Fourier -verbose -base 0 {func}"
-        step.set_command(cmd01)
+        step.set_cmd(cmd01)
         if cbv:
             cmd02 = "3dinfo -nv {func}"
-            step.set_staticinput('bold', 'int(int(ttime)/3)')
-            step.set_staticinput('bold_output', 'methods.splitnifti(output)+"_BOLD.nii.gz"')
-            step.set_staticinput('cbv', 'int(int(ttime)*2/3)')
-            step.set_staticinput('cbv_output', 'methods.splitnifti(output)+"_CBV.nii.gz"')
-            step.set_command(cmd02, stdout='ttime')
+            step.set_var(name='bold', value='int(int(ttime)/3)', type=1)
+            step.set_var(name='bold_output', value='methods.splitnifti(output)+"_BOLD.nii.gz"', type=1)
+            step.set_var(name='cbv', value='int(int(ttime)*2/3)', type=1)
+            step.set_var(name='cbv_output', value='methods.splitnifti(output)+"_CBV.nii.gz"', type=1)
+            step.set_cmd(cmd02, name='ttime')
             options = ['"[0..{bold}]"',
                        '"[{cbv}..$]"']
             cmd03 = "3dTstat -prefix {bold_output} -mean {temp_01}" + options[0]
-            step.set_command(cmd03)
+            step.set_cmd(cmd03)
             cmd04 = "3dTstat -prefix {cbv_output} -mean {temp_01}" + options[1]
-            step.set_command(cmd04)
-            # step.get_executefunc('test', verbose=True)
-            output_path = step.run('MeanImgCalc-CBV', surfix)
+            step.set_cmd(cmd04)
+            output_path = step.run('MeanImgCalc-CBV', surfix, debug=debug)
         else:
             cmd02 = "3dTstat -prefix {output} -mean {temp_01}"
-            step.set_command(cmd02)
-            output_path = step.run('MeanImgCalc-BOLD', surfix)
+            step.set_cmd(cmd02)
+            output_path = step.run('MeanImgCalc-BOLD', surfix, debug=debug)
         return dict(meanfunc=output_path)
 
-    def afni_SliceTimingCorrection(self, func, tr=None, tpattern=None, surfix='func'):
-        """Corrects for slice time differences when individual 2D slices are recorded over a 3D image
+    def afni_SliceTimingCorrection(self, func, tr=None, tpattern='altplus', surfix='func', debug=False):
+        """ Correct temporal mismatch of image acquisition timing due to the slice timing
+        this process use AFNI's '3dTshift'.
 
-        :param func: str,
-        :param tr: int,
-        :param tpattern: str,
-        :param surfix: str,
-        :return: output_path: dict, Absolute path of outputs
+        :param func:        input path, three type of path can be used
+                            1. datatype path from the raw data (e.g. 'func' or 'cbv')
+                            2. absolute path
+                            3. index of path which is shown on 'executed' method
+        :param tr:          repetition time
+        :param tpattern:    slice timing pattern which is defined on 3dTshift
+                            (e.g. altplus, altminus, seqplut, seqminus)
+        :param surfix:      surfix for output path
+        :param debug:       set True if you want to print out the executing function of this process (default: False)
+        :type func:         str or int
+        :type tr:           int
+        :type tpattern:     str
+        :type surfix:       str
+        :type debug:        bool
+        :return:            output path
+        :rtype:             dict
         """
         display(title(value='** Processing slice timing correction.....'))
         func = self.check_input(func)
         options = str()
         step = Step(self)
-        step.set_input(name='func', input_path=func, static=False)
+        step.set_input(name='func', path=func)
+        step.set_output(name='output', type=0)
         cmd = "3dTshift -prefix {output}"
         if tr:
             options += " -TR {0}".format(tr)
@@ -64,101 +89,126 @@ class AFNI_Process(BaseProcess):
         else:
             options += " -tpattern altplus"
         input_str = " {func}"
-        cmd = cmd+options+input_str
-        step.set_command(cmd)
-        output_path = step.run('SliceTmCorrect', surfix)
+        cmd = cmd + options + input_str
+        step.set_cmd(cmd)
+        output_path = step.run('SliceTmCorrect', surfix, debug=debug)
         return dict(func=output_path)
 
-    def afni_MotionCorrection(self, func, base, surfix='func'):
-        """
+    def afni_MotionCorrection(self, func, base, surfix='func', debug=False):
+        """ Applying rigid transformation through time axis to correct head motion
+        all images in the input path will be aligned on first image of base path you provides
+        this process use AFNI's '3dvolreg'
 
-        :param func:
-        :param base:
-        :param surfix:
-        :return:
+        :param func:        input path, three type of path can be used
+                            1. datatype path from the raw data (e.g. 'func' or 'cbv')
+                            2. absolute path
+                            3. index of path which is shown on 'executed' method
+        :param base:        base image path, same as above input path
+        :param surfix:      surfix for output path
+        :param debug:       set True if you want to print out the executing function of this process (default: False)
+        :type func:         str or int
+        :type base:         str or int
+        :type surfix:       str
+        :type debug:        bool
+        :return:            output path
+        :rtype:             dict
         """
         display(title(value='** Processing motion correction.....'))
         func = self.check_input(func)
         base = self.check_input(base)
         step = Step(self)
-        step.set_input(name='func', input_path=func, static=False)
+        step.set_input(name='func', path=func, type=False)
+
         try:
             if '-CBV-' in base:
                 mimg_filters = {'file_tag': '_CBV', 'ignore': 'BOLD'}
-                step.set_input(name='base', input_path=base, filters=mimg_filters, static=True, side=True)
+                step.set_input(name='base', path=base, filters=mimg_filters, idx=0, type=1)
             else:
-                step.set_input(name='base', input_path=base, static=True, side=True)
-            # mimg_path = self.steps[0]
-            # if '-CBV-' in mimg_path:
-            #     mimg_filters = {'file_tag': '_CBV'}
-            #     step.set_input(name='base', input_path=mimg_path, filters=mimg_filters, static=True, side=True)
-            # else:
-            #     step.set_input(name='base', input_path=mimg_path, static=True, side=True)
+                step.set_input(name='base', path=base, idx=0, type=1)
         except:
             methods.raiseerror(messages.Errors.MissingPipeline,
                                'Initial Mean image calculation step has not been executed!')
-        step.set_outparam(name='mparam', ext='.1D')
-        step.set_outparam('transmat', ext='.aff12.1D')
+        step.set_output(name='output')
+        step.set_output(name='mparam', ext='1D')
+        step.set_output(name='transmat', ext='aff12.1D')
+        step.set_output(name='temp_01', type=3)
+        step.set_output(name='temp_02', type=3)
+        step.set_output(name='temp_03', type=3)
         cmd01 = "3dvolreg -prefix {temp_01} -1Dfile {mparam} -Fourier -verbose -base 0 {func}"
-        step.set_command(cmd01)
+        step.set_cmd(cmd01)
         cmd02 = "3dTstat -mean -prefix {temp_02} {temp_01}"
-        step.set_command(cmd02)
+        step.set_cmd(cmd02)
         cmd03 = "3dAllineate -prefix {temp_03} -warp sho -base {base} -1Dmatrix_save {transmat} {temp_02}"
-        step.set_command(cmd03)
+        step.set_cmd(cmd03)
         cmd04 = '3dAllineate -prefix {output} -1Dmatrix_apply {transmat} -warp sho {temp_01}'
-        step.set_command(cmd04)
-        output_path = step.run('MotionCorrection', surfix)
+        step.set_cmd(cmd04)
+        output_path = step.run('MotionCorrection', surfix, debug=debug)
         return dict(func=output_path)
 
-    def afni_MaskPrep(self, anat, tmpobj, func=None, surfix='func'):
-        """
+    def afni_MaskPrep(self, anat, tmpobj, meanfunc, surfix='func', debug=False):
+        """ Prepare mask images by reorient template mask image to individual image
+        and provide launcher to open image viewer to help manual mask drawing
+        this process use AFNI's '3dAllineate'
 
-        :param anat:
-        :return:
+        :param anat:        input path for anatomical image, three type of path can be used
+                            1. datatype path from the raw data (e.g. 'anat' or 'dti')
+                            2. absolute path
+                            3. index of path which is shown on 'executed' method
+        :param tmpobj:      brain template image object
+        :param meanfunc:        input path for functional image, same as above input path
+        :param surfix:      surfix for output path
+        :param debug:       set True if you want to print out the executing function of this process (default: False)
+        :type anat:         str or int
+        :type tmpobj:       pn.Template
+        :type meanfunc:         str or int
+        :type surfix:       str
+        :return:            output path
+        :rtype:             dict
         """
         display(title(value='** Processing mask image preparation.....'))
         anat = self.check_input(anat)
         step = Step(self)
         mimg_path = None
         try:
-            step.set_input(name='anat', input_path=anat, static=True)
+            step.set_input(name='anat', path=anat, idx=0)
         except:
             methods.raiseerror(messages.Errors.MissingPipeline,
                                'No anatomy file!')
         try:
-            step.set_staticinput(name='mask', value=str(tmpobj.mask))
+            step.set_var(name='mask', value=str(tmpobj.mask), type=1)
         except:
             methods.raiseerror(messages.InputPathError,
                                'No mask template file!')
-        cmd01 = "3dAllineate -prefix {temp1} -NN -onepass -EPI -base {anat} -cmass+xy {mask}"
-        cmd02 = '3dcalc -prefix {output} -expr "astep(a, 0.5)" -a {temp1}'
-        step.set_command(cmd01)
-        step.set_command(cmd02)
+        cmd01 = '3dAllineate -prefix {temp_01} -NN -onepass -EPI -base {anat} -cmass+xy {mask}'
+        cmd02 = '3dcalc -prefix {output} -expr "astep(a, 0.5)" -a {temp_01}'
+        step.set_output(name='output', type=0)
+        step.set_output(name='temp_01', type=3)
+        step.set_cmd(cmd01)
+        step.set_cmd(cmd02)
         anat_mask = step.run('MaskPrep', 'anat')
         step = Step(self)
         try:
-            if func:
-                mimg_path = self.check_input(func)
-            else:
-                mimg_path = self.steps[0]
+            mimg_path = self.check_input(meanfunc)
             if '-CBV-' in mimg_path:
                 mimg_filters = {'file_tag': '_BOLD'}
-                step.set_input(name='func', input_path=mimg_path, filters=mimg_filters, static=True)
+                step.set_input(name='func', path=mimg_path, filters=mimg_filters, idx=0)
             else:
-                step.set_input(name='func', input_path=mimg_path, static=True)
+                step.set_input(name='func', path=mimg_path, idx=0)
         except:
             methods.raiseerror(messages.Errors.MissingPipeline,
                                'Initial Mean image calculation step has not been executed!')
         try:
-            step.set_staticinput(name='mask', value=str(tmpobj.mask))
+            step.set_var(name='mask', value=str(tmpobj.mask), type=1)
         except:
             methods.raiseerror(messages.InputPathError,
                                'No mask template file!')
-        cmd01 = "3dAllineate -prefix {temp1} -NN -onepass -EPI -base {func} -cmass+xy {mask}"
-        cmd02 = '3dcalc -prefix {output} -expr "astep(a, 0.5)" -a {temp1}'
-        step.set_command(cmd01, idx=0)
-        step.set_command(cmd02)
-        func_mask = step.run('MaskPrep', surfix)
+        cmd01 = '3dAllineate -prefix {temp_01} -NN -onepass -EPI -base {func} -cmass+xy {mask}'
+        cmd02 = '3dcalc -prefix {output} -expr "astep(a, 0.5)" -a {temp_01}'
+        step.set_output(name='output', type=0)
+        step.set_output(name='temp_01', type=3)
+        step.set_cmd(cmd01)
+        step.set_cmd(cmd02)
+        func_mask = step.run('MaskPrep', surfix, debug=debug)
         if jupyter_env:
             if self._viewer == 'itksnap':
                 display(widgets.VBox([title(value='-'*43 + ' Anatomical images ' + '-'*43),
@@ -176,190 +226,284 @@ class AFNI_Process(BaseProcess):
         else:
             return dict(anat_mask=anat_mask, func_mask=func_mask)
 
-    def afni_SkullStrip(self, anat, func, surfix='func'):
-        """ The pre-defined step for skull stripping with AFNI
+    def afni_SkullStrip(self, anat, meanfunc, surfix='func', debug=False):
+        """ Subtract out the image outside of the brain mask,
+        'afni_MaskPrep' must be executed before run this process.
 
-        :param anat:
-        :param func:
-        :return:
+        :param anat:        input path for anatomical image, three type of path can be used
+                            1. datatype path from the raw data (e.g. 'anat' or 'dti')
+                            2. absolute path
+                            3. index of path which is shown on 'executed' method
+        :param meanfunc:        input path for mean functional image, same as above input path
+        :param surfix:      surfix for output path
+        :param debug:       set True if you want to print out the executing function of this process (default: False)
+        :type anat:         str or int
+        :type meanfunc:         str or int
+        :type surfix:       str
+        :return:            output path
+        :rtype:             dict
         """
         display(title(value='** Processing skull stripping.....'))
         anat = self.check_input(anat)
-        func = self.check_input(func)
+        meanfunc = self.check_input(meanfunc)
         anat_mask = [self.steps[idx] for idx, step in self.executed.items() if 'MaskPrep-anat' in step][0]
         anat_mask = self.check_input(anat_mask)
         func_mask = [self.steps[idx] for idx, step in self.executed.items() if 'MaskPrep-{}'.format(surfix) in step][0]
         func_mask = self.check_input(func_mask)
         step = Step(self)
-        step.set_input(name='anat', input_path=anat, static=True)
-        step.set_input(name='anat_mask', input_path=anat_mask, static=True, side=True)
+        step.set_input(name='anat', path=anat, idx=0)
+        step.set_input(name='anat_mask', path=anat_mask, type=1, idx=0)
+        step.set_output(name='output')
         cmd01 = '3dcalc -prefix {output} -expr "a*step(b)" -a {anat} -b {anat_mask}'
-        step.set_command(cmd01)
+        step.set_cmd(cmd01)
         anat_path = step.run('SkullStrip', 'anat')
         step = Step(self)
-        if '-CBV-' in func:
-            func_filter = {'file_tag':'_BOLD'}
-            step.set_input(name='func', input_path=func, filters=func_filter, static=True)
+        if '-CBV-' in meanfunc:
+            func_filter = {'file_tag': '_BOLD'}
+            step.set_input(name='meanfunc', path=meanfunc, filters=func_filter, idx=0)
         else:
-            step.set_input(name='func', input_path=func, static=True)
-        step.set_input(name='func_mask', input_path=func_mask, static=True, side=True)
-        cmd02 = '3dcalc -prefic {output} -expr "a*step(b)" -a {func} -b {func_mask}'
-        step.set_command(cmd02, idx=0)
-        func_path = step.run('SkullStrip', surfix)
+            step.set_input(name='meanfunc', path=meanfunc)
+        step.set_input(name='func_mask', path=func_mask, type=1, idx=0)
+        step.set_output(name='output')
+        cmd02 = '3dcalc -prefic {output} -expr "a*step(b)" -a {meanfunc} -b {func_mask}'
+        step.set_cmd(cmd02)
+        func_path = step.run('SkullStrip', surfix, debug=debug)
         return dict(anat=anat_path, func=func_path)
 
-    def afni_Coreg(self, anat, meanfunc, surfix='func'):
-        """Applying bias field correction with ANTs N4 algorithm and then align funtional image to
+    def afni_Coreg(self, anat, meanfunc, surfix='func', debug=False):
+        """ Applying bias field correction with ANTs N4 algorithm and then align funtional image to
         anatomical space using Afni's 3dAllineate command
 
-        :param anat:
-        :param meanfunc:
-        :param surfix:
-        :return:
+        :param anat:        input path for anatomical image, three type of path can be used
+                            1. datatype path from the raw data (e.g. 'anat' or 'dti')
+                            2. absolute path
+                            3. index of path which is shown on 'executed' method
+        :param meanfunc:    input path for mean functional image, same as above input path
+        :param surfix:      surfix for output path
+        :param debug:       set True if you want to print out the executing function of this process (default: False)
+        :type anat:         str or int
+        :type meanfunc:         str or int
+        :type surfix:       str
+        :return:            output path
+        :rtype:             dict
         """
         display(title(value='** Processing coregistration.....'))
         anat = self.check_input(anat)
         meanfunc = self.check_input(meanfunc)
         step = Step(self)
-        step.set_input(name='anat', input_path=anat, static=True, side=True)
-        step.set_input(name='func', input_path=meanfunc, static=True)
-        step.set_outparam(name='transmat', ext='.aff12.1D')
+        step.set_input(name='func', path=meanfunc, idx=0)
+        step.set_input(name='anat', path=anat, type=1, idx=0)
+        step.set_output(name='output')
+        step.set_output(name='transmat', ext='aff12.1D')
+        step.set_output(name='temp_01', type=3)
+        step.set_output(name='temp_02', type=3)
         cmd01 = "N4BiasFieldCorrection -i {anat} -o {temp_01}"
-        step.set_command(cmd01)
+        step.set_cmd(cmd01)
         cmd02 = "N4BiasFieldCorrection -i {func} -o {temp_02}"
-        step.set_command(cmd02)
+        step.set_cmd(cmd02)
         cmd03 = "3dAllineate -prefix {output} -onepass -EPI -base {temp_01} -cmass+xy " \
                 "-1Dmatrix_save {transmat} {temp_02}"
-        step.set_command(cmd03)
-        output_path = step.run('Coregistration', surfix)
-        return dict(func=output_path)
+        step.set_cmd(cmd03)
+        output_path = step.run('Coregistration', surfix, debug=debug)
+        display(title(value='** Plotting images to check registration.....'))
+        step.reset()
+        step.set_input(name='func', path=output_path, idx=0)
+        step.set_input(name='anat', path=anat, type=1, idx=0)
+        step.set_output(name='chkreg1', ext='png', dc=1, prefix='Func2Anat')
+        step.set_output(name='chkreg2', ext='png', dc=1, prefix='Anat2Func')
+        step.set_var(name='test1', value=3)
+        cmd04 = 'check_reg {anat} {func} {chkreg1}'
+        cmd05 = 'check_reg {func} {anat} {chkreg2}'
+        step.set_cmd(cmd04)
+        step.set_cmd(cmd05)
+        result_path = step.run('Check_Registration', surfix, debug=debug)
+        return dict(func=output_path, checkreg = result_path)
 
-    def afni_SkullStripAll(self, func, meanfunc, surfix='func'):
-        """Applying arithmetic skull stripping
+    def afni_SkullStripAll(self, func, meanfunc, surfix='func', debug=False):
+        """ Applying arithmetic skull stripping
 
-        :param func:
-        :param meanfunc:
-        :param surfix:
-        :return:
+        :param func:        input path for all functional image, three type of path can be used
+                            1. datatype path from the raw data (e.g. 'anat' or 'dti')
+                            2. absolute path
+                            3. index of path which is shown on 'executed' method
+        :param meanfunc:    input path for mean functional image, same as above input path
+        :param surfix:      surfix for output path
+        :param debug:       set True if you want to print out the executing function of this process (default: False)
+        :type func:         str or int
+        :type meanfunc:     str or int
+        :type surfix:       str
+        :return:            output path
+        :rtype:             dict
         """
         display(title(value='** Processing skull stripping to all {} data.....'.format(surfix)))
         meanfunc = self.check_input(meanfunc)
         func = self.check_input(func)
         step = Step(self)
-        step.set_input(name='mask', input_path=meanfunc, static=True, side=True)
-        step.set_input(name='func', input_path=func)
+        step.set_input(name='func', path=func)
+        step.set_input(name='mask', path=meanfunc, type=1, idx=0)
+        step.set_output(name='output')
         cmd = '3dcalc -prefix {output} -expr "a*step(b)" -a {func} -b {mask}'
-        step.set_command(cmd)
-        output_path = step.run('Apply_SkullStrip', surfix)
+        step.set_cmd(cmd)
+        output_path = step.run('Apply_SkullStrip', surfix, debug=debug)
         return dict(func=output_path)
 
-    def afni_ApplyCoregAll(self, func, coregfunc, surfix='func'):
-        """Applying transform matrix to all functional data using Afni's 3dAllineate command
+    def afni_ApplyCoregAll(self, func, coregfunc, surfix='func', debug=False):
+        """ Applying transform matrix to all functional data using AFNI's '3dAllineate'
 
-        :param func:
-        :param coregfunc:
-        :param surfix:
-        :return:
+        :param func:        input path for all functional image, three type of path can be used
+                            1. datatype path from the raw data (e.g. 'anat' or 'dti')
+                            2. absolute path
+                            3. index of path which is shown on 'executed' method
+        :param coregfunc:   input path for realigned functional image, same as above input path
+        :param surfix:      surfix for output path
+        :param debug:       set True if you want to print out the executing function of this process (default: False)
+        :type func:         str or int
+        :type coregfunc:     str or int
+        :type surfix:       str
+        :return:            output path
+        :rtype:             dict
         """
         display(title(value='** Applying coregistration to all {} data.....'.format(surfix)))
         coregfunc = self.check_input(coregfunc)
         func = self.check_input(func)
         step = Step(self)
-        tform_filters = {'ext':'.aff12.1D'}
-        step.set_input(name='tform', input_path=coregfunc, filters=tform_filters, static=True, side=True)
-        step.set_input(name='coreg', input_path=coregfunc, static=True, side=True)
-        step.set_input(name='func', input_path=func)
+        tform_filters = {'ext': '.aff12.1D'}
+        step.set_input(name='func', path=func)
+        step.set_input(name='tform', path=coregfunc, filters=tform_filters, type=1, idx=0)
+        step.set_input(name='coreg', path=coregfunc, type=1, idx=0)
+        step.set_output(name='output')
         cmd = '3dAllineate -prefix {output} -master {coreg} -1Dmatrix_apply {tform} {func}'
-        step.set_command(cmd)
-        output_path = step.run('Apply_Coreg', surfix)
+        step.set_cmd(cmd)
+        output_path = step.run('Apply_Coreg', surfix, debug=debug)
         return dict(func=output_path)
 
-    def afni_SpatialNorm(self, anat, tmpobj, surfix='anat'):
-        """Align anatomical image to template brain space using Afni's 3dAllineate command
+    def afni_SpatialNorm(self, anat, tmpobj, surfix='anat', debug=False):
+        """ Align anatomical image to template brain space using AFNI's '3dAllineate'
 
-        :param anat:
-        :param tmpobj:
-        :param surfix:
-        :return:
+        :param anat:        input path for anatomical image, three type of path can be used
+                            1. datatype path from the raw data (e.g. 'anat' or 'dti')
+                            2. absolute path
+                            3. index of path which is shown on 'executed' method
+        :param tmpobj:      brain template image object
+        :param surfix:      surfix for output path
+        :param debug:       set True if you want to print out the executing function of this process (default: False)
+        :type anat:         str or int
+        :type tmpobj:       pn.Template
+        :type surfix:       str
+        :return:            output path
+        :rtype:             dict
         """
         display(title(value='** Processing spatial normalization.....'))
         anat = self.check_input(anat)
         step = Step(self)
-        step.set_input(name='anat', input_path=anat, static=True)
-        step.set_staticinput(name='tmpobj', value=tmpobj.template_path)
-        step.set_outparam(name='transmat', ext='.aff12.1D')
+        step.set_input(name='anat', path=anat, idx=0)
+        step.set_var(name='tmpobj', value=tmpobj.template_path, type=1)
+        step.set_output(name='output')
+        step.set_output(name='transmat', ext='.aff12.1D')
         cmd = '3dAllineate -prefix {output} -twopass -cmass+xy -zclip -conv 0.01 -base {tmpobj} ' \
               '-cost crM -check nmi -warp shr -1Dmatrix_save {transmat} {anat}'
-        step.set_command(cmd)
-        output_path = step.run('SpatialNorm', surfix)
+        step.set_cmd(cmd)
+        output_path = step.run('SpatialNorm', surfix, debug=debug)
         return dict(normanat=output_path)
 
-    def afni_ApplySpatialNorm(self, func, normanat, surfix='func'):
-        """Applying transform matrix to all functional data for spatial normalization
+    def afni_ApplySpatialNorm(self, func, normanat, surfix='func', debug=False):
+        """ Applying transform matrix to all functional data for spatial normalization
+        this processor use AFNI's '3dAllineate'
 
-        :param func:
-        :param normanat:
-        :param surfix:
-        :return:
+        :param func:        input path for functional image, three type of path can be used
+                            1. datatype path from the raw data (e.g. 'anat' or 'dti')
+                            2. absolute path
+                            3. index of path which is shown on 'executed' method
+        :param normanat:    input path for normalized anatomical image, same as above input path
+        :param surfix:      surfix for output path
+        :param debug:       set True if you want to print out the executing function of this process (default: False)
+        :type func:         str or int
+        :type normanat:     str or int
+        :type surfix:       str
+        :return:            output path
+        :rtype:             dict
         """
         display(title(value='** Applying spatial normalization to all {} data.....'.format(surfix)))
         func = self.check_input(func)
         normanat = self.check_input(normanat)
         step = Step(self)
-        step.set_input(name='func', input_path=func)
-        step.set_input(name='normanat', input_path=normanat, static=True, side=True)
-        transmat_filter = {'ext':'.aff12.1D'}
-        step.set_input(name='transmat', input_path=normanat, filters=transmat_filter, static=True, side=True)
+        step.set_input(name='func', path=func)
+        step.set_input(name='normanat', path=normanat, type=1, idx=0)
+        transmat_filter = {'ext': '.aff12.1D'}
+        step.set_input(name='transmat', path=normanat, filters=transmat_filter, type=1, idx=0)
+        step.set_output(name='output')
         cmd = '3dAllineate -prefix {output} -master {normanat} -warp shr -1Dmatrix_apply {transmat} {func}'
-        step.set_command(cmd)
-        output_path = step.run('ApplySpatialNorm', surfix)
+        step.set_cmd(cmd)
+        output_path = step.run('ApplySpatialNorm', surfix, debug=debug)
         return dict(normfunc=output_path)
 
-    def afni_SpatialSmoothing(self, func, fwhm=0.5, tmpobj=None, surfix='func', **kwargs):
-        """
+    def afni_SpatialSmoothing(self, func, fwhm=0.5, tmpobj=None, surfix='func', debug=False, **kwargs):
+        """ Apply gaussian smoothing kernel with given FWHM,
+        this process use AFNI's '3dBlurInMask'
 
-        :param func:
-        :param fwhm:
-        :param tmpobj:
-        :param surfix:
-        :return:
+        :param func:        input path for functional image, three type of path can be used
+                            1. datatype path from the raw data (e.g. 'anat' or 'dti')
+                            2. absolute path
+                            3. index of path which is shown on 'executed' method
+        :param fwhm:        Full with half maximum of Gaussian kernel
+        :param tmpobj:      brain template image object
+        :param surfix:      surfix for output path
+        :param debug:       set True if you want to print out the executing function of this process (default: False)
+        :type func:         str or int
+        :type fwhm:         float
+        :type tmpobj:       pn.Template
+        :type surfix:       str
+        :return:            output path
+        :rtype:             dict
         """
         display(title(value='** Processing spatial smoothing.....'))
         func = self.check_input(func)
-        filters, subj, sess = self.check_filters(**kwargs)
-        step = Step(self, subjects=subj, sessions=sess)
-        step.set_input(name='func', input_path=func, filters=filters)
+        step = Step(self)
+        step.set_input(name='func', path=func, filters=kwargs)
         if not fwhm:
             methods.raiseerror(messages.Errors.InputValueError, 'the FWHM value have to specified')
         else:
-            step.set_staticinput('fwhm', fwhm)
+            step.set_var(name='fwhm', value=fwhm, type=1)
+        step.set_output(name='output')
         cmd = '3dBlurInMask -prefix {output} -FWHM {fwhm}'
         if tmpobj:
-            step.set_staticinput('mask', value=str(tmpobj.mask))
+            step.set_var(name='mask', value=str(tmpobj.mask), type=1)
             cmd += ' -mask {mask}'
         cmd += ' -quiet {func}'
-        step.set_command(cmd)
-        output_path = step.run('SpatialSmoothing', surfix)
+        step.set_cmd(cmd)
+        output_path = step.run('SpatialSmoothing', surfix, debug=debug)
         return dict(func=output_path)
 
-    def afni_GLManalysis(self, func, paradigm, clip_range=None, surfix='func', **kwargs):
-        """
+    def afni_GLManalysis(self, func, paradigm, clip_range=None, surfix='func', debug=False, **kwargs):
+        """ run task-based fMRI analysis including estimating the temporal auto-correlation,
+        this process use AFNI's '3dDeconvolve' and '3dREMLfit'
 
-        :param func:
-        :param paradigm:
-        :param clip_range:
-        :param surfix:
-        :return:
+        :param func:        input path for functional image, three type of path can be used
+                            1. datatype path from the raw data (e.g. 'anat' or 'dti')
+                            2. absolute path
+                            3. index of path which is shown on 'executed' method
+        :param paradigm:    task paradigm for each subject
+        :param clip_range:  time point ranges for temporal cropping
+        :param surfix:      surfix for output path
+        :param debug:       set True if you want to print out the executing function of this process (default: False)
+        :type func:         str or int
+        :type paradigm:     list
+        :type clip_range:   list
+        :type surfix:       str
+        :type debug:        bool
+        :return:            output path
+        :rtype:             dict
         """
         display(title(value='** Processing General Linear Analysis'))
         func = self.check_input(func)
-        filters, subj, sess = self.check_filters(**kwargs)
-        step = Step(self, subjects=subj, sessions=sess)
-        step.set_input(name='func', input_path=func, filters=filters)
-        step.set_variable(name='paradigm', value=paradigm)
-        step.set_staticinput(name='param', value='" ".join(map(str, paradigm[idx][0]))')
-        step.set_staticinput(name='model', value='paradigm[idx][1][0]')
-        step.set_staticinput(name='mparam', value='" ".join(map(str, paradigm[idx][1][1]))')
+        step = Step(self)
+        step.set_input(name='func', path=func, filters=kwargs)
+        step.set_var(name='paradigm', value=paradigm)
+        step.set_var(name='param', value='" ".join(map(str, paradigm[i][0]))', type=1)
+        step.set_var(name='model', value='paradigm[i][1][0]', type=2)
+        step.set_var(name='mparam', value='" ".join(map(str, paradigm[i][1][1]))', type=1)
+        step.set_output(name='output')
+        step.set_output(name='prefix', ext='remove')
         if clip_range:
             cmd01 = '3dDeconvolve -input {func}'
             cmd01 += '"[{}..{}]" '.format(clip_range[0], clip_range[1])
@@ -368,54 +512,63 @@ class AFNI_Process(BaseProcess):
         else:
             cmd01 = '3dDeconvolve -input {func} -num_stimts 1 -polort 2 -stim_times 1 "1D: {param}" ' \
                     '"{model}({mparam})" -stim_label 1 STIM -tout -bucket {output} -x1D {prefix}'
-        step.set_command(cmd01)
+        step.set_cmd(cmd01)
         glm = step.run('GLMAnalysis', surfix, debug=False)
         display(title(value='** Estimating the temporal auto-correlation structure'))
-        step = Step(self, subjects=subj, sessions=sess)
-        step.set_input(name='func', input_path=func, filters=filters)
-        filter = dict(ext='.xmat.1D')
-        step.set_input(name='glm', input_path=glm, filters=filter, side=True)
+        step = Step(self)
+        step.set_input(name='func', path=func, filters=kwargs)
+        filters = dict(ext='.xmat.1D')
+        step.set_input(name='glm', path=glm, filters=filters, type=1)
+        step.set_output(name='output')
         if clip_range:
             cmd02 = '3dREMLfit -matrix {glm} -input {func}'
             cmd02 += '"[{}..{}]" '.format(clip_range[0], clip_range[1])
             cmd02 += '-tout -Rbuck {output} -verb'
         else:
             cmd02 = '3dREMLfit -matrix {glm} -input {func} -tout -Rbuck {output} -verb'
-        step.set_command(cmd02)
-        output_path = step.run('REMLfit', surfix, debug=False)
+        step.set_cmd(cmd02)
+        output_path = step.run('REMLfit', surfix, debug=debug)
         return dict(GLM=output_path)
 
-    def afni_ClusterMap(self, glm, func, tmpobj, pval=0.01, cluster_size=40, surfix='func'):
-        """Wrapper method of afni's 3dclust for generating clustered mask
+    def afni_ClusterMap(self, stats, func, tmpobj, pval=0.01, clst_size=40, surfix='func', debug=False):
+        """ function to generate mask images from cluster using given threshold parameter.
+        this process use AFNI's '3dAttribute', 'cdf', and '3dclust'
 
-        :param glm:
-        :param func:
-        :param tmpobj:
-        :param pval:
-        :param cluster_size:
-        :param surfix:
-        :return:
+        :param stats:       input path for individual level activity map, three type of path can be used
+                            1. datatype path from the raw data (e.g. 'funt')
+                            2. absolute path
+                            3. index of path which is shown on 'executed' method
+        :param func:        input path for functional image, three type of path can be used
+                            1. datatype path from the raw data (e.g. 'func')
+                            2. absolute path
+                            3. index of path which is shown on 'executed' method
+        :param tmpobj:      brain template image object
+        :param pval:        threshold p value
+        :param clst_size:   threshold voxel size
+        :param surfix:      surfix for output path
+        :return:            output path
         """
         display(title(value='** Generating clustered masks'))
-        glm = self.check_input(glm)
+        stats = self.check_input(stats)
         func = self.check_input(func)
         step = Step(self)
-        step.set_input(name='glm', input_path=glm)
-        step.set_input(name='func', input_path=func, side=True)
-        step.set_staticinput(name='pval', value=pval)
-        step.set_staticinput(name='csize', value=cluster_size)
+        step.set_input(name='glm', path=stats)
+        step.set_input(name='func', path=func, type=1)
+        step.set_output(name='output')
+        step.set_var(name='pval', value=pval)
+        step.set_var(name='csize', value=clst_size)
         cmd01 = '3dAttribute BRICK_STATAUX {glm}'
-        step.set_command(cmd01, stdout='dof')
-        step.set_staticinput(name='dof', value='dof.split()[-1]')
+        step.set_cmd(cmd01, name='dof')
+        step.set_var(name='dof', value='dof.split()[-1]', type=1)
         cmd02 = 'cdf -p2t fitt {pval} {dof}'
-        step.set_command(cmd02, stdout='tval')
-        step.set_execmethod('tval.split("=")[1].strip()', var='tval')
+        step.set_cmd(cmd02, name='tval')
+        step.set_cmd('tval.split("=")[1].strip()', name='tval', type=1)
         cmd03 = '3dclust -1Dformat -nosum -1dindex 2 -1tindex 2 -2thresh -{tval} {tval} ' \
                 '-dxyz=1 -savemask {output} 1.01 {csize} {glm}'
-        step.set_command(cmd03)
-        step.set_execmethod('with open(methods.splitnifti(output) + ".json", "wb") as f:')
-        step.set_execmethod('\tjson.dump(dict(source=func[i].Abspath), f)')
-        output_path = step.run('ClusteredMask', surfix=surfix)
+        step.set_cmd(cmd03)
+        step.set_cmd('with open(methods.splitnifti(output) + ".json", "wb") as f:', type=1)
+        step.set_cmd('\tjson.dump(dict(source=func[i].Abspath), f)', type=1)
+        output_path = step.run('ClusteredMask', surfix=surfix, debug=debug)
         if jupyter_env:
             if self._viewer == 'itksnap':
                 display(viewer.itksnap(self, output_path, tmpobj.image.get_filename()))
@@ -428,7 +581,7 @@ class AFNI_Process(BaseProcess):
             return dict(mask=output_path)
 
     def afni_SignalProcessing(self, func, norm=True, ort=None, clip_range=None, mask=None, bpass=None,
-                              fwhm=None, dt=None, surfix='func', **kwargs):
+                              fwhm=None, dt=None, surfix='func', debug=False, **kwargs):
         """Wrapper method of afni's 3dTproject for signal processing of resting state data
 
         :param func:
@@ -442,13 +595,15 @@ class AFNI_Process(BaseProcess):
         :return:
         """
         display(title(value='** Run signal processing for resting state data'))
-        filters, subj, sess = self.check_filters(**kwargs)
-        step = Step(self, subjects=subj, sessions=sess)
+        step = Step(self)
         func = self.check_input(func)
         ort = self.check_input(ort)
-        step.set_input(name='func', input_path=func, filters=filters)
+        step.set_input(name='func', path=func, filters=kwargs)
+        step.set_output(name='output')
         cmd = ['3dTproject -prefix {output}']
         orange, irange = None, None         # orange= range of ort file, irange= range of image file
+
+        # Parameters
         if bpass:                           # set bandpass filter
             if isinstance(bpass, list) and len(bpass) == 2:
                 cmd.append('-passband {} {}'.format(*bpass))
@@ -462,20 +617,20 @@ class AFNI_Process(BaseProcess):
                     if len(clip_range) == 2:
                         orange = "'{" + "{}..{}".format(*clip_range) + "}'"
                         irange = "'[" + "{}..{}".format(*clip_range) + "]'"
-                        step.set_staticinput(name='orange', value=orange)
-                        step.set_staticinput(name='irange', value=irange)
+                        step.set_var(name='orange', value=orange, type=1)
+                        step.set_var(name='irange', value=irange, type=1)
 
             ort_filter = {'ext': '.1D', 'ignore': ['.aff12']}
-            if filters:
-                for key in filters.keys():
+            if kwargs:
+                for key in kwargs.keys():
                     if 'ignore' in key:
-                        if isinstance(filters['ignore'], list):
-                            ort_filter['ignore'].extend(filters.pop('ignore'))
+                        if isinstance(kwargs['ignore'], list):
+                            ort_filter['ignore'].extend(kwargs.pop('ignore'))
                         else:
-                            ort_filter['ignore'].append(filters.pop('ignore'))
+                            ort_filter['ignore'].append(kwargs.pop('ignore'))
                     if 'ext' in key:
-                        filters.pop('ext')
-                ort_filter.update(filters)
+                        kwargs.pop('ext')
+                ort_filter.update(kwargs)
             if isinstance(ort, dict):
                 for key, value in ort.items():
                     ortpath = self.check_input(value)
@@ -483,7 +638,7 @@ class AFNI_Process(BaseProcess):
                         cmd.append('-ort {{}}'.format(key)+'{orange}')
                     else:
                         cmd.append('-ort {{}}'.format(key))
-                    step.set_input(name=key, input_path=ortpath, filters=ort_filter, side=True)
+                    step.set_input(name=key, path=ortpath, filters=ort_filter, type=1)
             elif isinstance(ort, list):
                 for i, o in enumerate(ort):
                     exec('ort_{} = self.check_input({})'.format(str(i), o))
@@ -492,39 +647,40 @@ class AFNI_Process(BaseProcess):
                         cmd.append('-ort {}'.format(ort_name)+'{orange}')
                     else:
                         cmd.append('-ort {}'.format(ort_name))
-                    step.set_input(name=ort_name, input_path=o, filters=ort_filter, side=True)
+                    step.set_input(name=ort_name, path=o, filters=ort_filter, type=1)
             elif isinstance(ort, str):
                 ort = self.check_input(ort)
                 if clip_range:
                     cmd.append('-ort {ort}"{orange}"')
                 else:
                     cmd.append('-ort {ort}')
-                step.set_input(name='ort', input_path=ort, filters=ort_filter, side=True)
+                step.set_input(name='ort', path=ort, filters=ort_filter, type=1)
             else:
                 self.logger.debug('TypeError on input ort.')
         if mask:                            # set mask
             if os.path.isfile(mask):
-                step.set_staticinput(name='mask', value=mask)
+                step.set_var(name='mask', value=mask, type=1)
             elif os.path.isdir(mask):
-                step.set_input(name='mask', input_path=mask, static=True, side=True)
+                step.set_input(name='mask', path=mask, type=1)
             else:
                 pass
             cmd.append('-mask {mask}')
         if fwhm:                            # set smoothness
-            step.set_staticinput(name='fwhm', value=fwhm)
+            step.set_var(name='fwhm', value=fwhm)
             cmd.append('-blur {fwhm}')
         if dt:                              # set sampling rate (TR)
-            step.set_staticinput(name='dt', value=dt)
+            step.set_var(name='dt', value=dt)
             cmd.append('-dt {dt}')
         if clip_range:                           # set range
             cmd.append('-input {func}"{irange}"')
         else:
             cmd.append('-input {func}')
-        step.set_command(" ".join(cmd))
-        output_path = step.run('SignalProcess', surfix=surfix, debug=False)
+        step.set_cmd(" ".join(cmd))
+        output_path = step.run('SignalProcess', surfix=surfix, debug=debug)
         return dict(signalprocess=output_path)
 
-    def afni_ROIStats(self, func, rois, cbv=None, clip_range=None, option=None, surfix='func', **kwargs):
+    def afni_ROIStats(self, func, rois, cbv=None, clip_range=None, option=None, surfix='func',
+                      debug=False, **kwargs):
         """Extracting time-course data from ROIs
 
         :param func:    Input path for functional data
@@ -568,30 +724,30 @@ class AFNI_Process(BaseProcess):
         rois = self.check_input(rois)
 
         # Initiate step instance
-        filters, subj, sess = self.check_filters(**kwargs)
-        step = Step(self, subjects=subj, sessions=sess)
+        step = Step(self)
 
         # If given roi path is single file
         if os.path.isfile(rois):
-            step.set_staticinput(name='rois', value=rois)
-            step.set_input(name='func', input_path=func)
+            step.set_var(name='rois', value=rois)
+            step.set_input(name='func', path=func)
             cmd = '3dROIstats -mask {rois} {func}'
         # Else, given roi path is directory
         else:
-            step.set_input(name='rois', input_path=rois)
-            step.set_input(name='func', input_path=rois, filters=dict(ext='json'), side=True)
-            step.set_execmethod('func_path = json.load(open(func[i].Abspath))["source"]')
-            step.set_staticinput('func_path', value='func_path')
+            step.set_input(name='rois', path=rois)
+            step.set_input(name='func', path=rois, filters=dict(ext='json'), type=1)
+            step.set_cmd('json.load(open(func[i].Abspath))["source"]', type=1, name='func_path')
+            step.set_var(name='func_path', value='func_path', type=1)
             cmd = '3dROIstats -mask {rois} {func_path}'
+        step.set_output(name='output', dc=1, ext='.xlsx')
         # If CBV parameters are given, parsing the CBV infusion file path from json file
         if cbv:
-            step.set_input(name='cbv', input_path=func, side=True, filters=dict(ext='.json'))
+            step.set_input(name='cbv', path=func, type=1, filters=dict(ext='.json'))
         if clip_range:
             cmd += '"[{}..{}]"'.format(clip_range[0], clip_range[1])
-        step.set_command(cmd, stdout='out')
-        step.set_execmethod('temp_outputs.append([out, err])')
-        step.set_execmethod('pd.read_table(StringIO(out))', var='df')
-        step.set_execmethod('df[df.columns[2:]]', var='df')
+        step.set_cmd(cmd, name='out')
+        step.set_cmd('temp_outputs.append([out, err])', type=1)
+        step.set_cmd('pd.read_table(StringIO(out))', name='df', type=1)
+        step.set_cmd('df[df.columns[2:]]', name='df', type=1)
         # If given roi is Template instance
         # if list_of_roi:
         #     step.set_variable(name='list_roi', value=list_of_roi)
@@ -599,41 +755,40 @@ class AFNI_Process(BaseProcess):
         # again, if CBV parameter are given, put commends and methods into custom build function
         if cbv:
             if isinstance(cbv, list) and len(cbv) == 2:
-                step.set_variable(name='te', value=cbv[0])
-                step.set_variable(name='n_tr', value=cbv[1])
-                step.set_execmethod('cbv_path = json.load(open(cbv[i].Abspath))["cbv"]')
-                step.set_staticinput(name='cbv_path', value='cbv_path')
+                step.set_var(name='te', value=cbv[0])
+                step.set_var(name='n_tr', value=cbv[1])
+                step.set_cmd('cbv_path = json.load(open(cbv[i].Abspath))["cbv"]', type=1)
+                step.set_var(name='cbv_path', value='cbv_path', type=1)
                 cbv_cmd = '3dROIstats -mask {rois} {cbv_path}'
-                step.set_command(cbv_cmd, stdout='cbv_out')
-                step.set_execmethod('temp_outputs.append([out, err])')
-                step.set_execmethod('pd.read_table(StringIO(cbv_out))', var='cbv_df')
-                step.set_execmethod('cbv_df[cbv_df.columns[2:]]', var='cbv_df')
+                step.set_cmd(cbv_cmd, name='cbv_out')
+                step.set_cmd('temp_outputs.append([out, err])', type=1)
+                step.set_cmd('pd.read_table(StringIO(cbv_out))', name='cbv_df', type=1)
+                step.set_cmd('cbv_df[cbv_df.columns[2:]]', name='cbv_df', type=1)
                 if list_of_roi:
-                    step.set_execmethod('list_roi', var='cbv_df.columns')
+                    step.set_cmd('list_roi', name='cbv_df.columns', type=1)
             else:
                 methods.raiseerror(messages.Errors.InputValueError, 'Please check input CBV parameters')
-        step.set_execmethod('if len(df.columns):')
+        step.set_cmd('if len(df.columns):', type=1)
         # again, if CBV parameter are given, correct the CBV changes.
         if cbv:
-            step.set_execmethod('\tdR2_mion = (-1 / te) * np.log(df.loc[:n_tr, :].mean(axis=0) / '
-                                'cbv_df.loc[:n_tr, :].mean(axis=0))')
-            step.set_execmethod('\tdR2_stim = (-1 / te) * np.log(df / df.loc[:n_tr, :].mean(axis=0))')
-            step.set_execmethod('\tdf = dR2_stim/dR2_mion')
+            step.set_cmd('\tdR2_mion = (-1 / te) * np.log(df.loc[:n_tr, :].mean(axis=0) / '
+                         'cbv_df.loc[:n_tr, :].mean(axis=0))', type=1)
+            step.set_cmd('\tdR2_stim = (-1 / te) * np.log(df / df.loc[:n_tr, :].mean(axis=0))', type=1)
+            step.set_cmd('\tdf = dR2_stim/dR2_mion', type=1)
         # Generating excel files
-        step.set_execmethod('\tfname = os.path.splitext(str(func[i].Filename))[0]')
-        step.set_execmethod('\tdf.to_excel(os.path.join(sub_path, methods.splitnifti(fname)+".xlsx"), '
-                            'index=False)')
-        step.set_execmethod('\tpass')
-        step.set_execmethod('else:')
-        step.set_execmethod('\tpass')
+        step.set_cmd('\tfname = os.path.splitext(str(func[i].Filename))[0]', type=1)
+        step.set_cmd('\tdf.to_excel({output}, index=False)', type=1)
+        step.set_cmd('\tpass')
+        step.set_cmd('else:')
+        step.set_cmd('\tpass')
 
         # Run the steps
-        output_path = step.run('ExtractROIs', surfix=surfix)#, debug=True)
+        output_path = step.run('ExtractROIs', surfix=surfix, debug=debug)
         if tmp:
             tmp.close()
         return dict(timecourse=output_path)
 
-    def afni_TemporalClipping(self, func, clip_range, surfix='func', **kwargs):
+    def afni_TemporalClipping(self, func, clip_range, surfix='func', debug=False, **kwargs):
         """
 
         :param func:
@@ -643,16 +798,15 @@ class AFNI_Process(BaseProcess):
         :return:
         """
         display(title(value='** Temporal clipping of functional image'))
-        filters, subj, sess = self.check_filters(**kwargs)
-        step = Step(self, subjects=subj, sessions=sess)
+        step = Step(self)
         func = self.check_input(func)
-        step.set_input(name='func', input_path=func, filters=filters)
+        step.set_input(name='func', path=func, filters=kwargs)
         if clip_range:
             if isinstance(clip_range, list):
                 if len(clip_range) == 2:
                     irange = "'[" + "{}..{}".format(*clip_range) + "]'"
-                    step.set_staticinput(name='irange', value=irange)
+                    step.set_var(name='irange', value=irange, type=1)
         cmd = '3dcalc -prefix {output} -expr "a" -a {func}"{irange}"'
-        step.set_command(cmd)
-        output_path = step.run('TemporalClipping', surfix, debug=False)
+        step.set_cmd(cmd)
+        output_path = step.run('TemporalClipping', surfix, debug=debug)
         return dict(clippedfunc=output_path)

@@ -36,12 +36,12 @@ def itksnap(procobj, input_path, temp_path=None):
 
     def scan_update(*args):
         if procobj._sessions:
-            scan_dropdown.options = list_of_items[ses_toggle.value][sub_toggle.value]
+            scan_dropdown.options = list_of_items[sub_toggle.value][ses_toggle.value]
         else:
             scan_dropdown.options = list_of_items[sub_toggle.value]
 
     def sess_update(*args):
-        ses_toggle.options = list_of_items[sub_toggle.value]
+        ses_toggle.options = sorted(list_of_items[sub_toggle.value].keys())
 
     def check_temppath(*args):
         if temp_path:
@@ -52,10 +52,10 @@ def itksnap(procobj, input_path, temp_path=None):
                     output = os.path.join(temp_path, *args)
                 else:
                     if len(args) == 3:
-                        output =  os.path.join(procobj._prjobj.path, procobj._prjobj.ds_type[0],
+                        output =  os.path.join(procobj.prj.path, procobj.prj.ds_type[0],
                                                args[0], args[1], temp_path, args[2])
                     elif len(args) == 2:
-                        output = os.path.join(procobj._prjobj.path, procobj._prjobj.ds_type[0],
+                        output = os.path.join(procobj.prj.path, procobj.prj.ds_type[0],
                                               args[0], temp_path, args[1])
                     else:
                         output = None
@@ -64,8 +64,21 @@ def itksnap(procobj, input_path, temp_path=None):
             output = temp_path
         return output
 
+    def run_itksnap(sender):
+        if procobj._sessions:
+            img_path = os.path.join(input_path, sub_toggle.value, ses_toggle.value, scan_dropdown.value)
+            main_path = check_temppath(sub_toggle.value, ses_toggle.value, scan_dropdown.value)
+        else:
+            img_path = os.path.join(input_path, sub_toggle.value, scan_dropdown.value)
+            main_path = check_temppath(sub_toggle.value, scan_dropdown.value)
+        if temp_path:
+            cmd = 'itksnap -g {} -s {}'.format(main_path, img_path)
+        else:
+            cmd = 'itksnap -g {}'.format(img_path)
+        methods.shell(cmd)
+
     list_of_items = {}
-    img_ext = procobj._prjobj.img_ext
+    img_ext = procobj.prj.img_ext
     for subj in procobj._subjects:
         subj_path = os.path.join(input_path, subj)
         if procobj._sessions:
@@ -89,18 +102,15 @@ def itksnap(procobj, input_path, temp_path=None):
                     list_of_items[subj] = scan_list
             except:
                 pass
-    # sub_toggle = widgets.Dropdown(options=sorted(procobj._subjects), description='Subjects:',
-    #                               layout=widgets.Layout(width='600px', ))
+
     sub_toggle = widgets.Dropdown(options=sorted(list_of_items.keys()), description='Subjects:',
                                   layout=widgets.Layout(width='600px', ))
     if procobj._sessions:
-        ses_toggle = widgets.Dropdown(options=sorted(procobj._sessions), description='Sessions:',
-                                      layout=widgets.Layout(width='600px'))
+        ses_toggle = widgets.Dropdown(options=sorted(list_of_items[sub_toggle.value].keys()), description='Sessions:',
+                                      layout=widgets.Layout(width='600px', ))
         scan_dropdown = widgets.RadioButtons(options=list_of_items[sub_toggle.value][ses_toggle.value],
                                              description='Scans:',
                                              layout=widgets.Layout(width='600px'))
-
-        ses_toggle.observe(sess_update, 'value')
     else:
         scan_dropdown = widgets.RadioButtons(options=list_of_items[sub_toggle.value],
                                              description='Scans:',
@@ -108,23 +118,13 @@ def itksnap(procobj, input_path, temp_path=None):
 
     sub_toggle.observe(scan_update, 'value')
     launcher = widgets.Button(description='Launch ITK-snap', layout=widgets.Layout(width='600px'))
-
-    def run_itksnap(sender):
-        if procobj._sessions:
-            img_path = os.path.join(input_path, sub_toggle.value, ses_toggle.value, scan_dropdown.value)
-            main_path = check_temppath(sub_toggle.value, ses_toggle.value, scan_dropdown.value)
-        else:
-            img_path = os.path.join(input_path, sub_toggle.value, scan_dropdown.value)
-            main_path = check_temppath(sub_toggle.value, scan_dropdown.value)
-        if temp_path:
-            cmd = 'itksnap -g {} -s {}'.format(main_path, img_path)
-        else:
-            cmd = 'itksnap -g {}'.format(img_path)
-        # print(cmd)
-        methods.shell(cmd)
-
     launcher.on_click(run_itksnap)
-    return widgets.VBox([sub_toggle, scan_dropdown, launcher])
+    if procobj._sessions:
+        sub_toggle.observe(sess_update, 'value')
+        ses_toggle.observe(scan_update, 'value')
+        return widgets.VBox([sub_toggle, ses_toggle, scan_dropdown, launcher])
+    else:
+        return widgets.VBox([sub_toggle, scan_dropdown, launcher])
 
 
 def fslview(procobj, input_path, temp_path=None):
@@ -154,10 +154,10 @@ def fslview(procobj, input_path, temp_path=None):
                     output = os.path.join(temp_path, *args)
                 else:
                     if len(args) == 3:
-                        output =  os.path.join(procobj._prjobj.path, procobj._prjobj.ds_type[0],
+                        output =  os.path.join(procobj.prj.path, procobj.prj.ds_type[0],
                                                args[0], args[1], temp_path, args[2])
                     elif len(args) == 2:
-                        output = os.path.join(procobj._prjobj.path, procobj._prjobj.ds_type[0],
+                        output = os.path.join(procobj.prj.path, procobj.prj.ds_type[0],
                                               args[0], temp_path, args[1])
                     else:
                         output = None
@@ -167,7 +167,7 @@ def fslview(procobj, input_path, temp_path=None):
         return output
 
     list_of_items = {}
-    img_ext = procobj._prjobj.img_ext
+    img_ext = procobj.prj.img_ext
     for subj in procobj._subjects:
         subj_path = os.path.join(input_path, subj)
         if procobj._sessions:

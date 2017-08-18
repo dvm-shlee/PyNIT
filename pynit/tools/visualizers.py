@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 from matplotlib import colors
 import seaborn as sns
 
+import argparse
+
 # Set error bar as standard deviation and standard error
 def _plot_std_bars(central_data=None, ci=None, data=None, *args, **kwargs):
     std = data.std(axis=0)
@@ -575,3 +577,14 @@ class Plot(object):
             cbar = ax.collections[0].colorbar
             cbar.set_ticks([vmin, 0, vmax])
             # cbar.set_ticklabels(['low', '20%', '75%', '100%'])
+
+def main():
+    parser = argparse.ArgumentParser(prog='visualizers', description="GroupAnalysis for Heather_Cocaine")
+    parser.add_argument("-i", "--path", help="Main folder", type=str)
+    parser.add_argument("--ic", default=None)
+    parser.add_argument("--cond", nargs='*', default=None)
+    parser.add_argument("--prefix", default=None)
+    args = parser.parse_args()
+
+if __name__ == '__main__':
+    main()

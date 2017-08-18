@@ -28,27 +28,25 @@ class Pipelines(object):
     This class is the major features of PyNIT project (for most of general users)
     You can either use default pipeline packages we provide or load custom designed pipelines
     """
-    def __init__(self, prj_path, tmpobj, parallel=True, logging=True, viewer='itksnap'):
+    def __init__(self, prj_path, tmpobj, logging=True, viewer='itksnap'):
         """Initiate class
 
         :param prj_path:
         :param tmpobj:
-        :param parallel:
         :param logging:
         """
 
         # Define default attributes
-        self._prjobj = Project(prj_path)
+        self.__prj = Project(prj_path)
         self._proc = None
         self._tmpobj = tmpobj
-        self._parallel = parallel
         self._logging = logging
         self.selected = None
         self.preprocessed = None
         self._viewer = viewer
 
         # Print out project summary
-        print(self._prjobj.summary)
+        print(self.__prj.summary)
 
         # Print out available pipeline packages
         avails = ["\t{} : {}".format(*item) for item in self.avail.items()]
@@ -70,12 +68,11 @@ class Pipelines(object):
         :param kwargs:
         :return:
         """
-        self._prjobj.reload()
+        self.__prj.reload()
         if isinstance(pipeline, int):
             pipeline = self.avail[pipeline]
         if pipeline in self.avail.values():
-            self._proc = Process(self._prjobj, pipeline, parallel=self._parallel,
-                                 logging=self._logging, viewer=self._viewer)
+            self._proc = Process(self.__prj, pipeline, logging=self._logging, viewer=self._viewer)
             command = 'self.selected = pipelines.{}(self._proc, self._tmpobj'.format(pipeline)
             if kwargs:
                 command += ', **{})'.format('kwargs')
@@ -141,40 +138,40 @@ class Pipelines(object):
         """
         display(title(value='---=[[[ Move subject to group folder ]]]=---'))
         self.initiate(o_pipe_id, listing=False, **kwargs)
-        input_proc = Process(self._prjobj, self.avail[i_pipe_id])
+        input_proc = Process(self.__prj, self.avail[i_pipe_id])
         init_path = self._proc.init_step('GroupOrganizing')
         groups = sorted(group_filters.keys())
         for group in progressbar(sorted(groups), desc='Subjects'):
             grp_path = os.path.join(init_path, group)
             methods.mkdir(grp_path)
-            if self._prjobj.single_session:
+            if self.__prj.single_session:
                 if group_filters[group][2]:
-                    dset = self._prjobj(1, input_proc.processing, input_proc.executed[i_step_id],
-                                        *group_filters[group][0], **group_filters[group][2])
+                    dset = self.__prj(1, input_proc.processing, input_proc.executed[i_step_id],
+                                      *group_filters[group][0], **group_filters[group][2])
                 else:
-                    dset = self._prjobj(1, input_proc.processing, input_proc.executed[i_step_id],
-                                        *group_filters[group][0])
+                    dset = self.__prj(1, input_proc.processing, input_proc.executed[i_step_id],
+                                      *group_filters[group][0])
 
             else:
                 grp_path = os.path.join(init_path, group, 'files')
                 methods.mkdir(grp_path)
                 if group_filters[group][2]:
-                    dset = self._prjobj(1, input_proc.processing, input_proc.executed[i_step_id],
-                                        *(group_filters[group][0] + group_filters[group][1]),
-                                        **group_filters[group][2])
+                    dset = self.__prj(1, input_proc.processing, input_proc.executed[i_step_id],
+                                      *(group_filters[group][0] + group_filters[group][1]),
+                                      **group_filters[group][2])
                 else:
-                    dset = self._prjobj(1, input_proc.processing, input_proc.executed[i_step_id],
-                                        *(group_filters[group][0] + group_filters[group][1]))
+                    dset = self.__prj(1, input_proc.processing, input_proc.executed[i_step_id],
+                                      *(group_filters[group][0] + group_filters[group][1]))
             for i, finfo in dset:
                 output_path = os.path.join(grp_path, finfo.Filename)
                 if os.path.exists(output_path):
                     pass
                 else:
-                    if self._prjobj.single_session:
-                        cbv_file = self._prjobj(1, input_proc.processing, input_proc.executed[cbv], finfo.Subject)
+                    if self.__prj.single_session:
+                        cbv_file = self.__prj(1, input_proc.processing, input_proc.executed[cbv], finfo.Subject)
                     else:
-                        cbv_file = self._prjobj(1, input_proc.processing, input_proc.executed[cbv],
-                                                finfo.Subject, finfo.Session)
+                        cbv_file = self.__prj(1, input_proc.processing, input_proc.executed[cbv],
+                                              finfo.Subject, finfo.Session)
                     copy(finfo.Abspath, os.path.join(grp_path, finfo.Filename))
                     with open(methods.splitnifti(output_path)+'.json', 'wb') as f:
                         json.dump(dict(cbv=cbv_file[0].Abspath), f)

@@ -20,7 +20,7 @@ setup(name='PyNIT',
       packages=find_packages(),
       install_requires=['jupyter', 'tqdm', 'pandas', 'openpyxl', 'xlrd', 'nibabel', #platform
                         'matplotlib', 'seaborn', 'scikit-image',                    #visulaization
-                        'numpy', 'scipy', 'scikit-learn', 'bctpy', 'statsmodels'    #computation
+                        'numpy', 'scipy', 'scikit-learn'                            #computation
                         ],
       scripts=['bin/brk2nifti',
                'bin/checkscans',

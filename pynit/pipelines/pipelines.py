@@ -182,7 +182,7 @@ class B_evoked_fMRI_analysis(PipeTemplate):
             step = [step for step in self.proc.steps if self.surfix in step and 'REMLfit' in step][0]
             if self.thr:
                 self.proc.afni_ClusterMap(step, self.proc.steps[0], self.tmpobj,
-                                          pval=self.thr[0], cluster_size=self.thr[1], surfix=self.surfix)
+                                          pval=self.thr[0], clst_size=self.thr[1], surfix=self.surfix)
             else:
                 self.proc.afni_ClusterMap(step, self.proc.steps[0], self.tmpobj, surfix=self.surfix)
 

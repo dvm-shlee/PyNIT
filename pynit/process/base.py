@@ -4,7 +4,6 @@ import pickle
 from pynit.tools import messages
 from pynit.tools import methods
 from pynit.tools import viewer
-from pynit.handler.step import get_step_name
 
 # Import modules for interfacing with jupyter notebook
 jupyter_env = False
@@ -21,15 +20,54 @@ except:
     pass
 
 
+def get_step_name(procobj, step, verbose=None):
+    """ This method checks if the input step had been executed or not.
+    If the step already executed, return the name of existing folder,
+    if not, the number of order is attached as prefix and will be returned
+
+    :param procobj: process class instance
+    :param step: name of the step
+    :param results:
+    :param verbose: print information
+    :type procobj: pynit.Process instance
+    :type step: str
+    :type results: bool
+    :type verbose: bool
+    :return: name of the step
+    :rtype: str
+    """
+    processing_path = os.path.join(procobj.__prj.path,
+                                   procobj.__prj.ds_type[1],
+                                   procobj.processing)
+    executed_steps = [f for f in os.listdir(processing_path) if os.path.isdir(os.path.join(processing_path, f))]
+    if len(executed_steps):
+        overlapped = [old_step for old_step in executed_steps if step in old_step]
+        if len(overlapped):
+            if verbose:
+                print('Notice: existing path')
+            checked_files = []
+            for f in os.walk(os.path.join(processing_path, overlapped[0])):
+                checked_files.extend(f[2])
+            if len(checked_files):
+                if verbose:
+                    print('Notice: Last step path is not empty')
+            return overlapped[0]
+        else:
+            return "_".join([str(len(executed_steps) + 1).zfill(3), step])
+    else:
+        if verbose:
+            print('The pipeline [{pipeline}] is initiated'.format(pipeline=procobj.processing))
+        return "_".join([str(1).zfill(3), step])
+
+
 class BaseProcess(object):
     """Collections of step components for pipelines
     """
-    def __init__(self, prjobj, name, parallel=True, logging=True, viewer='itksnap'):
+    def __init__(self, prjobj, name, logging=True, viewer='itksnap'):
         """
 
         :param prjobj:
         :param name:
-        :param parallel:
         :param logging:
         :param viewer:
         """
@@ -37,8 +75,8 @@ class BaseProcess(object):
         # Prepare inputs
         prjobj.reset_filters()
         self._processing = name
-        self._prjobj = prjobj
-        path = os.path.join(self._prjobj.path, self._prjobj.ds_type[1])
+        self.__prj = prjobj
+        path = os.path.join(self.__prj.path, self.__prj.ds_type[1])
         self._path = os.path.join(path, self._processing)
 
         # Initiate logger
@@ -49,12 +87,15 @@ class BaseProcess(object):
         self._subjects = None
         self._sessions = None
         self._history = {}
-        self._parallel = parallel
         self._tempfiles = []
         self._viewer = viewer
 
         # Initiate
         self.init_proc()
+
+    @property
+    def prj(self):
+        return self.__prj
 
     def check_input(self, input_path):
         """Check input_path and return absolute path
@@ -166,34 +207,34 @@ class BaseProcess(object):
 
         :return: None
         """
-        if self._prjobj(1).subjects:
-            if self._prjobj(0).subjects:
-                datasubj = set(list(self._prjobj(0).subjects))
-                procsubj = set(list(self._prjobj(1).subjects))
+        if self.__prj(1).subjects:
+            if self.__prj(0).subjects:
+                datasubj = set(list(self.__prj(0).subjects))
+                procsubj = set(list(self.__prj(1).subjects))
                 if datasubj.issubset(procsubj):
                     if not procsubj.issubset(datasubj):
                         try:
-                            self._subjects = sorted(self._prjobj(1, self.processing).subjects[:])
-                            if not self._prjobj.single_session:
-                                self._sessions = sorted(self._prjobj(1, self.processing).sessions[:])
+                            self._subjects = sorted(self.__prj(1, self.processing).subjects[:])
+                            if not self.__prj.single_session:
+                                self._sessions = sorted(self.__prj(1, self.processing).sessions[:])
                         except:
-                            self._subjects = sorted(self._prjobj(0).subjects[:])
-                            if not self._prjobj.single_session:
-                                self._sessions = sorted(self._prjobj(0).sessions[:])
+                            self._subjects = sorted(self.__prj(0).subjects[:])
+                            if not self.__prj.single_session:
+                                self._sessions = sorted(self.__prj(0).sessions[:])
                     else:
-                        self._subjects = sorted(self._prjobj(0).subjects[:])
-                        if not self._prjobj.single_session:
-                            self._sessions = sorted(self._prjobj(0).sessions[:])
+                        self._subjects = sorted(self.__prj(0).subjects[:])
+                        if not self.__prj.single_session:
+                            self._sessions = sorted(self.__prj(0).sessions[:])
                 else:
-                    self._subjects = sorted(self._prjobj(0).subjects[:])
-                    if not self._prjobj.single_session:
-                        self._sessions = sorted(self._prjobj(0).sessions[:])
+                    self._subjects = sorted(self.__prj(0).subjects[:])
+                    if not self.__prj.single_session:
+                        self._sessions = sorted(self.__prj(0).sessions[:])
             else:
-                self._subjects = sorted(self._prjobj(1).subjects[:])
+                self._subjects = sorted(self.__prj(1).subjects[:])
         else:
-            self._subjects = sorted(self._prjobj(0).subjects[:])
-            if not self._prjobj.single_session:
-                self._sessions = sorted(self._prjobj(0).sessions[:])
+            self._subjects = sorted(self.__prj(0).subjects[:])
+            if not self.__prj.single_session:
+                self._sessions = sorted(self.__prj(0).sessions[:])
 
         self.logger.info('Proc::Attributes [subjects, sessions] are reset to default value.')
         self.logger.info('Proc::Subject is defined as [{}]'.format(",".join(self._subjects)))
@@ -226,7 +267,7 @@ class BaseProcess(object):
 
         if self._processing:
             path = get_step_name(self, name)
-            path = os.path.join(self._prjobj.path, self._prjobj.ds_type[1], self._processing, path)
+            path = os.path.join(self.__prj.path, self.__prj.ds_type[1], self._processing, path)
             methods.mkdir(path)
             return path
         else:

@@ -16,12 +16,12 @@ class PN_Process(BaseProcess):
         step = Step(self)
         mimg_path = None
         try:
-            step.set_input(name='anat', input_path=anat, static=True)
+            step.set_input(name='anat', path=anat, idx=0)
         except:
             methods.raiseerror(messages.Errors.MissingPipeline,
                                'No anatomy file!')
         try:
-            step.set_staticinput(name='mask', value=str(tmpobj.mask))
+            step.set_var(name='mask', value=str(tmpobj.mask))
         except:
             methods.raiseerror(messages.InputPathError,
                                'No mask template file!')
@@ -38,9 +38,9 @@ class PN_Process(BaseProcess):
                 mimg_path = self.steps[0]
             if '-CBV-' in mimg_path:
                 mimg_filters = {'file_tag': '_BOLD'}
-                step.set_input(name='func', input_path=mimg_path, filters=mimg_filters, static=True)
+                step.set_input(name='func', path=mimg_path, filters=mimg_filters, type=True)
             else:
-                step.set_input(name='func', input_path=mimg_path, static=True)
+                step.set_input(name='func', path=mimg_path, type=True)
         except:
             methods.raiseerror(messages.Errors.MissingPipeline,
                                'Initial Mean image calculation step has not been executed!')
