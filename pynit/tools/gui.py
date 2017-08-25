@@ -105,6 +105,7 @@ def itksnap(procobj, input_path, temp_path=None):
 
     sub_toggle = widgets.Dropdown(options=sorted(list_of_items.keys()), description='Subjects:',
                                   layout=widgets.Layout(width='600px', ))
+    ses_toggle = None
     if procobj._sessions:
         ses_toggle = widgets.Dropdown(options=sorted(list_of_items[sub_toggle.value].keys()), description='Sessions:',
                                       layout=widgets.Layout(width='600px', ))
@@ -215,7 +216,6 @@ def fslview(procobj, input_path, temp_path=None):
             cmd = 'fslview {} {} -l Random-Rainbow -t 0.2'.format(main_path, img_path)
         else:
             cmd = 'fslview {}'.format(img_path)
-        # print(cmd)
         methods.shell(cmd)
 
     launcher.on_click(run_fslview)

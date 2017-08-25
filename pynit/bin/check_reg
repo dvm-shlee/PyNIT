@@ -86,7 +86,7 @@ def main():
         fig, _ = BrainPlot.check_reg(b_img, i_img, **flip)
     else:
         fig, _ = BrainPlot.check_reg(b_img, i_img)
-    fig.savefig(o_path)
+    fig.savefig(o_path, facecolor='black', edgecolor='black')
 
 if __name__ == '__main__':
     main()

@@ -3,7 +3,7 @@ import sys
 import pickle
 from pynit.tools import messages
 from pynit.tools import methods
-from pynit.tools import viewer
+from pynit.tools import gui
 
 # Import modules for interfacing with jupyter notebook
 jupyter_env = False
@@ -20,46 +20,6 @@ except:
     pass
 
 
-def get_step_name(procobj, step, verbose=None):
-    """ This method checks if the input step had been executed or not.
-    If the step already executed, return the name of existing folder,
-    if not, the number of order is attached as prefix and will be returned
-
-    :param procobj: process class instance
-    :param step: name of the step
-    :param results:
-    :param verbose: print information
-    :type procobj: pynit.Process instance
-    :type step: str
-    :type results: bool
-    :type verbose: bool
-    :return: name of the step
-    :rtype: str
-    """
-    processing_path = os.path.join(procobj.__prj.path,
-                                   procobj.__prj.ds_type[1],
-                                   procobj.processing)
-    executed_steps = [f for f in os.listdir(processing_path) if os.path.isdir(os.path.join(processing_path, f))]
-    if len(executed_steps):
-        overlapped = [old_step for old_step in executed_steps if step in old_step]
-        if len(overlapped):
-            if verbose:
-                print('Notice: existing path')
-            checked_files = []
-            for f in os.walk(os.path.join(processing_path, overlapped[0])):
-                checked_files.extend(f[2])
-            if len(checked_files):
-                if verbose:
-                    print('Notice: Last step path is not empty')
-            return overlapped[0]
-        else:
-            return "_".join([str(len(executed_steps) + 1).zfill(3), step])
-    else:
-        if verbose:
-            print('The pipeline [{pipeline}] is initiated'.format(pipeline=procobj.processing))
-        return "_".join([str(1).zfill(3), step])
-
-
 class BaseProcess(object):
     """Collections of step components for pipelines
     """
@@ -74,19 +34,20 @@ class BaseProcess(object):
 
         # Prepare inputs
         prjobj.reset_filters()
-        self._processing = name
         self.__prj = prjobj
-        path = os.path.join(self.__prj.path, self.__prj.ds_type[1])
-        self._path = os.path.join(path, self._processing)
+        self._path = os.path.join(self.prj.path, self.prj.ds_type[1], name)
+        self._rpath = os.path.join(self.prj.path, self.prj.ds_type[2], name)
+        self._processing = name
 
         # Initiate logger
         if logging:
-            self.logger = methods.get_logger(path, name)
+            self.logger = methods.get_logger(os.path.dirname(self._path), name)
 
         # Define default arguments
         self._subjects = None
         self._sessions = None
         self._history = {}
+        self._rhisroty = {}
         self._tempfiles = []
         self._viewer = viewer
 
@@ -97,16 +58,26 @@ class BaseProcess(object):
     def prj(self):
         return self.__prj
 
-    def check_input(self, input_path):
+    def check_input(self, input_path, dc=0):
         """Check input_path and return absolute path
 
         :param input_path: str, name of the Processing step folder
+        :param dc:  0-Processing
+                    1-Results
         :return: str, Absolute path of the step
         """
+        if not dc:
+            source_idx = self.steps
+            source_exe = self.executed
+            source_hst = self._history
+        else:
+            source_idx = self.results
+            source_exe = self.reported
+            source_hst = self._rhisroty
         if isinstance(input_path, int):
-            input_path = self.steps[input_path]
-        if input_path in self.executed:
-            return self._history[input_path]
+            input_path = source_idx[input_path]
+        if input_path in source_exe:
+            return source_hst[input_path]
         else:
             return input_path
 
@@ -138,9 +109,9 @@ class BaseProcess(object):
         :return:
         """
         if base_idx:
-            display(viewer.itksnap(self, self.steps[idx], self.steps[base_idx]))
+            display(gui.itksnap(self, self.steps[idx], self.steps[base_idx]))
         else:
-            display(viewer.itksnap(self, self.steps[idx]))
+            display(gui.itksnap(self, self.steps[idx]))
 
     def afni(self, idx, tmpobj=None):
         """Launch AFNI gui
@@ -149,7 +120,7 @@ class BaseProcess(object):
         :param tmpobj:
         :return:
         """
-        viewer.afni(self, self.steps[idx], tmpobj=tmpobj)
+        gui.afni(self, self.steps[idx], tmpobj=tmpobj)
 
     def fslview(self, idx, base_idx=None):
         """Launch fslview
@@ -159,9 +130,9 @@ class BaseProcess(object):
         :return:
         """
         if base_idx:
-            viewer.fslview(self, self.steps[idx], self.steps[base_idx])
+            gui.fslview(self, self.steps[idx], self.steps[base_idx])
         else:
-            viewer.fslview(self, self.steps[idx])
+            gui.fslview(self, self.steps[idx])
 
 
     @property
@@ -197,6 +168,21 @@ class BaseProcess(object):
         else:
             return dict(output)
 
+    @property
+    def reported(self):
+        """Listing out reported results
+
+        :return:
+        """
+        exists = dict([(d, os.path.join(self._rpath, d)) for d in os.listdir(self._rpath) \
+                       if os.path.isdir(os.path.join(self._rpath, d))])
+        self._rhisroty = exists
+        output = [(i, e) for i, e in enumerate(exists.keys())]
+        return dict(output)
+
+    @property
+    def results(self):
+        return [self._rhisroty[result] for result in self.reported.values()]
 
     @property
     def steps(self):
@@ -257,21 +243,6 @@ class BaseProcess(object):
             self.save_history()
         self.reset()
         return self._path
-
-    def init_step(self, name):
-        """Initiate step
-
-        :param name: str
-        :return: str
-        """
-
-        if self._processing:
-            path = get_step_name(self, name)
-            path = os.path.join(self.__prj.path, self.__prj.ds_type[1], self._processing, path)
-            methods.mkdir(path)
-            return path
-        else:
-            methods.raiseerror(messages.Errors.InitiationFailure, 'Error on initiating step')
 
     def save_history(self):
         history = os.path.join(self._path, '.proc_hisroty')

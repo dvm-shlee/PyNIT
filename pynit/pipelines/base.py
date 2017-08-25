@@ -125,6 +125,47 @@ class Pipelines(object):
         """
         pass
 
+    def __init_path(self, name):
+        """Initiate path
+
+        :param name: str
+        :return: str
+        """
+        proc = self._proc
+
+
+        def get_step_name(proc, step, verbose=None):
+            processing_path = os.path.join(proc.prj.path,
+                                           proc.prj.ds_type[1],
+                                           proc.processing)
+            executed_steps = [f for f in os.listdir(processing_path) if os.path.isdir(os.path.join(processing_path, f))]
+            if len(executed_steps):
+                overlapped = [old_step for old_step in executed_steps if step in old_step]
+                if len(overlapped):
+                    if verbose:
+                        print('Notice: existing path')
+                    checked_files = []
+                    for f in os.walk(os.path.join(processing_path, overlapped[0])):
+                        checked_files.extend(f[2])
+                    if len(checked_files):
+                        if verbose:
+                            print('Notice: Last step path is not empty')
+                    return overlapped[0]
+                else:
+                    return "_".join([str(len(executed_steps) + 1).zfill(3), step])
+            else:
+                if verbose:
+                    print('The pipeline [{pipeline}] is initiated'.format(pipeline=proc.processing))
+                return "_".join([str(1).zfill(3), step])
+
+        if proc._processing:
+            path = get_step_name(proc, name)
+            path = os.path.join(proc.prj.path, proc.prj.ds_type[1], proc._processing, path)
+            methods.mkdir(path)
+            return path
+        else:
+            methods.raiseerror(messages.Errors.InitiationFailure, 'Error on initiating step')
+
     def group_organizer(self, group_filters, i_pipe_id, i_step_id, o_pipe_id, cbv=None, **kwargs):
         """Organizing groups for 2nd level analysis
 
@@ -139,7 +180,7 @@ class Pipelines(object):
         display(title(value='---=[[[ Move subject to group folder ]]]=---'))
         self.initiate(o_pipe_id, listing=False, **kwargs)
         input_proc = Process(self.__prj, self.avail[i_pipe_id])
-        init_path = self._proc.init_step('GroupOrganizing')
+        init_path = self.__init_path('GroupOrganizing')
         groups = sorted(group_filters.keys())
         for group in progressbar(sorted(groups), desc='Subjects'):
             grp_path = os.path.join(init_path, group)

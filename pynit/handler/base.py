@@ -11,7 +11,7 @@ from ..tools.visualizers import BrainPlot
 from collections import namedtuple
 import datetime
 
-upyter_env = False
+jupyter_env = False
 try:
     if len([key for key in sys.modules.keys() if 'ipykernel' in key]):
         from tqdm import tqdm_notebook as progressbar
@@ -399,10 +399,10 @@ class BaseProcessor(object):
         :param dc:          0-processing step class
                             1-resulting step class
         :param verbose:     print information
-        :type step: str
-        :type verbose: bool
-        :return: name of the step
-        :rtype: str
+        :type title:        str
+        :type dc:           inc
+        :return:            name of the step
+        :rtype:             str
         """
         processing_path = os.path.join(self.__prj.path,
                                        self.__prj.ds_type[dc + 1],
@@ -476,6 +476,22 @@ class BaseProcessor(object):
         else:
             methods.raiseerror(messages.Errors.InputTypeError, 'Wrong input type')
 
+    def set_module(self, module, sub=None, rename=None):
+        """ Method to import module during steps
+        Only one module can be imported, for importing multiple modules
+        Use this method multiple time.
+
+        :param module:  any python module installed in your environment
+        :param sub:     submodule you want to import from the parent module
+                        if you want to import multiple submodules, use list instead
+        :param rename:  new name for imported module.
+                        if you want to rename submodules, use list instead
+        :type module: str
+        :type sub: str or list of str
+        :type rename: str or list of str
+        """
+        self.__configure_module(module, sub=sub, rename=rename)
+
     def set_var(self, name, value, type=0):
         """ Mehtod to assign namespace of variable for the processor function
 
@@ -489,6 +505,11 @@ class BaseProcessor(object):
                                'Wrong variable type')
         else:
             self.__check_namespace(name)
+            if isinstance(value, str):
+                if os.path.exists(value):
+                    value = '"{}"'.format(value)
+                else:
+                    value = "{}".format(value)
             self.__var.append(_vset(name=name, value=value, type=type))
 
     def set_output(self, name, level=0, dc=0, ext=None, prefix=None, type=0):
@@ -514,6 +535,7 @@ class BaseProcessor(object):
                                 if input type is group, new folder will be generate under process roots
                         3-temporary: generate temporary file, prefix parameter cannot be used for this type,
                                 if input type is group, cannot use this type as output
+                        4-no output: output will not be defined
         :type name: str
         :type level: int
         :type dc: int
@@ -551,6 +573,7 @@ class BaseProcessor(object):
             methods.raiseerror(messages.Errors.InputTypeError,
                                'Wrong command type')
         else:
+            self.__proc.logger.info('CMD:{}'.format(command))
             self.__cmd.append(_cmds(name=name, command=command, nscode=nscode, type=type))
 
     def reset(self):
@@ -565,7 +588,10 @@ class BaseProcessor(object):
         :return: dataclass and path
         """
         if os.path.exists(path):
-            dataclass = 1
+            if self.__prj.ds_type[2] in path:
+                dataclass = 2
+            else:
+                dataclass = 1
             path = methods.path_splitter(path)[-1]
         else:
             dataclass = 0
@@ -631,8 +657,10 @@ class BaseProcessor(object):
                         raise_error()
                 if any(i in [1,2] for i in outputs.keys()):
                     raise_error()
-            elif type == 3:
+            elif type == 3: # type 3 is allowable any types except 4
                 pass
+            elif type == 4: # type 4 only allowed to use it's own (since it not generate output)
+                raise_error()
             else:
                 if 0 in outputs.keys():
                     if any(prefix is v[1] for k, v in outputs[0].items() if ext == v[0]):
@@ -643,12 +671,15 @@ class BaseProcessor(object):
                         raise_error()
 
     def __check_output_dc(self, dc, level, type):
-        if dc == 0:
-            if level != 0 or (type != 0 and type != 3):
-                methods.raiseerror(messages.Errors.InputTypeError,
-                                   'Cannot set level or types during pre-processing step,'+
-                                   'Please use dc=1 instead')
-        self.__dc = dc
+        if type==4:
+            self.__dc = 0
+        else:
+            if dc == 0:
+                if level != 0 or (type != 0 and type != 3):
+                    methods.raiseerror(messages.Errors.InputTypeError,
+                                       'Cannot set level or types during pre-processing step,'+
+                                       'Please use dc=1 instead')
+            self.__dc = dc
 
     def __check_output_level(self, level):
         if not self.__group:
@@ -842,6 +873,11 @@ class BaseProcessor(object):
                 code = 'mkdtemp()'
             else:
                 methods.raiseerror(messages.Errors.InputTypeError, 'Main input was not assigned')
+        elif type == 4:
+            if self.__mainset:
+                code = 'None'
+            else:
+                methods.raiseerror(messages.Errors.InputTypeError, 'Main input was not assigned')
         else:
             methods.raiseerror(messages.Errors.InputTypeError, 'Wrong output type')
         self.__output.append(_oset(name=name, code=code, type=type, ext=ext, prefix=prefix))
@@ -965,7 +1001,7 @@ class BaseProcessor(object):
         """ Add indent to str or list of str objs
 
         :param objs:        list object has string contents
-        :param length:      size of intent
+        :param size:        size of intent
         :param level:       level of intent
         :param chr:         character of intent
         :return:            indented objs
@@ -1059,7 +1095,9 @@ class BaseProcessor(object):
         code = []
         for output in self.__output:
             code.append('{0} = {1}'.format(output.name, output.code))
-            if output.type != 3:
+            if output.type in [3, 4]:
+                pass
+            else:
                 if output not in self.__mkdir:
                     self.__mkdir.append(output)
         return code
@@ -1096,6 +1134,11 @@ class BaseProcessor(object):
         return output
 
     def build_func(self, name):
+        """ Method to build processor function
+
+        :param name:    namespace of processor function
+        :return:
+        """
         level = None
         func = []
         func += self.__configure_function_header(name)
@@ -1127,20 +1170,19 @@ class BaseProcessor(object):
                 if self.__opened_temps:
                     func += self.__indent(self.__configure_tempobj_closure(), level=level+1)
             else:
-                if 1 in outputs.keys():     # use base folder name as output
+                if 4 in outputs.keys():
+                    func += self.__configure_loop_contents(level=level)
+                    func += self.__indent(['stdout_collector = []'], level=level)
+                    func += self.__indent(self.__convert_cmdcode(), level=level)
+                else: # if type is 1 or 2
                     func += self.__configure_loop_contents(level=level)
                     func += self.__indent(['stdout_collector = []'], level=level)
                     func += self.__configure_tempobj(level=level)
                     func += self.__indent(self.__convert_cmdcode(), level=level)
                     if self.__opened_temps:
                         func += self.__indent(self.__configure_tempobj_closure(), level=level)
-                elif 2 in outputs.keys():
-                    func += self.__configure_loop_contents(level=level)
-                    func += self.__indent(['stdout_collector = []'], level=level)
-                    func += self.__configure_tempobj(level=level)
-                    func += self.__indent(self.__convert_cmdcode(), level=level)
-                    if self.__opened_temps:
-                        func += self.__indent(self.__configure_tempobj_closure(), level=level)
+                # elif 4 in outputs.keys():
+                #     pass
         else:
             if self.__group:
                 level = 1
@@ -1185,21 +1227,29 @@ class BaseProcessor(object):
             thread = self._parallel
             pool = ThreadPool(thread)
             self.__proc.logger.info("Step::[{0}] is executed with {1} thread(s).".format(title, thread))
-            # output_path = self.init_path("{0}-{1}".format(title, surfix), dc=self.__dc)
             if self.__group:
+                self.__proc.logger.info("Step::The inputs are identified as group")
                 self.worker(self.__proc, output_path)
             else:
                 if self.__proc.sessions:
+                    self.__proc.logger.info("Step::The inputs are identified as multi-session scans")
                     for idx, subj in enumerate(progressbar(self.__proc.subjects, desc='Subjects')):
                         iteritem = [(self.__proc, output_path, idx, subj, sess) for sess in self.__prj.sessions]
                         for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Sessions',
                                                    leave=False, total=len(iteritem)):
-                            output_writer(outputs, output_path)
+                            if 4 not in [o.type for o in self.__output]:
+                                output_writer(outputs, output_path)
+                            else:
+                                self.__proc.logger.info("Step::This step don't generate output folder")
                 else:
+                    self.__proc.logger.info("Step::The inputs are identified as single-session scans")
                     iteritem = [(self.__proc, output_path, idx, subj) for idx, subj in enumerate(self.__proc.subjects)]
                     for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Subjects',
                                                total=len(iteritem)):
-                        output_writer(outputs, output_path)
+                        if 4 not in [o.type for o in self.__output]:
+                            output_writer(outputs, output_path)
+                        else:
+                            self.__proc.logger.info("Step::This step don't generate output folder")
             self.__proc._history[os.path.basename(output_path)] = output_path
             self.__proc.save_history()
             self.__prj.reload()

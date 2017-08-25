@@ -85,7 +85,7 @@ class ANTs_Process(BaseProcess):
         display(title(value='** Processing spatial normalization.....'))
         anat = self.check_input(anat)
         step = Step(self, n_thread=1)
-        step.set_input(name='anat', path=anat, type=True)
+        step.set_input(name='anat', path=anat, idx=0)
         step.set_var(name='tmpobj', value=tmpobj.template_path)
         step.set_var(name='thread', value=multiprocessing.cpu_count())
         step.set_output(name='prefix', ext='remove')

@@ -57,14 +57,14 @@ class PN_Process(BaseProcess):
         if jupyter_env:
             if self._viewer == 'itksnap':
                 display(widgets.VBox([title(value='-' * 43 + ' Anatomical images ' + '-' * 43),
-                                      viewer.itksnap(self, anat_mask, anat),
+                                      gui.itksnap(self, anat_mask, anat),
                                       title(value='<br>' + '-' * 43 + ' Functional images ' + '-' * 43),
-                                      viewer.itksnap(self, func_mask, mimg_path)]))
+                                      gui.itksnap(self, func_mask, mimg_path)]))
             elif self._viewer == 'fslview':
                 display(widgets.VBox([title(value='-' * 43 + ' Anatomical images ' + '-' * 43),
-                                      viewer.fslview(self, anat_mask, anat),
+                                      gui.fslview(self, anat_mask, anat),
                                       title(value='<br>' + '-' * 43 + ' Functional images ' + '-' * 43),
-                                      viewer.fslview(self, func_mask, mimg_path)]))
+                                      gui.fslview(self, func_mask, mimg_path)]))
             else:
                 methods.raiseerror(messages.Errors.InputValueError,
                                    '"{}" is not available'.format(self._viewer))

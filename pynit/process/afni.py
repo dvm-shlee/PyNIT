@@ -145,7 +145,7 @@ class AFNI_Process(BaseProcess):
         output_path = step.run('MotionCorrection', surfix, debug=debug)
         return dict(func=output_path)
 
-    def afni_MaskPrep(self, anat, tmpobj, meanfunc, surfix='func', debug=False):
+    def afni_MaskPrep(self, anat, meanfunc, tmpobj, surfix='func', ui=False, debug=False):
         """ Prepare mask images by reorient template mask image to individual image
         and provide launcher to open image viewer to help manual mask drawing
         this process use AFNI's '3dAllineate'
@@ -155,13 +155,15 @@ class AFNI_Process(BaseProcess):
                             2. absolute path
                             3. index of path which is shown on 'executed' method
         :param tmpobj:      brain template image object
-        :param meanfunc:        input path for functional image, same as above input path
+        :param meanfunc:    input path for functional image, same as above input path
         :param surfix:      surfix for output path
+        :param ui:          Enable UI feature in jupyter notebook
         :param debug:       set True if you want to print out the executing function of this process (default: False)
         :type anat:         str or int
         :type tmpobj:       pn.Template
         :type meanfunc:         str or int
         :type surfix:       str
+        :type ui:           bool
         :return:            output path
         :rtype:             dict
         """
@@ -169,11 +171,12 @@ class AFNI_Process(BaseProcess):
         anat = self.check_input(anat)
         step = Step(self)
         mimg_path = None
-        try:
-            step.set_input(name='anat', path=anat, idx=0)
-        except:
-            methods.raiseerror(messages.Errors.MissingPipeline,
-                               'No anatomy file!')
+        print(anat)
+        # try:
+        step.set_input(name='anat', path=anat, idx=0)
+        # except:
+        #     methods.raiseerror(messages.Errors.MissingPipeline,
+        #                        'No anatomy file!')
         try:
             step.set_var(name='mask', value=str(tmpobj.mask), type=1)
         except:
@@ -185,8 +188,8 @@ class AFNI_Process(BaseProcess):
         step.set_output(name='temp_01', type=3)
         step.set_cmd(cmd01)
         step.set_cmd(cmd02)
-        anat_mask = step.run('MaskPrep', 'anat')
-        step = Step(self)
+        anat_mask = step.run('MaskPrep', 'anat', debug=debug)
+        step.reset()
         try:
             mimg_path = self.check_input(meanfunc)
             if '-CBV-' in mimg_path:
@@ -209,22 +212,64 @@ class AFNI_Process(BaseProcess):
         step.set_cmd(cmd01)
         step.set_cmd(cmd02)
         func_mask = step.run('MaskPrep', surfix, debug=debug)
-        if jupyter_env:
+        if ui:
             if self._viewer == 'itksnap':
                 display(widgets.VBox([title(value='-'*43 + ' Anatomical images ' + '-'*43),
-                                      viewer.itksnap(self, anat_mask, anat),
+                                      gui.itksnap(self, anat_mask, anat),
                                       title(value='<br>' + '-'*43 + ' Functional images ' + '-'*43),
-                                      viewer.itksnap(self, func_mask, mimg_path)]))
+                                      gui.itksnap(self, func_mask, mimg_path)]))
             elif self._viewer == 'fslview':
                 display(widgets.VBox([title(value='-'*43 + ' Anatomical images ' + '-'*43),
-                                      viewer.fslview(self, anat_mask, anat),
+                                      gui.fslview(self, anat_mask, anat),
                                       title(value='<br>' + '-'*43 + ' Functional images ' + '-'*43),
-                                      viewer.fslview(self, func_mask, mimg_path)]))
+                                      gui.fslview(self, func_mask, mimg_path)]))
             else:
                 methods.raiseerror(messages.Errors.InputValueError,
                                    '"{}" is not available'.format(self._viewer))
         else:
-            return dict(anat_mask=anat_mask, func_mask=func_mask)
+            display(title(value='** Move files to [{}] folder.....'.format(self.prj.ds_type[2])))
+            step.reset()
+            step.set_input(name='anat', path=anat)
+            step.set_input(name='anat_mask', path=anat_mask, type=1)
+            step.set_output(name='output', dc=1, ext='remove')
+            step.set_var(name='mask_output', value="'{}_mask.nii.gz'.format(output)", type=1)
+            cmd01 = '3dcopy {anat} {output}.nii.gz'
+            cmd02 = '3dcopy {anat_mask} {mask_output}'
+            step.set_cmd(cmd01)
+            step.set_cmd(cmd02)
+            step.run('MaskPrep', 'anat', debug=debug)
+
+            step.reset()
+            step.set_input(name='meanfunc', path=mimg_path)
+            step.set_input(name='func_mask', path=func_mask, type=1)
+            step.set_output(name='output', dc=1, ext='remove')
+            step.set_var(name='mask_output', value="'{}_mask.nii.gz'.format(output)", type=1)
+            cmd01 = '3dcopy {meanfunc} {output}.nii.gz'
+            cmd02 = '3dcopy {func_mask} {mask_output}'
+            step.set_cmd(cmd01)
+            step.set_cmd(cmd02)
+            step.run('MaskPrep', surfix, debug=debug)
+            return dict(anat_mask=anat_mask,
+                        func_mask=func_mask,)
+
+    def afni_PasteMask(self, mask, destination, debug=False):
+        """ Paste the updated mask into the Processing folder
+
+        :param mask:
+        :param destination:
+        :return:
+        """
+        display(title(value='** Upload updated mask files.....'))
+        mask = self.check_input(mask, dc=1)
+        destination = self.check_input(destination)
+        step = Step(self)
+        step.set_input(name='mask', path=mask, filters=dict(file_tag='_mask'))
+        step.set_input(name='target', path=destination, type=1)
+        step.set_output(name='output', type=4)
+        step.set_module('shutil', sub='copy', rename='scopy')
+        cmd = 'scopy({mask},{target})'
+        step.set_cmd(cmd, type=1)
+        step.run('PasteMask', debug=debug)
 
     def afni_SkullStrip(self, anat, meanfunc, surfix='func', debug=False):
         """ Subtract out the image outside of the brain mask,
@@ -234,7 +279,7 @@ class AFNI_Process(BaseProcess):
                             1. datatype path from the raw data (e.g. 'anat' or 'dti')
                             2. absolute path
                             3. index of path which is shown on 'executed' method
-        :param meanfunc:        input path for mean functional image, same as above input path
+        :param meanfunc:    input path for mean functional image, same as above input path
         :param surfix:      surfix for output path
         :param debug:       set True if you want to print out the executing function of this process (default: False)
         :type anat:         str or int
@@ -319,28 +364,28 @@ class AFNI_Process(BaseProcess):
         result_path = step.run('Check_Registration', surfix, debug=debug)
         return dict(func=output_path, checkreg = result_path)
 
-    def afni_SkullStripAll(self, func, meanfunc, surfix='func', debug=False):
+    def afni_SkullStripAll(self, func, funcmask, surfix='func', debug=False):
         """ Applying arithmetic skull stripping
 
         :param func:        input path for all functional image, three type of path can be used
                             1. datatype path from the raw data (e.g. 'anat' or 'dti')
                             2. absolute path
                             3. index of path which is shown on 'executed' method
-        :param meanfunc:    input path for mean functional image, same as above input path
+        :param funcmask:    input path for mean functional image, same as above input path
         :param surfix:      surfix for output path
         :param debug:       set True if you want to print out the executing function of this process (default: False)
         :type func:         str or int
-        :type meanfunc:     str or int
+        :type funcmask:     str or int
         :type surfix:       str
         :return:            output path
         :rtype:             dict
         """
         display(title(value='** Processing skull stripping to all {} data.....'.format(surfix)))
-        meanfunc = self.check_input(meanfunc)
+        funcmask = self.check_input(funcmask)
         func = self.check_input(func)
         step = Step(self)
         step.set_input(name='func', path=func)
-        step.set_input(name='mask', path=meanfunc, type=1, idx=0)
+        step.set_input(name='mask', path=funcmask, type=1, idx=0)
         step.set_output(name='output')
         cmd = '3dcalc -prefix {output} -expr "a*step(b)" -a {func} -b {mask}'
         step.set_cmd(cmd)
@@ -571,9 +616,9 @@ class AFNI_Process(BaseProcess):
         output_path = step.run('ClusteredMask', surfix=surfix, debug=debug)
         if jupyter_env:
             if self._viewer == 'itksnap':
-                display(viewer.itksnap(self, output_path, tmpobj.image.get_filename()))
+                display(gui.itksnap(self, output_path, tmpobj.image.get_filename()))
             elif self._viewer == 'fslview':
-                display(viewer.fslview(self, output_path, tmpobj.image.get_filename()))
+                display(gui.fslview(self, output_path, tmpobj.image.get_filename()))
             else:
                 methods.raiseerror(messages.Errors.InputValueError,
                                    '"{}" is not available'.format(self._viewer))

@@ -321,7 +321,7 @@ class Project(object):
 
     @property
     def ext(self):
-        return self.__ext_filter
+            return self.__ext_filter
 
     @ext.setter
     def ext(self, value):
