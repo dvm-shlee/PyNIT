@@ -12,7 +12,7 @@ try:
         from tqdm import tqdm_notebook as progressbar
         from ipywidgets import widgets
         from ipywidgets.widgets import HTML as title
-        from IPython.display import display, display_html
+        from IPython.display import display, display_html, clear_output
         jupyter_env = True
     else:
         from tqdm import tqdm as progressbar
@@ -122,19 +122,6 @@ class BaseProcess(object):
         """
         gui.afni(self, self.steps[idx], tmpobj=tmpobj)
 
-    def fslview(self, idx, base_idx=None):
-        """Launch fslview
-
-        :param idx:
-        :param base_idx:
-        :return:
-        """
-        if base_idx:
-            gui.fslview(self, self.steps[idx], self.steps[base_idx])
-        else:
-            gui.fslview(self, self.steps[idx])
-
-
     @property
     def path(self):
         return self._path
@@ -217,6 +204,8 @@ class BaseProcess(object):
                         self._sessions = sorted(self.__prj(0).sessions[:])
             else:
                 self._subjects = sorted(self.__prj(1).subjects[:])
+                if not self.__prj.single_session:
+                    self._sessions = sorted(self.__prj(1).sessions[:])
         else:
             self._subjects = sorted(self.__prj(0).subjects[:])
             if not self.__prj.single_session:

@@ -54,22 +54,28 @@ class ANTs_Process(BaseProcess):
         return dict(func=output_path)
 
     def ants_BiasFieldCorrection(self, anat, func, debug=False):
+        """N4BiasFieldCorrection
 
+        :param anat:
+        :param func:
+        :param debug:
+        :return:
+        """
         anat = self.check_input(anat)
-        step1 = Step(self)
-        step1.set_input(name='anat', path=anat)
-        step1.set_output(name='output')
+        step = Step(self)
+        step.set_input(name='anat', path=anat)
+        step.set_output(name='output')
         cmd1 = 'N4BiasFieldCorrection -i {anat} -o {output}'
-        step1.set_cmd(cmd1)
-        anat_path = step1.run('BiasFiled', 'anat', debug=debug)
+        step.set_cmd(cmd1)
+        anat_path = step.run('BiasFiled', 'anat', debug=debug)
 
         func = self.check_input(func)
-        step2 = Step(self)
-        step2.set_input(name='func', path=func)
-        step2.set_output(name='output')
+        step.reset()
+        step.set_input(name='func', path=func)
+        step.set_output(name='output')
         cmd2 = 'N4BiasFieldCorrection -i {func} -o {output}'
-        step2.set_cmd(cmd2)
-        func_path = step2.run('BiasField', 'func', debug=debug)
+        step.set_cmd(cmd2)
+        func_path = step.run('BiasField', 'func', debug=debug)
         return dict(anat=anat_path, func=func_path)
 
     def ants_SpatialNorm(self, anat, tmpobj, surfix='anat', debug=False):
@@ -82,9 +88,9 @@ class ANTs_Process(BaseProcess):
         :param surfix:
         :return:
         """
-        display(title(value='** Processing spatial normalization.....'))
         anat = self.check_input(anat)
         step = Step(self, n_thread=1)
+        step.set_message('** Processing spatial normalization.....')
         step.set_input(name='anat', path=anat, idx=0)
         step.set_var(name='tmpobj', value=tmpobj.template_path)
         step.set_var(name='thread', value=multiprocessing.cpu_count())
@@ -115,13 +121,11 @@ class ANTs_Process(BaseProcess):
         :return:
             Output path as dictionary format
         """
-        display(title(value='** Processing spatial normalization.....'))
-
         # Check and correct inputs
         func = self.check_input(func)
         warped = self.check_input(warped)
         step = Step(self)
-
+        step.set_message('** Processing spatial normalization.....')
         # Set filters for input transform data
         baseimg_filter = dict(ignore=['_1InverseWarp', '_1Warp', '_inversed'])
         dmorph_filter = dict(file_tag='_1Warp')

@@ -10,14 +10,15 @@ from ..tools.visualizers import check_invert, apply_invert
 from ..tools.visualizers import BrainPlot
 from collections import namedtuple
 import datetime
+from time import sleep
 
 jupyter_env = False
 try:
     if len([key for key in sys.modules.keys() if 'ipykernel' in key]):
         from tqdm import tqdm_notebook as progressbar
         from ipywidgets import widgets
-        from ipywidgets.widgets import HTML as title
-        from IPython.display import display, display_html
+        from ipywidgets.widgets import HTML
+        from IPython.display import display, display_html, clear_output
         jupyter_env = True
     else:
         from tqdm import tqdm as progressbar
@@ -308,7 +309,7 @@ _vset = namedtuple('Variable', ['name', 'value', 'type'])
 _gset = namedtuple('Group', ['name', 'args', 'kwargs'])
 _oset = namedtuple('OutputParam', ['name', 'code', 'type', 'ext', 'prefix'])
 _fltr = namedtuple('Filters', ['name', 'code'])
-_cmds = namedtuple('Command', ['name', 'command', 'nscode', 'type'])
+_cmds = namedtuple('Command', ['name', 'command', 'nscode', 'type', 'level'])
 
 
 class BaseProcessor(object):
@@ -375,6 +376,7 @@ class BaseProcessor(object):
         self.__prj = procobj.prj
         self.__pipeline = procobj.processing
         self.__import = list()
+        self.__message = None
         # Input containers
         self.__mainset = None
         self.__sideset = list()
@@ -389,6 +391,7 @@ class BaseProcessor(object):
         # Command containers
         self.__cmd = list()
         self.__dc = None
+        self.__input_dc = None
 
     def init_path(self, title, dc=0, verbose=False):
         """ This method checks if the input step had been executed or not.
@@ -430,6 +433,9 @@ class BaseProcessor(object):
     def set_logging(self, message):
         return 'self.logger.info({0})'.format(message)
 
+    def set_message(self, message):
+        self.__message = message
+
     def set_parallel(self, n_thread):
         """ Method to initiate parallel computing
         :param n_thread:    Number of thread for parallel computing
@@ -457,6 +463,7 @@ class BaseProcessor(object):
                         2-group: inputs will be treated as group, not running loop
         """
         dc, path = self.__check_dataclass(path)
+        self.__input_dc = dc
         if type in [0,1,2]:
             self.__check_namespace(name)
             if type == 0:
@@ -552,7 +559,7 @@ class BaseProcessor(object):
             self.__check_namespace(name)
             self.__convert_outputcode(name, level, dc, ext, prefix, type)
 
-    def set_cmd(self, command, name=None, type=0):
+    def set_cmd(self, command, name=None, type=0, level=0):
         """ Method to set command for inputs
 
         :param name:        namespace for output of command
@@ -574,7 +581,7 @@ class BaseProcessor(object):
                                'Wrong command type')
         else:
             self.__proc.logger.info('CMD:{}'.format(command))
-            self.__cmd.append(_cmds(name=name, command=command, nscode=nscode, type=type))
+            self.__cmd.append(_cmds(name=name, command=command, nscode=nscode, type=type, level=level))
 
     def reset(self):
         """ Method to reset all containers
@@ -714,7 +721,7 @@ class BaseProcessor(object):
         else:
             output_filters = [dataclass, '"{0}"'.format(self.__pipeline), '"{0}"'.format(path)]
         if type in [0, 1]:
-            if self.__prj.sessions:
+            if self.__proc.sessions:
                 output_filters.extend(['subj', 'sess'])
             else:
                 output_filters.extend(['subj'])
@@ -954,28 +961,31 @@ class BaseProcessor(object):
                     list_cmd.append('stdout_collector.append((out, err))')
             elif cmd.type == 1: #python methods
                 if cmd.name:
+                    adtn_cmd = list()
                     if cmd.nscode:
                         updated_cmd = str(cmd.command)
                         for nsc in cmd.nscode:
                             ns_key, ns_value = nsc.split('=')
                             updated_cmd = updated_cmd.replace('{'+ns_key+'}', ns_value)
-                        list_cmd.append('{0} = {1}'.format(cmd.name, updated_cmd))
+                        adtn_cmd.append('{0} = {1}'.format(cmd.name, updated_cmd))
                     else:
-                        list_cmd.append('{0} = {1}'.format(cmd.name, cmd.command))
-                        list_cmd.append('stdout_collector.append(({0}, None))'.format(cmd.command))
-                    list_cmd.append('stdout_collector.append(({0}, None))'.format(cmd.command))
+                        adtn_cmd.append('{0} = {1}'.format(cmd.name, cmd.command))
+                        # list_cmd.append('stdout_collector.append(({0}, None))'.format(cmd.command))
+                    adtn_cmd.append('stdout_collector.append(({0}, None))'.format(cmd.command))
+                    list_cmd.extend(self.__indent(adtn_cmd, level=cmd.level))
                 else:
                     if cmd.nscode:
                         updated_cmd = str(cmd.command)
                         for nsc in cmd.nscode:
                             ns_key, ns_value = nsc.split('=')
                             updated_cmd = updated_cmd.replace('{'+ns_key+'}', ns_value)
-                        list_cmd.extend(['try:',
-                                        self.__indent(updated_cmd),
-                                        'except:',
-                                        self.__indent("methods.raiseerror(messages.CommandExecutionFailure, 'Error')")])
+                        adtn_cmd = ['try:', self.__indent(updated_cmd),
+                                    'except:',
+                                    self.__indent("methods.raiseerror(messages.CommandExecutionFailure, 'Error')")]
+                        list_cmd.extend(self.__indent(adtn_cmd, level=cmd.level))
                     else:
-                        list_cmd.append('{0}'.format(cmd.command))
+                        adtn_cmd = self.__indent('{0}'.format(cmd.command), level=cmd.level)
+                        list_cmd.append(adtn_cmd)
             elif cmd.type == 2: #TODO: need to integrate scheduler function for cluster computing
                 methods.raiseerror(messages.Errors.InputTypeError, 'Scheduler is not available yet')
             else:
@@ -1006,14 +1016,17 @@ class BaseProcessor(object):
         :param chr:         character of intent
         :return:            indented objs
         """
-        if isinstance(objs, list):
-            return map(str.__add__, [chr*size*level]*len(objs), objs)
-        elif isinstance(objs, str):
-            return chr*size*level + objs
-        elif not objs:
-            pass
+        if level:
+            if isinstance(objs, list):
+                return map(str.__add__, [chr*size*level]*len(objs), objs)
+            elif isinstance(objs, str):
+                return chr*size*level + objs
+            elif not objs:
+                pass
+            else:
+                methods.raiseerror(messages.Errors.InputTypeError, 'input object must be str or list')
         else:
-            methods.raiseerror(messages.Errors.InputTypeError, 'input object must be str or list')
+            return objs
 
     def __configure_function_header(self, name):
         """ Method to configure platform of function,
@@ -1024,7 +1037,7 @@ class BaseProcessor(object):
         if self.__group:
             header = ['def {0}(self, title):'.format(name)]
         else:
-            if self.__prj.sessions:
+            if self.__proc.sessions:
                 args = 'subj, sess'
             else:
                 args = 'subj'
@@ -1076,7 +1089,10 @@ class BaseProcessor(object):
             else:
                 surfix = sub
         if surfix:
-            package = " ".join([prefix, module, 'import', surfix])
+            if prefix == 'from':
+                package = " ".join([prefix, module, 'import', surfix])
+            else:
+                package = " ".join([prefix, module, surfix])
 
         else:
             package = " ".join([prefix, module])
@@ -1201,6 +1217,8 @@ class BaseProcessor(object):
         :param debug:
         :return: None
         """
+        if self.__message:
+            display(HTML(self.__message))
         def output_writer(outputs, output_path):
             if outputs:
                 if isinstance(outputs[0], list):
@@ -1234,7 +1252,7 @@ class BaseProcessor(object):
                 if self.__proc.sessions:
                     self.__proc.logger.info("Step::The inputs are identified as multi-session scans")
                     for idx, subj in enumerate(progressbar(self.__proc.subjects, desc='Subjects')):
-                        iteritem = [(self.__proc, output_path, idx, subj, sess) for sess in self.__prj.sessions]
+                        iteritem = [(self.__proc, output_path, idx, subj, sess) for sess in self.__proc.sessions]
                         for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Sessions',
                                                    leave=False, total=len(iteritem)):
                             if 4 not in [o.type for o in self.__output]:
@@ -1253,6 +1271,10 @@ class BaseProcessor(object):
             self.__proc._history[os.path.basename(output_path)] = output_path
             self.__proc.save_history()
             self.__prj.reload()
+            clear_output()
+            display(HTML('Done.....'))
+            sleep(0.5)
+            clear_output()
             return output_path
 
     def worker(self, args, name='built_func'):

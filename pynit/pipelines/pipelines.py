@@ -8,12 +8,17 @@ class PipeTemplate(object):
         return output
 
 
+class Q_Quality_assesments(PipeTemplate):
+    def __init__(self):
+        pass
+
+
 class A_fMRI_preprocess(PipeTemplate):
-    def __init__(self, proc, tmpobj, anat='anat', func='func', tr=None, tpattern=None,
+    def __init__(self, proc, tmpobj, anat='anat', func='func', tr=None, tpattern=None, aniso=False,
                  cbv=False, ui=False, surfix='func'):
         """Collection of preprocessing pipelines for Shihlab at UNC
         Author  : SungHo Lee(shlee@unc.edu)
-        Revised : Feb.27th.2017
+        Revised : Sep.9th.2017
 
         Parameters:
             anat    : str
@@ -24,12 +29,14 @@ class A_fMRI_preprocess(PipeTemplate):
                 Temporal sampling time for volume (default: None)
             tpattern: str
                 Slice order code based on afni command '3dTshift' (default: None)
+            aniso   : bool
+                Set True if you use 2D anitotropic sliced image (default: False)
             cbv     : str
                 Path of MION infusion image (default: False)
             ui      : bool
-                UI supports
+                UI supports (default: False)
             surfix  : str
-
+                Surfix for output folder (default: 'func')
         """
         # Define attributes
         self.proc = proc
@@ -38,11 +45,14 @@ class A_fMRI_preprocess(PipeTemplate):
         self.tmpobj = tmpobj
         self.tr = tr
         self.tpattern = tpattern
+        self.aniso = aniso
         self.cbv = cbv
         self.ui = ui
         self.surfix = surfix
 
     def pipe_01_Brain_Mask_Preparation(self):
+        """ Mask preparation step
+        """
         # Mean image calculation (0)
         if self.cbv:
             self.proc.afni_MeanImgCalc(self.cbv, cbv=True, surfix=self.surfix)
@@ -55,14 +65,16 @@ class A_fMRI_preprocess(PipeTemplate):
             self.proc.afni_MaskPrep(self.anat, 0, self.tmpobj)
 
     def pipe_02_Standard_Preprocessing(self):
+        """
+        """
         # Update mask files (1-anat, 2-func)
-        if self.ui:
+        if not self.ui:
             self.proc.afni_PasteMask(0, 1)
             self.proc.afni_PasteMask(1, 2)
         # Skull stripping (3-anat, 4-func)
         self.proc.afni_SkullStrip(self.anat, 0)
         # Coregistration (5)
-        self.proc.afni_Coreg(3, 4, surfix=self.surfix)
+        self.proc.afni_Coreg(3, 4, aniso=self.aniso, surfix=self.surfix)
         # Slice timing correction (6)
         if self.tr or self.tpattern:
             self.proc.afni_SliceTimingCorrection(self.func, tr=self.tr, tpattern=self.tpattern, surfix=self.surfix)
@@ -72,11 +84,40 @@ class A_fMRI_preprocess(PipeTemplate):
         self.proc.afni_MotionCorrection(6, 0, surfix=self.surfix)
         # Skull stripping all functional data (8)
         self.proc.afni_SkullStripAll(7, 2, surfix=self.surfix)
-        # Apply coregistration transform matrix to all functional data
-        self.proc.afni_ApplyCoregAll(self.proc.steps[8], self.proc.steps[5], surfix=self.surfix)
+        # Apply coregistration transform matrix to all functional data (9)
+        self.proc.afni_ApplyCoregAll(8, 5, surfix=self.surfix)
+        if not self.aniso:
+            # Align anatomy image to template space (10)
+            self.proc.ants_SpatialNorm(3, self.tmpobj, surfix=self.surfix)
+            # Align functional images to template space (11)
+            self.proc.ants_ApplySpatialNorm(9, 10, surfix=self.surfix)
+        else:
+            self.proc.afni_SpatialNorm(3, self.tmpobj, surfix=self.surfix)
+            self.proc.afni_ApplySpatialNorm(9, 10, surfix=self.surfix)
         if self.cbv:
-            self.proc.afni_ApplyCoregAll(self.cbv, self.proc.steps[5], surfix='cbv')
-            self.proc.afni_ApplySpatialNorm(self.proc.steps[12], self.proc.steps[10], surfix='cbv')
+            # Coregistration MION infusion image to anatomy image (12)
+            self.proc.afni_ApplyCoregAll(self.cbv, 5, surfix='cbv')
+            # Align MION infusion image to template space (13)
+            self.proc.afni_ApplySpatialNorm(12, 10, surfix='cbv')
+
+    def pipe_03_Advanced_Preprocessing(self):
+        # Update mask files (1-anat, 2-func)
+        if not self.ui:
+            self.proc.afni_PasteMask(0, 1)
+            self.proc.afni_PasteMask(1, 2)
+        # Skull stripping (3-anat, 4-func)
+        self.proc.afni_SkullStrip(self.anat, 0)
+        # Coregistration (5)
+        self.proc.afni_Coreg(3, 4, aniso=self.aniso, inverse=True, surfix='anat')
+        # Slice timing correction (6)
+        if self.tr or self.tpattern:
+            self.proc.afni_SliceTimingCorrection(self.func, tr=self.tr, tpattern=self.tpattern, surfix=self.surfix)
+        else:
+            self.proc.afni_SliceTimingCorrection(self.func, surfix=self.surfix)
+        # Motion correction (7)
+        self.proc.afni_MotionCorrection(6, 0, surfix=self.surfix)
+        # Skull stripping all functional data (8)
+        self.proc.afni_SkullStripAll(7, 2, surfix=self.surfix)
 
 
 class B_evoked_fMRI_analysis(PipeTemplate):
@@ -147,3 +188,16 @@ class B_evoked_fMRI_analysis(PipeTemplate):
             step = [step for step in self.proc.steps if self.surfix in step and 'ClusteredMask' in step][0]
             self.proc.afni_ROIStats(self.proc.steps[0], step, clip_range=self.crop, option=self.option,
                                     cbv=self.cbv, surfix=self.surfix)
+
+class C_resting_state_fMRI_analysis(PipeTemplate):
+    def __init__(self, proc, tmpobj, surfix='func'):
+        """Collection of GLM analysis pipelines for Shihlab at UNC
+        Author  : SungHo Lee(shlee@unc.edu)
+        Revised : Sep.6nd.2017
+
+        Parameters:
+        """
+        # Define attributes
+        self.tmpobj = tmpobj
+        self.proc = proc
+        self.surfix = surfix

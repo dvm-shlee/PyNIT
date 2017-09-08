@@ -174,10 +174,12 @@ class BrukerRawData(object):
         return values
 
     def get_shape(self):
-        matrix = self.reco['RECO_size']
+        matrix = self.reco['RECO_size'][::-1]
         slices = self.acqp['NSLICES']
         echo_img = self.method['PVM_NEchoImages']
         num_rep = None
+        if self.method['PVM_NEchoImages'] > 1:
+            matrix = [echo_img] + matrix
         if self.method['PVM_SpatDimEnum'] == '2D':
             matrix = [slices] + matrix
         elif self.method['PVM_SpatDimEnum'] == '3D':
@@ -186,8 +188,6 @@ class BrukerRawData(object):
             num_rep = self.method['PVM_NRepetitions']
         except:
             pass
-        if self.method['PVM_NEchoImages'] > 1:
-            matrix = [echo_img] + matrix
         if self.method['Method'] == 'DtiEpi':
             num_b0 = self.method['PVM_DwAoImages']
             num_dir = self.method['PVM_DwNDiffDir']
@@ -199,6 +199,7 @@ class BrukerRawData(object):
                 matrix = [num_rep] + matrix
         else:
             pass
+        print(matrix)
         return matrix
 
     def get_tempresol(self):
@@ -265,6 +266,8 @@ class BrukerRawData(object):
                 self.nii.header['slice_code'] = 4
             elif self.method['PVM_ObjOrderScheme'] == 'Angiopraphy':
                 self.nii.header['slice_code'] = 0
+            self.nii.header['slice_start'] = min(self.acqp['ACQ_obj_order'])
+            self.nii.header['slice_end'] = max(self.acqp['ACQ_obj_order'])
         else:
             self.nii.header.set_xyzt_units('mm', 'unknown')
             self.nii.header['qform_code'] = 1
@@ -284,12 +287,15 @@ class BrukerRawData(object):
         if human:
             pass
         else:
+            self._resol[0] = -1 * float(self._resol[0])
             self._resol[1] = -1 * float(self._resol[1])
             affine = np.diag(self._resol + [1])
             centers = self.get_center()
-            affine[0, 3] = -1 * (centers[0] - self.get_geometry()[3])
-            affine[1, 3] = (centers[1] - self.get_geometry()[1])
-            affine[2, 3] = -1 * (centers[2] - self.get_geometry()[0])
+            print(centers)
+            offset = np.round(self.get_geometry(), decimals=4)
+            affine[0, 3] = (centers[0] - offset[3])
+            affine[1, 3] = (centers[1] + offset[1])
+            affine[2, 3] = -1 * (centers[2] - offset[0])
             if ori[0] == 'axial':
                 self._affine = affine[[0, 2, 1, 3], :]
             elif ori[0] == 'coronal':

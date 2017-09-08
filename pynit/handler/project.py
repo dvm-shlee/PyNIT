@@ -392,15 +392,21 @@ class Project(object):
                 with open(prj_file, 'r') as f:
                     self.__df = pickle.load(f)
                 if self.__dc_idx == 0:
-                    if len(self.__df.columns) == 4:
-                        self.single_session = True
+                    if self.__empty_project:
+                        pass
                     else:
-                        self.single_session = False
+                        if len(self.__df.columns) == 4:
+                            self.single_session = True
+                        else:
+                            self.single_session = False
                 else:
-                    if len(self.__df.columns) == 5:
-                        self.single_session = True
+                    if self.__empty_project:
+                        pass
                     else:
-                        self.single_session = False
+                        if len(self.__df.columns) == 5:
+                            self.single_session = True
+                        else:
+                            self.single_session = False
             except:
                 self.scan_prj()
         if len(self.__df):

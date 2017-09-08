@@ -5,10 +5,10 @@ PyNIT (Python NeuroImaging Toolkit)
 from distutils.core import setup
 from setuptools import find_packages
 
-__version__ = '0.0.1'
+__version__ = '0.1.1b1'
 __author__ = 'SungHo Lee'
 __email__ = 'shlee@unc.edu'
-__url__ = 'https://dvm-shlee.github.io/pynit'
+__url__ = 'https://dvm-shlee.github.io'
 
 setup(name='PyNIT',
       version=__version__,
@@ -22,24 +22,26 @@ setup(name='PyNIT',
                         'matplotlib', 'seaborn', 'scikit-image',                    #visulaization
                         'numpy', 'scipy', 'scikit-learn'                            #computation
                         ],
-      scripts=['bin/brk2nifti',
-               'bin/checkscans',
+      scripts=['pynit/bin/brk2nifti',
+               'pynit/bin/checkscans',
                ],
-      classifier=[
+      classifiers=[
             # How mature is this project? Common values are
             #  3 - Alpha
             #  4 - Beta
             #  5 - Production/Stable
-            'Development Status :: 3 - Alpha',
+            'Development Status :: 4 - Beta',
 
             # Indicate who your project is intended for
-            'Intended Audience :: Neuroscience researcher',
-            'Topic :: NeuroImaging :: Functional MRI Toolkit',
+            'Framework :: Jupyter',
+            'Intended Audience :: Science/Research',
+            'Topic :: Scientific/Engineering :: Information Analysis',
+            'Natural Language :: English',
 
             # Specify the Python version you support here. In particular, ensure
             # that you indicate whether you support Python 2, Python 3 or both
             'Programming Language :: Python :: 2.7',
       ],
-      keyworks = 'Python NeuroImaging Toolkit'
+      keywords = 'Python NeuroImaging Toolkit'
      )
 

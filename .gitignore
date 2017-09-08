@@ -1,6 +1,8 @@
 *.pyc
 .idea/
 .idea/*
+dist/
+dist/*
 build/
 build/*
 PyNIT.egg-info/

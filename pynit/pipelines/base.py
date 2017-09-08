@@ -13,7 +13,7 @@ jupyter_env = False
 try:
     if len([key for key in sys.modules.keys() if 'ipykernel' in key]):
         from ipywidgets.widgets import HTML as title
-        from IPython.display import display
+        from IPython.display import display, clear_output
         from tqdm import tqdm_notebook as progressbar
         jupyter_env = True
     else:
@@ -166,61 +166,84 @@ class Pipelines(object):
         else:
             methods.raiseerror(messages.Errors.InitiationFailure, 'Error on initiating step')
 
-    def group_organizer(self, group_filters, i_pipe_id, i_step_id, o_pipe_id, cbv=None, **kwargs):
+    def group_organizer(self, origin, target, step_id, group_filters, option_filters=None, cbv=None,
+                        **kwargs):
         """Organizing groups for 2nd level analysis
 
-        :param group_filters:
-        :param i_pipe_id:
-        :param i_step_id:
-        :param o_pipe_id:
-        :param cbv:
-        :param kwargs:
+        :param origin:      Pipeline id of original location
+        :param target:      Pipeline id of destination
+        :param step_id:     step ID of processed folder need to be use for organizing group
+        :param group_filters: Group filters, (e.g. dict(group=[[subj_id],[sess_id],filters], ...))
+        :param option_filters:  dict(step_id=filters, ...)
+        :param cbv:         If CBV image, put step ID
+        :param kwargs:      ADditional option for initiating pipeline
         :return:
         """
         display(title(value='---=[[[ Move subject to group folder ]]]=---'))
-        self.initiate(o_pipe_id, listing=False, **kwargs)
-        input_proc = Process(self.__prj, self.avail[i_pipe_id])
+        self.initiate(target, listing=False, **kwargs)
+        input_proc = Process(self.__prj, self.avail[origin])
         init_path = self.__init_path('GroupOrganizing')
         groups = sorted(group_filters.keys())
+        oset = dict()
         for group in progressbar(sorted(groups), desc='Subjects'):
             grp_path = os.path.join(init_path, group)
             methods.mkdir(grp_path)
             if self.__prj.single_session:
                 if group_filters[group][2]:
-                    dset = self.__prj(1, input_proc.processing, input_proc.executed[i_step_id],
+                    dset = self.__prj(1, input_proc.processing, input_proc.executed[step_id],
                                       *group_filters[group][0], **group_filters[group][2])
                 else:
-                    dset = self.__prj(1, input_proc.processing, input_proc.executed[i_step_id],
+                    dset = self.__prj(1, input_proc.processing, input_proc.executed[step_id],
                                       *group_filters[group][0])
-
+                if option_filters:
+                    for i, id in enumerate(option_filters.keys()):
+                        oset[i] = self.__prj(1, input_proc.processing, input_proc.executed[id],
+                                             *group_filters[group][0], **option_filters[id])
             else:
-                grp_path = os.path.join(init_path, group, 'files')
+                grp_path = os.path.join(init_path, group, 'Files')
                 methods.mkdir(grp_path)
                 if group_filters[group][2]:
-                    dset = self.__prj(1, input_proc.processing, input_proc.executed[i_step_id],
+                    dset = self.__prj(1, input_proc.processing, input_proc.executed[step_id],
                                       *(group_filters[group][0] + group_filters[group][1]),
                                       **group_filters[group][2])
                 else:
-                    dset = self.__prj(1, input_proc.processing, input_proc.executed[i_step_id],
+                    dset = self.__prj(1, input_proc.processing, input_proc.executed[step_id],
                                       *(group_filters[group][0] + group_filters[group][1]))
+                if option_filters:
+                    oset = dict()
+                    for i, id in enumerate(option_filters.keys()):
+                        oset[i] = self.__prj(1, input_proc.processing, input_proc.executed[id],
+                                             *(group_filters[group][0] + group_filters[group][1]),
+                                             **option_filters[id])
             for i, finfo in dset:
                 output_path = os.path.join(grp_path, finfo.Filename)
                 if os.path.exists(output_path):
                     pass
                 else:
-                    if self.__prj.single_session:
-                        cbv_file = self.__prj(1, input_proc.processing, input_proc.executed[cbv], finfo.Subject)
-                    else:
-                        cbv_file = self.__prj(1, input_proc.processing, input_proc.executed[cbv],
-                                              finfo.Subject, finfo.Session)
                     copy(finfo.Abspath, os.path.join(grp_path, finfo.Filename))
-                    with open(methods.splitnifti(output_path)+'.json', 'wb') as f:
-                        json.dump(dict(cbv=cbv_file[0].Abspath), f)
+                    if cbv:
+                        if self.__prj.single_session:
+                            cbv_file = self.__prj(1, input_proc.processing, input_proc.executed[cbv], finfo.Subject)
+                        else:
+                            cbv_file = self.__prj(1, input_proc.processing, input_proc.executed[cbv],
+                                                  finfo.Subject, finfo.Session)
+                        with open(methods.splitnifti(output_path)+'.json', 'wb') as f:
+                            json.dump(dict(cbv=cbv_file[0].Abspath), f)
+            if option_filters:
+                for prj in oset.values():
+                    for i, finfo in prj:
+                        output_path = os.path.join(grp_path, finfo.Filename)
+                        if os.path.exists(output_path):
+                            pass
+                        else:
+                            copy(finfo.Abspath, os.path.join(grp_path, finfo.Filename))
+
         self._proc._subjects = groups[:]
         self._proc._history[os.path.basename(init_path)] = init_path
         self._proc.save_history()
-        self._proc._prjobj.reload()
-        self.help(o_pipe_id)
+        self._proc.prj.reload()
+        clear_output()
+        self.help(target)
 
     @property
     def executed(self):
