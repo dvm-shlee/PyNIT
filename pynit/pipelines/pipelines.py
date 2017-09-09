@@ -121,7 +121,7 @@ class A_fMRI_preprocess(PipeTemplate):
 
 
 class B_evoked_fMRI_analysis(PipeTemplate):
-    def __init__(self, proc, tmpobj, paradigm=None, thresholds=None, mask=None, cbv=None, crop=None,
+    def __init__(self, proc, tmpobj, paradigm=None, fwhm=0.5, thresholds=None, mask=None, cbv=None, crop=None,
                  option=None, surfix='func'):
         """Collection of GLM analysis pipelines for Shihlab at UNC
         Author  : SungHo Lee(shlee@unc.edu)
@@ -130,6 +130,8 @@ class B_evoked_fMRI_analysis(PipeTemplate):
         Parameters:
             paradigm: list
                 Mandatary input for evoked paradigm
+            fwhm    : float
+                Voxel Smoothness
             thresholds : list (default: None)
                 Threshold for generating clusters [pval, num_of_voxels]
             mask    : path (default: None)
@@ -142,7 +144,7 @@ class B_evoked_fMRI_analysis(PipeTemplate):
             option  : str
                 option for ROIs extraction ('bilateral', 'merge', or 'contra')
             surfix  : str
-                """
+        """
         # Define attributes
         self.tmpobj = tmpobj
         self.proc = proc
@@ -153,21 +155,24 @@ class B_evoked_fMRI_analysis(PipeTemplate):
         self.paradigm = paradigm
         self.cbv = cbv
         self.crop = crop
+        self.fwhm = fwhm
         self.option = option
         self.mask = mask
         self.surfix = surfix
 
     def pipe_01_GLM_analysis(self):
-        # Perform GLM analysis
-        self.proc.afni_GLManalysis(self.proc.steps[0], self.paradigm, clip_range=self.crop, surfix=self.surfix)
+        # Spatial smoothing (1)
+        self.proc.afni_SpatialSmoothing(0, fwhm=self.fwhm, tmpobj=self.tmpobj, surfix=self.surfix)
+        # Perform GLM analysis (2)
+        self.proc.afni_GLManalysis(1, self.paradigm, clip_range=self.crop, surfix=self.surfix)
         if not self.mask:
             # Extract clusters using evoked results
             step = [step for step in self.proc.steps if self.surfix in step and 'REMLfit' in step][0]
             if self.thr:
-                self.proc.afni_ClusterMap(step, self.proc.steps[0], self.tmpobj,
+                self.proc.afni_ClusterMap(step, 1, self.tmpobj,
                                           pval=self.thr[0], clst_size=self.thr[1], surfix=self.surfix)
             else:
-                self.proc.afni_ClusterMap(step, self.proc.steps[0], self.tmpobj, surfix=self.surfix)
+                self.proc.afni_ClusterMap(step, 1, self.tmpobj, surfix=self.surfix)
 
     def pipe_02_Extract_Timecourse(self):
         if self.crop:
@@ -176,17 +181,17 @@ class B_evoked_fMRI_analysis(PipeTemplate):
                 pass
             else:
                 if self.mask:
-                    self.proc.afni_ROIStats(self.proc.steps[0], self.mask, cbv=self.cbv, surfix='fullts')
+                    self.proc.afni_ROIStats(1, self.mask, cbv=self.cbv, surfix='fullts')
                 else:
                     step = [step for step in self.proc.steps if self.surfix in step and 'ClusteredMask' in step][0]
-                    self.proc.afni_ROIStats(self.proc.steps[0], step, cbv=self.cbv, surfix='fullts')
+                    self.proc.afni_ROIStats(1, step, cbv=self.cbv, surfix='fullts')
         if self.mask:
             # If mask given, extract timecourse using the given mask
-            self.proc.afni_ROIStats(self.proc.steps[0], self.mask, cbv=self.cbv, clip_range=self.crop, surfix=self.surfix)
+            self.proc.afni_ROIStats(1, self.mask, cbv=self.cbv, clip_range=self.crop, surfix=self.surfix)
         # Extract timecourse using the mask you generated at step1
         else:
             step = [step for step in self.proc.steps if self.surfix in step and 'ClusteredMask' in step][0]
-            self.proc.afni_ROIStats(self.proc.steps[0], step, clip_range=self.crop, option=self.option,
+            self.proc.afni_ROIStats(1, step, clip_range=self.crop, option=self.option,
                                     cbv=self.cbv, surfix=self.surfix)
 
 class C_resting_state_fMRI_analysis(PipeTemplate):
