@@ -243,7 +243,7 @@ class AFNI_Process(BaseProcess):
             step.set_message('** Move files to [{}] folder.....'.format(self.prj.ds_type[2]))
             if '-CBV-' in mimg_path:
                 mimg_filters = {'file_tag': '_BOLD'}
-                step.set_input(name='meanfunc', path=mimg_path, filters=mimg_filters, idx=0)
+                step.set_input(name='meanfunc', path=mimg_path, filters=mimg_filters)
             else:
                 step.set_input(name='meanfunc', path=mimg_path)
             step.set_input(name='func_mask', path=func_mask, type=1)
