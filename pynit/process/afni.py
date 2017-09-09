@@ -241,7 +241,11 @@ class AFNI_Process(BaseProcess):
             step.run('MaskPrep', 'anat', debug=debug)
             step.reset()
             step.set_message('** Move files to [{}] folder.....'.format(self.prj.ds_type[2]))
-            step.set_input(name='meanfunc', path=mimg_path)
+            if '-CBV-' in mimg_path:
+                mimg_filters = {'file_tag': '_BOLD'}
+                step.set_input(name='func', path=mimg_path, filters=mimg_filters, idx=0)
+            else:
+                step.set_input(name='meanfunc', path=mimg_path)
             step.set_input(name='func_mask', path=func_mask, type=1)
             step.set_output(name='output', dc=1, ext='remove')
             step.set_var(name='mask_output', value="'{}_mask.nii.gz'.format(output)", type=1)
