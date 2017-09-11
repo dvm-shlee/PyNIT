@@ -111,20 +111,21 @@ def itksnap(procobj, input_path, temp_path=None):
         else:
             scan_dropdown.options = sorted(list_of_items[sub_toggle.value])
         # Update widget values
-        scan_dropdown.value = scan_dropdown.options[0]
+        if scan_dropdown.value not in scan_dropdown.options:
+            scan_dropdown.value = scan_dropdown.options[0]
 
     if procobj._sessions:
         def sess_update(*args):
             ses_toggle.options = sorted(list_of_items[sub_toggle.value].keys())
         ses_toggle = widgets.Dropdown(options=sorted(list_of_items[sub_toggle.value].keys()), description='Sessions:',
                                       layout=widgets.Layout(width='600px', ))
-        scan_dropdown = widgets.RadioButtons(options=sorted(list_of_items[sub_toggle.value][ses_toggle.value]),
+        scan_dropdown = widgets.Dropdown(options=sorted(list_of_items[sub_toggle.value][ses_toggle.value]),
                                              description='Scans:', layout=widgets.Layout(width='600px', ))
         sub_toggle.observe(sess_update, 'value') # if change value of sub_toggle, run ses_update
         sub_toggle.observe(scan_update, 'value') # ...
         ses_toggle.observe(scan_update, 'value')
     else:
-        scan_dropdown = widgets.RadioButtons(options=sorted(list_of_items[sub_toggle.value]),
+        scan_dropdown = widgets.Dropdown(options=sorted(list_of_items[sub_toggle.value]),
                                              description='Scans:',
                                              layout=widgets.Layout(width='600px', ))
         sub_toggle.observe(scan_update, 'value')

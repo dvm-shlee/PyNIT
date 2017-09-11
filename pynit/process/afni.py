@@ -565,9 +565,9 @@ class AFNI_Process(BaseProcess):
         step.set_message('** Processing General Linear Analysis')
         step.set_input(name='func', path=func, filters=kwargs)
         step.set_var(name='paradigm', value=paradigm)
-        step.set_var(name='param', value='" ".join(map(str, paradigm[i][0]))', type=1)
-        step.set_var(name='model', value='paradigm[i][1][0]', type=2)
-        step.set_var(name='mparam', value='" ".join(map(str, paradigm[i][1][1]))', type=1)
+        step.set_var(name='param', value='" ".join(map(str, paradigm[idx][0]))', type=1)
+        step.set_var(name='model', value='paradigm[idx][1][0]', type=1)
+        step.set_var(name='mparam', value='" ".join(map(str, paradigm[idx][1][1]))', type=1)
         step.set_output(name='output')
         step.set_output(name='prefix', ext='remove')
         if clip_range:
@@ -579,7 +579,7 @@ class AFNI_Process(BaseProcess):
             cmd01 = '3dDeconvolve -input {func} -num_stimts 1 -polort 2 -stim_times 1 "1D: {param}" ' \
                     '"{model}({mparam})" -stim_label 1 STIM -tout -bucket {output} -x1D {prefix}'
         step.set_cmd(cmd01)
-        glm = step.run('GLMAnalysis', surfix, debug=False)
+        glm = step.run('GLMAnalysis', surfix, debug=debug)
         step.reset()
         step.set_message('** Estimating the temporal auto-correlation structure')
         step.set_input(name='func', path=func, filters=kwargs)
@@ -596,7 +596,7 @@ class AFNI_Process(BaseProcess):
         output_path = step.run('REMLfit', surfix, debug=debug)
         return dict(GLM=output_path)
 
-    def afni_ClusterMap(self, stats, func, tmpobj, pval=0.01, clst_size=40, surfix='func', debug=False):
+    def afni_ClusterMap(self, stats, func, tmpobj, pval=0.01, clst_size=40, ui=False, surfix='func', debug=False):
         """ function to generate mask images from cluster using given threshold parameter.
         this process use AFNI's '3dAttribute', 'cdf', and '3dclust'
 
@@ -628,7 +628,8 @@ class AFNI_Process(BaseProcess):
         step.set_var(name='dof', value='dof.split()[-1]', type=1)
         cmd02 = 'cdf -p2t fitt {pval} {dof}'
         step.set_cmd(cmd02, name='tval')
-        step.set_cmd('tval.split("=")[1].strip()', name='tval', type=1)
+        step.set_var(name='tval', value='tval.split("=")[1].strip()', type=1)
+        # step.set_cmd('tval.split("=")[1].strip()', name='tval', type=1)
         cmd03 = '3dclust -1Dformat -nosum -1dindex 2 -1tindex 2 -2thresh -{tval} {tval} ' \
                 '-dxyz=1 -savemask {output} 1.01 {csize} {glm}'
         step.set_cmd(cmd03)
@@ -636,11 +637,14 @@ class AFNI_Process(BaseProcess):
         step.set_cmd('\tjson.dump(dict(source=func[i].Abspath), f)', type=1)
         output_path = step.run('ClusteredMask', surfix=surfix, debug=debug)
         if jupyter_env:
-            if self._viewer == 'itksnap':
-                display(gui.itksnap(self, output_path, tmpobj.image.get_filename()))
+            if ui:
+                if self._viewer == 'itksnap':
+                    display(gui.itksnap(self, output_path, tmpobj.image.get_filename()))
+                else:
+                    methods.raiseerror(messages.Errors.InputValueError,
+                                       '"{}" is not available'.format(self._viewer))
             else:
-                methods.raiseerror(messages.Errors.InputValueError,
-                                   '"{}" is not available'.format(self._viewer))
+                pass
         else:
             return dict(mask=output_path)
 
@@ -743,19 +747,22 @@ class AFNI_Process(BaseProcess):
         output_path = step.run('SignalProcess', surfix=surfix, debug=debug)
         return dict(signalprocess=output_path)
 
-    def afni_ROIStats(self, func, rois, cbv=None, clip_range=None, option=None, surfix='func',
+    def afni_ROIStats(self, func, rois, cbv=False, cbv_param=None, clip_range=None, option=None, surfix='func',
                       debug=False, **kwargs):
         """Extracting time-course data from ROIs
 
         :param func:    Input path for functional data
         :param roi:     Template instance or mask path
-        :param cbv:     [echotime, number of volumes (TR) to average]
+        :param cbv:     Input path for MION infusion data
+        :param cbv_param:     [echotime, number of volumes (TR) to average]
         :param clip_range:
-        :param option:  bilateral or merge if roi is Template instance
+        :param option:   if roi is Template instance
         :param surfix:
         :type func:     str
         :type roi:      Template or str
-        :type cbv:      list
+        :type cbv:      str
+        :type cbv_param:list
+        :type option:   {'bilateral', 'merge', 'contra'}
         :type surfix:   str
         :return:        Current step path
         :rtype:         dict
@@ -806,8 +813,9 @@ class AFNI_Process(BaseProcess):
         step.set_module('pandas', rename='pd')
         step.set_module('StringIO', sub='StringIO')
         # If CBV parameters are given, parsing the CBV infusion file path from json file
-        if cbv:
-            step.set_input(name='cbv', path=func, type=1, filters=dict(ext='.json'))
+        if any(isinstance(cbv, t) for t in [int, str]):
+            cbv = self.check_input(cbv)
+            step.set_input(name='cbv', path=cbv, type=1, filters=dict(ext='.json'))
         if clip_range:
             cmd += '"[{}..{}]"'.format(clip_range[0], clip_range[1])
         step.set_cmd(cmd, name='out')
@@ -818,24 +826,24 @@ class AFNI_Process(BaseProcess):
             step.set_var(name='list_roi', value=list_of_roi)
             step.set_cmd('list_roi', name='df.columns', type=1)
         # again, if CBV parameter are given, put commends and methods into custom build function
-        if cbv:
-            if isinstance(cbv, list) and len(cbv) == 2:
-                step.set_var(name='te', value=cbv[0])
-                step.set_var(name='n_tr', value=cbv[1])
+        if cbv_param:
+            if isinstance(cbv_param, list) and len(cbv_param) == 2:
+                step.set_var(name='te', value=cbv_param[0])
+                step.set_var(name='n_tr', value=cbv_param[1])
                 step.set_cmd('cbv_path = json.load(open(cbv[i].Abspath))["cbv"]', type=1)
                 step.set_var(name='cbv_path', value='cbv_path', type=1)
                 cbv_cmd = '3dROIstats -mask {rois} {cbv_path}'
                 step.set_cmd(cbv_cmd, name='cbv_out')
-                step.set_cmd('temp_outputs.append([out, err])', type=1)
+                # step.set_cmd('temp_outputs.append([out, err])', type=1)
                 step.set_cmd('pd.read_table(StringIO(cbv_out))', name='cbv_df', type=1)
                 step.set_cmd('cbv_df[cbv_df.columns[2:]]', name='cbv_df', type=1)
                 if list_of_roi:
-                    step.set_cmd('list_roi', name='cbv_df.columns', type=1)
+                    step.set_cmd('cbv_df.columns = list_roi', type=1)
             else:
                 methods.raiseerror(messages.Errors.InputValueError, 'Please check input CBV parameters')
         step.set_cmd('if len(df.columns):', type=1)
         # again, if CBV parameter are given, correct the CBV changes.
-        if cbv:
+        if cbv_param:
             step.set_cmd('\tdR2_mion = (-1 / te) * np.log(df.loc[:n_tr, :].mean(axis=0) / '
                          'cbv_df.loc[:n_tr, :].mean(axis=0))', type=1)
             step.set_cmd('\tdR2_stim = (-1 / te) * np.log(df / df.loc[:n_tr, :].mean(axis=0))', type=1)

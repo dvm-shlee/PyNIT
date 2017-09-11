@@ -10,9 +10,13 @@ from .analysis import Signal
 def display(message):
     return visualizers.display(title(message))
 
+Plot = visualizers.Plot
+BrainPlot = visualizers.BrainPlot
+
 __all__ = ['Project', 'Process', 'Step', 'Pipelines', 'TempFile', 'Template', 'Atlas',
            'ImageObj', 'Reference',
-           'Signal']
+           'Signal', 'Plot', BrainPlot]
+
 shell = methods.shell
 update = methods.update
 install = methods.install

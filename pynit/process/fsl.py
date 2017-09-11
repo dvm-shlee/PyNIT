@@ -57,5 +57,5 @@ class FSL_Process(BaseProcess):
         func_path = step2.run('BiasFieldCorrection', 'func', debug=debug)
         return dict(anat=anat_path, func=func_path)
 
-    def fsl_DualRegression(self, func, surfix='func'): #TODO: Implant DualRegression
-        pass
+    # def fsl_DualRegression(self, func, surfix='func'): #TODO: Implant DualRegression
+    #     pass

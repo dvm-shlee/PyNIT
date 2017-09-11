@@ -2,6 +2,7 @@ import os
 import re
 import sys
 import numpy as np
+import json
 import multiprocessing
 from multiprocessing.pool import ThreadPool
 from nibabel import Nifti1Image, affines
@@ -517,6 +518,8 @@ class BaseProcessor(object):
                     value = '"{}"'.format(value)
                 else:
                     value = "{}".format(value)
+            else:
+                value = "{}".format(value)
             self.__var.append(_vset(name=name, value=value, type=type))
 
     def set_output(self, name, level=0, dc=0, ext=None, prefix=None, type=0):
@@ -891,6 +894,7 @@ class BaseProcessor(object):
         self.__assigned_namespace.append(name)
 
     def __convert_namespace(self, nspace):
+        nspace = list(set(nspace))
         ns_code = []
         if self.__group:
             for grp in self.__group:
