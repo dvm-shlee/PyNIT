@@ -458,7 +458,10 @@ class Project(object):
             self.__update()
         else:
             self.__empty_project = True
-        self.save_df(self.__dc_idx)
+        try:
+            self.save_df(self.__dc_idx)
+        except:
+            pass
 
     def set_filters(self, *args, **kwargs):
         """Set filters
