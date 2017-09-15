@@ -203,9 +203,14 @@ class BaseProcess(object):
                     if not self.__prj.single_session:
                         self._sessions = sorted(self.__prj(0).sessions[:])
             else:
-                self._subjects = sorted(self.__prj(1).subjects[:])
-                if not self.__prj.single_session:
-                    self._sessions = sorted(self.__prj(1).sessions[:])
+                try:
+                    self._subjects = sorted(self.__prj(1, self.processing).subjects[:])
+                    if not self.__prj.single_session:
+                        self._sessions = sorted(self.__prj(1, self.processing).sessions[:])
+                except:
+                    self._subjects = sorted(self.__prj(1).subjects[:])
+                    if not self.__prj.single_session:
+                        self._sessions = sorted(self.__prj(1).sessions[:])
         else:
             self._subjects = sorted(self.__prj(0).subjects[:])
             if not self.__prj.single_session:

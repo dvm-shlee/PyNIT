@@ -39,13 +39,16 @@ def check_arguments(args, residuals, reference):
     :param args: Input arguments
     :param residuals: Residual arguments
     :param reference: Reference arguments
-    :type args: list
+    :type args: list, tuple
     :type residuals: list
     :type reference: list
     :return: list of retrieved arguments and residuals, separately
     :rtype: list, list
     """
-    retrieved = [arg for arg in args if arg in reference]
+    try:
+        retrieved = [arg for arg in args if arg in reference]
+    except:
+        retrieved = []
     residuals = list(residuals)
     if len(retrieved):
         for comp in retrieved:
@@ -54,7 +57,7 @@ def check_arguments(args, residuals, reference):
     return list(set(retrieved)), list(set(residuals))
 
 
-def parsing_dataclass(path, ds_type, idx):
+def parsing_dataclass(path, ds_type, idx, single_session):
     """ Parsing the information of dataset from the pointed data class
 
     Parameters
@@ -76,7 +79,6 @@ def parsing_dataclass(path, ds_type, idx):
         True if empty project folder
 
     """
-    single_session = False
     empty_prj = False
     df = pd.DataFrame()
     for f in os.walk(os.path.join(path, ds_type[idx])):
@@ -86,18 +88,19 @@ def parsing_dataclass(path, ds_type, idx):
                 row['Filename'] = filename
                 row['Abspath'] = os.path.join(f[0], filename)
                 df = df.append(pd.DataFrame([row]), ignore_index=True)
-    if idx == 0:
-        if len(df.columns) is 5:
-            single_session = True
-    else:
-        if len(df.columns) is 6:
-            single_session = True
-    columns = update_columns(idx, single_session)
-    df = df.rename(columns=columns)
-    if 'Subject' not in df.columns:
+    if 1 not in df.columns:
         empty_prj = True
     elif not len(df):
         empty_prj = True
+    else:
+        if idx == 0:
+            if len(df.columns) is 5:
+                single_session = True
+        else:
+            if len(df.columns) is 6:
+                single_session = True
+        columns = update_columns(idx, single_session)
+        df = df.rename(columns=columns)
     if empty_prj:
         return pd.DataFrame(), single_session, empty_prj
     else:
@@ -241,12 +244,14 @@ class Project(object):
         mk_main_folder(self)
 
         # Scan project folder
-
-        try:
+        self.scan_prj()
+        if self.__empty_project:
+            self.__dc_idx = 1
             self.scan_prj()
-            self.apply()
-        except:
-            methods.raiseerror(messages.Errors.ProjectScanFailure, 'Error is occurred during a scanning.')
+            if self.__empty_project:
+                self.__dc_idx = 2
+                self.scan_prj()
+        self.apply()
 
     @property
     def df(self):
@@ -378,13 +383,14 @@ class Project(object):
         """
 
         if rescan:
+            idx = int(self.__dc_idx)
             for i in range(2):
                 self.__dc_idx = i+1
                 self.scan_prj()
                 if self.__empty_project:
                     if verbose:
                         print("Dataclass '{}' is Empty".format(self.ds_type[self.__dc_idx]))
-            self.__dc_idx = 0
+            self.__dc_idx = idx
             self.scan_prj()
         else:
             prj_file = os.path.join(self.__path, self.ds_type[self.__dc_idx], '.class_dataframe')
@@ -442,7 +448,8 @@ class Project(object):
         :return: None
         """
         # Parsing command works
-        self.__df, self.single_session, empty_prj = parsing_dataclass(self.path, self.ds_type, self.__dc_idx)
+        self.__df, self.single_session, empty_prj = parsing_dataclass(self.path, self.ds_type, self.__dc_idx,
+                                                                      self.single_session)
         if not empty_prj:
             self.__df = initial_filter(self.__df, self.ds_type, self.ref_exts)
             if len(self.__df):
@@ -493,33 +500,35 @@ class Project(object):
             pass
         if args:
             residuals = list(set(args))
-            if self.subjects:
+            if self.subjects: # If subjects are assigned already
                 subj_filter, residuals = check_arguments(args, residuals, self.subjects)
-                if self.__filters[0]:
+                if self.__filters[0]: # Subject filter
                     self.__filters[0].extend(subj_filter)
                 else:
                     self.__filters[0] = subj_filter[:]
-                if not self.single_session:
+                if not self.single_session: # If multi-session project
                     sess_filter, residuals = check_arguments(args, residuals, self.sessions)
-                    if self.__filters[1]:
+                    if self.__filters[1]: # Session filter
                         self.__filters[1].extend(sess_filter)
                     else:
                         self.__filters[1] = sess_filter[:]
                 else:
                     self.__filters[1] = None
-            else:
+            else: # If no subjects are detected in this project, pass... (residual is not in subject and session)
                 self.__filters[0] = None
                 self.__filters[1] = None
-            if self.__dc_idx == 0:
-                if self.dtypes:
+
+            if self.__dc_idx == 0: # if dataclass is 0
+                if self.dtypes: # check if residual arguments is parts of datatype (anat, func, or dti...)
                     dtyp_filter, residuals = check_arguments(args, residuals, self.dtypes)
-                    if self.__filters[2]:
+                    if self.__filters[2]: # Datatype filter
                         self.__filters[2].extend(dtyp_filter)
                     else:
                         self.__filters[2] = dtyp_filter[:]
                 else:
                     self.__filters[2] = None
                 self.__filters[3] = None
+
             elif self.__dc_idx == 1:
                 if self.pipelines:
                     pipe_filter, residuals = check_arguments(args, residuals, self.pipelines)
@@ -673,30 +682,30 @@ class Project(object):
         """Update attributes of Project object based on current set filter information
         """
         if len(self.df):
-            try:
-                self.__subjects = sorted(list(set(self.df.Subject.tolist())))
-                if self.single_session:
-                    self.__sessions = None
-                else:
-                    self.__sessions = sorted(list(set(self.df.Session.tolist())))
-                if self.__dc_idx == 0:
-                    self.__dtypes = sorted(list(set(self.df.DataType.tolist())))
-                    self.__pipelines = None
-                    self.__steps = None
-                    self.__results = None
-                elif self.__dc_idx == 1:
-                    self.__dtypes = None
-                    self.__pipelines = sorted(list(set(self.df.Pipeline.tolist())))
-                    self.__steps = sorted(list(set(self.df.Step.tolist())))
-                    self.__results = None
-                elif self.__dc_idx == 2:
-                    self.__dtypes = None
-                    self.__pipelines = sorted(list(set(self.df.Pipeline.tolist())))
-                    self.__results = sorted(list(set(self.df.Result.tolist())))
-                    self.__steps = None
-            except:
-                methods.raiseerror(messages.Errors.UpdateAttributesFailed,
-                                   "Error occured during update project's attributes")
+            # try:
+            self.__subjects = sorted(list(set(self.df.Subject.tolist())))
+            if self.single_session:
+                self.__sessions = None
+            else:
+                self.__sessions = sorted(list(set(self.df.Session.tolist())))
+            if self.__dc_idx == 0:
+                self.__dtypes = sorted(list(set(self.df.DataType.tolist())))
+                self.__pipelines = None
+                self.__steps = None
+                self.__results = None
+            elif self.__dc_idx == 1:
+                self.__dtypes = None
+                self.__pipelines = sorted(list(set(self.df.Pipeline.tolist())))
+                self.__steps = sorted(list(set(self.df.Step.tolist())))
+                self.__results = None
+            elif self.__dc_idx == 2:
+                self.__dtypes = None
+                self.__pipelines = sorted(list(set(self.df.Pipeline.tolist())))
+                self.__results = sorted(list(set(self.df.Result.tolist())))
+                self.__steps = None
+            # except:
+            #     methods.raiseerror(messages.Errors.UpdateAttributesFailed,
+            #                        "Error occured during update project's attributes")
         else:
             self.__subjects = None
             self.__sessions = None

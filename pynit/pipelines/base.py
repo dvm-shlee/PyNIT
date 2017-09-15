@@ -117,13 +117,23 @@ class Pipelines(object):
         display(title(value='---=[[[ Running "{}" pipeline ]]]=---'.format(self.selected.avail[idx])))
         exec('self.selected.pipe_{}(**kwargs)'.format(self.selected.avail[idx]))
 
-    def load(self, pipeline):
-        """Load custom pipeline
+    def update(self):
+        proc = self._proc
+        processing_path = os.path.join(proc.prj.path,
+                                       proc.prj.ds_type[1],
+                                       proc.processing)
+        for f in os.listdir(processing_path):
+            if f not in self.executed.values():
+                self._proc._history[f] = os.path.join(processing_path, f)
+        self._proc.save_history()
 
-        :param pipeline:
-        :return:
-        """
-        pass
+    # def load(self, pipeline):
+    #     """Load custom pipeline
+    #
+    #     :param pipeline:
+    #     :return:
+    #     """
+    #     pass
 
     def __init_path(self, name):
         """Initiate path
