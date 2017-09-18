@@ -5,7 +5,7 @@ PyNIT (Python NeuroImaging Toolkit)
 from distutils.core import setup
 from setuptools import find_packages
 
-__version__ = '0.1.1b2dev3'
+__version__ = '0.1.2'
 __author__ = 'SungHo Lee'
 __email__ = 'shlee@unc.edu'
 __url__ = 'https://dvm-shlee.github.io'
@@ -25,7 +25,8 @@ setup(name='PyNIT',
       scripts=['pynit/bin/brk2nifti',
                'pynit/bin/checkscans',
                'pynit/bin/check_reg',
-               'pynit/bin/antsSyN'
+               'pynit/bin/antsSyN',
+               'pynit/bin/onesample_ttest'
                ],
       classifiers=[
             # How mature is this project? Common values are

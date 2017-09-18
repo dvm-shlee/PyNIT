@@ -113,14 +113,14 @@ class BaseProcess(object):
         else:
             display(gui.itksnap(self, self.steps[idx]))
 
-    def afni(self, idx, tmpobj=None):
+    def afni(self, idx, dc):
         """Launch AFNI gui
 
         :param idx:
         :param tmpobj:
         :return:
         """
-        gui.afni(self, self.steps[idx], tmpobj=tmpobj)
+        gui.afni(self, self.steps[idx])
 
     @property
     def path(self):
@@ -164,7 +164,7 @@ class BaseProcess(object):
         exists = dict([(d, os.path.join(self._rpath, d)) for d in os.listdir(self._rpath) \
                        if os.path.isdir(os.path.join(self._rpath, d))])
         self._rhisroty = exists
-        output = [(i, e) for i, e in enumerate(exists.keys())]
+        output = [(i, e) for i, e in enumerate(sorted(exists.keys()))]
         return dict(output)
 
     @property

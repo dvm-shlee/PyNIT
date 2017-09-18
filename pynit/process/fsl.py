@@ -3,8 +3,8 @@ from pynit.handler.step import Step
 
 
 class FSL_Process(BaseProcess):
-    def __init__(self, *args, **kwargs):
-        super(FSL_Process, self).__init__(*args, **kwargs)
+    # def __init__(self, *args, **kwargs):
+    #     super(FSL_Process, self).__init__(*args, **kwargs)
 
     def fsl_IndividualICA(self, func, tr=2.0, alpha=0.5, bgthreshold=10, surfix='func'):
         func = self.check_input(func)

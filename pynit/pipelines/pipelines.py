@@ -122,7 +122,7 @@ class A_fMRI_preprocess(PipeTemplate):
 
 class B_evoked_fMRI_analysis(PipeTemplate):
     def __init__(self, proc, tmpobj, paradigm=None, fwhm=0.5, thresholds=None, mask=None, cbv_param=None, crop=None,
-                 option=None, ui=False, surfix='func'):
+                 option=None, ui=False, case=None, subject_wise=False, surfix='func'):
         """Collection of GLM analysis pipelines for Shihlab at UNC
         Author  : SungHo Lee(shlee@unc.edu)
         Revised : Sep.9st.2017
@@ -145,6 +145,12 @@ class B_evoked_fMRI_analysis(PipeTemplate):
                 option for ROIs extraction ('bilateral', 'merge', or 'contra')
             ui          : bool
                 UI supports (default: False)
+            case        : str
+                Set this if you want to try multiple cases (default: None)
+                This parameter will be added as additional surfix next to the original surfix value
+            subject_wise: bool
+                Set this value as True if you want to apply subject level mask to extract timecourse data
+                The subject level masks are estimated by subtract group mask from individual clustered map
             surfix      : str
         """
         # Define attributes
@@ -157,49 +163,76 @@ class B_evoked_fMRI_analysis(PipeTemplate):
         self.fwhm = str(fwhm)
         self.option = option
         self.mask = mask
+        self.case = case
+        self.subject_wise = subject_wise
         self.ui = ui
         self.surfix = surfix
 
     def pipe_01_GLM_analysis(self):
         # Spatial smoothing (1)
         self.proc.afni_SpatialSmoothing(0, fwhm=self.fwhm, tmpobj=self.tmpobj, surfix=self.surfix)
-        # Perform GLM analysis (2)
+        # Perform GLM analysis (2: GLM, 3: REMLfit)
         self.proc.afni_GLManalysis(1, self.paradigm, clip_range=self.crop, surfix=self.surfix)
-        if not self.mask:
-            # Extract clusters using evoked results
-            try:
-                step = [step for step in self.proc.steps if self.surfix in step and 'REMLfit' in step][0]
-                if self.thr:
-                    self.proc.afni_ClusterMap(step, 1, self.tmpobj, ui=self.ui, pval=self.thr[0],
-                                              clst_size=self.thr[1], surfix=self.surfix)
-                else:
-                    self.proc.afni_ClusterMap(step, 1, self.tmpobj, ui=self.ui, surfix=self.surfix)
-            except:
-                pass
+        step = [step for step in self.proc.steps if self.surfix in step and 'REMLfit' in step][0]
+        # Calculate group average activity map (one-sample ttest)
+        self.proc.afni_GroupAverage(step)
+        # if not self.mask:
+        #     # Extract clusters using evoked results (3)
+        #     try:
+        #         step = [step for step in self.proc.steps if self.surfix in step and 'REMLfit' in step][0]
+        #         if self.thr:
+        #             self.proc.afni_ClusterMap(step, 1, self.tmpobj, ui=self.ui, pval=self.thr[0],
+        #                                       clst_size=self.thr[1], surfix=self.surfix)
+        #         else:
+        #             self.proc.afni_ClusterMap(step, 1, self.tmpobj, ui=self.ui, surfix=self.surfix)
+        #     except:
+        #         pass
 
     def pipe_02_Extract_Timecourse(self):
+        # Check if the image modality is CBV
         if self.cbv:
             cbv_id = 0
         else:
             cbv_id = False
+        # Check threshold
+        if not self.thr:
+            self.thr = [None, None]
+        # Check if the surfix is extended by case argument
+        if self.case:
+            surfix = "{}_{}".format(self.surfix, self.case)
+            fullts = "fullts_{}".format(self.case)
+        else:
+            surfix = self.surfix
+            fullts = "fullts"
+        # Check if mask image is provided.
+        if self.mask:
+            mask = self.mask
+            if self.subject_wise:
+                step = [step for step in self.proc.steps if self.surfix in step and 'REMLfit' in step][0]
+                clst = self.proc.afni_ClusterMap(step, 1, pval=self.thr[0], clst_size=self.thr[1], surfix=surfix)
+                mask = self.proc.afni_EstimateSubjectROIs(clst['mask'], mask, surfix=surfix)
+        else:
+            mask = self.tmpobj
+        # Check if the crop range parameter is assigned
         if self.crop:
-            total = [step for step in self.proc.steps if 'fullts' in step and 'ExtractROIs' in step]
+            total = [step for step in self.proc.steps if fullts in step and 'ExtractROIs' in step]
             if len(total):
                 pass
             else:
-                if self.mask:
-                    self.proc.afni_ROIStats(1, self.mask, cbv=cbv_id, cbv_param=self.cbv, surfix='fullts')
+                if not self.subject_wise:
+                    self.proc.afni_ROIStats(1, mask, cbv=cbv_id, cbv_param=self.cbv, surfix=fullts)
                 else:
-                    step = [step for step in self.proc.steps if self.surfix in step and 'ClusteredMask' in step][0]
-                    self.proc.afni_ROIStats(1, step, cbv=cbv_id, cbv_param=self.cbv, surfix='fullts')
-        if self.mask:
+                    step = [step for step in self.proc.steps if surfix in step and 'ClusteredMask' in step][0]
+                    self.proc.afni_ROIStats(1, step, cbv=cbv_id, cbv_param=self.cbv, surfix=fullts)
+        if not self.subject_wise:
             # If mask given, extract timecourse using the given mask
-            self.proc.afni_ROIStats(1, self.mask, cbv=cbv_id, cbv_param=self.cbv, clip_range=self.crop, surfix=self.surfix)
+            self.proc.afni_ROIStats(1, mask, cbv=cbv_id, cbv_param=self.cbv, clip_range=self.crop,
+                                    option=self.option, surfix=surfix)
         # Extract timecourse using the mask you generated at step1
         else:
-            step = [step for step in self.proc.steps if self.surfix in step and 'ClusteredMask' in step][0]
-            self.proc.afni_ROIStats(1, step, clip_range=self.crop, option=self.option,
-                                    cbv_param=self.cbv, surfix=self.surfix, cbv=cbv_id)
+            step = [step for step in self.proc.steps if surfix in step and 'SubjectROIs' in step][0]
+            self.proc.afni_ROIStats(1, step, clip_range=self.crop, option=self.option, label=self.mask,
+                                    cbv_param=self.cbv, surfix=surfix, cbv=cbv_id)
 
 # class C_resting_state_fMRI_analysis(PipeTemplate):
 #     def __init__(self, proc, tmpobj, surfix='func'):

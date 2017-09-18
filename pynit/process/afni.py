@@ -1,11 +1,11 @@
 from base import *
-from pynit.handler.images import TempFile
+from pynit.handler.images import TempFile, Template
 from pynit.handler.step import Step
-
+import multiprocessing
 
 class AFNI_Process(BaseProcess):
-    def __init__(self, *args, **kwargs):
-        super(AFNI_Process, self).__init__(*args, **kwargs)
+    # def __init__(self, *args, **kwargs):
+    #     super(AFNI_Process, self).__init__(*args, **kwargs)
 
     def afni_MeanImgCalc(self, func, cbv=False, surfix='func', debug=False):
         """ Calculate mean image through time axis using '3dcalc' to get better SNR image
@@ -596,7 +596,7 @@ class AFNI_Process(BaseProcess):
         output_path = step.run('REMLfit', surfix, debug=debug)
         return dict(GLM=output_path)
 
-    def afni_ClusterMap(self, stats, func, tmpobj, pval=0.01, clst_size=40, ui=False, surfix='func', debug=False):
+    def afni_ClusterMap(self, stats, func, pval=0.01, clst_size=40, surfix='func', debug=False):
         """ function to generate mask images from cluster using given threshold parameter.
         this process use AFNI's '3dAttribute', 'cdf', and '3dclust'
 
@@ -604,11 +604,10 @@ class AFNI_Process(BaseProcess):
                             1. datatype path from the raw data (e.g. 'funt')
                             2. absolute path
                             3. index of path which is shown on 'executed' method
-        :param func:        input path for functional image, three type of path can be used
-                            1. datatype path from the raw data (e.g. 'func')
+        :param func:        input path for functional data, three type of path can be used
+                            1. datatype path from the raw data (e.g. 'funt')
                             2. absolute path
                             3. index of path which is shown on 'executed' method
-        :param tmpobj:      brain template image object
         :param pval:        threshold p value
         :param clst_size:   threshold voxel size
         :param surfix:      surfix for output path
@@ -629,24 +628,43 @@ class AFNI_Process(BaseProcess):
         cmd02 = 'cdf -p2t fitt {pval} {dof}'
         step.set_cmd(cmd02, name='tval')
         step.set_var(name='tval', value='tval.split("=")[1].strip()', type=1)
-        # step.set_cmd('tval.split("=")[1].strip()', name='tval', type=1)
         cmd03 = '3dclust -1Dformat -nosum -1dindex 2 -1tindex 2 -2thresh -{tval} {tval} ' \
                 '-dxyz=1 -savemask {output} 1.01 {csize} {glm}'
         step.set_cmd(cmd03)
         step.set_cmd('with open(methods.splitnifti(output) + ".json", "wb") as f:', type=1)
         step.set_cmd('\tjson.dump(dict(source=func[i].Abspath), f)', type=1)
         output_path = step.run('ClusteredMask', surfix=surfix, debug=debug)
-        if jupyter_env:
-            if ui:
-                if self._viewer == 'itksnap':
-                    display(gui.itksnap(self, output_path, tmpobj.image.get_filename()))
-                else:
-                    methods.raiseerror(messages.Errors.InputValueError,
-                                       '"{}" is not available'.format(self._viewer))
-            else:
-                pass
-        else:
-            return dict(mask=output_path)
+        # if jupyter_env:
+        #     if ui:
+        #         if self._viewer == 'itksnap':
+        #             display(gui.itksnap(self, output_path, tmpobj.image.get_filename()))
+        #         else:
+        #             methods.raiseerror(messages.Errors.InputValueError,
+        #                                '"{}" is not available'.format(self._viewer))
+        #     else:
+        #         pass
+        # else:
+        #     return dict(mask=output_path)
+
+        return dict(mask=output_path)
+
+    def afni_EstimateSubjectROIs(self, cluster, mask, surfix='func', debug=False):
+        cluster = self.check_input(cluster)
+        step = Step(self)
+        step.set_message('** Estimate ROI masks for each subject')
+        step.set_input(name='cluster', path=cluster)
+        step.set_input(name='func', path=cluster, filters=dict(ext='.json'), type=1)
+        if isinstance(mask, Template):
+            mask = str(mask.atlas_path)
+        step.set_var(name='mask', value=mask)
+        step.set_output(name='output', type=0)
+        step.set_output(name='json', type=0, ext='json')
+        cmd01 = '3dcalc -prefix {output} -expr "a*step(b)" -a {mask} -b {cluster}'
+        step.set_cmd(cmd01)
+        cmd02 = 'cp {func} {json}'
+        step.set_cmd(cmd02)
+        output_path = step.run('SubjectROIs', surfix=surfix, debug=debug)
+        return dict(mask=output_path)
 
     def afni_SignalProcessing(self, func, norm=True, ort=None, clip_range=None, mask=None, bpass=None,
                               fwhm=None, dt=None, surfix='func', debug=False, **kwargs):
@@ -747,8 +765,8 @@ class AFNI_Process(BaseProcess):
         output_path = step.run('SignalProcess', surfix=surfix, debug=debug)
         return dict(signalprocess=output_path)
 
-    def afni_ROIStats(self, func, rois, cbv=False, cbv_param=None, clip_range=None, option=None, surfix='func',
-                      debug=False, **kwargs):
+    def afni_ROIStats(self, func, rois, cbv=False, cbv_param=None, clip_range=None, option=None,
+                      label=None, surfix='func', debug=False, **kwargs):
         """Extracting time-course data from ROIs
 
         :param func:    Input path for functional data
@@ -757,6 +775,7 @@ class AFNI_Process(BaseProcess):
         :param cbv_param:     [echotime, number of volumes (TR) to average]
         :param clip_range:
         :param option:   if roi is Template instance
+        :param label:
         :param surfix:
         :type func:     str
         :type roi:      Template or str
@@ -790,6 +809,8 @@ class AFNI_Process(BaseProcess):
                 pass
         else:
             pass
+        if label:
+            list_of_roi = [roi for roi, cmap in label.label.values()][1:]
         # Check if given rois path is existed in the list of executed steps
         rois = self.check_input(rois)
 
@@ -805,12 +826,13 @@ class AFNI_Process(BaseProcess):
         # Else, given roi path is directory
         else:
             step.set_input(name='rois', path=rois)
-            step.set_input(name='func', path=rois, filters=dict(ext='json'), type=1)
+            step.set_input(name='func', path=rois, filters=dict(ext='.json'), type=1)
             step.set_cmd('json.load(open(func[i].Abspath))["source"]', type=1, name='func_path')
             step.set_var(name='func_path', value='func_path', type=1)
             cmd = '3dROIstats -mask {rois} {func_path}'
         step.set_output(name='output', dc=1, ext='xlsx')
         step.set_module('pandas', rename='pd')
+        step.set_module('numpy', rename='np')
         step.set_module('StringIO', sub='StringIO')
         # If CBV parameters are given, parsing the CBV infusion file path from json file
         if any(isinstance(cbv, t) for t in [int, str]):
@@ -819,15 +841,17 @@ class AFNI_Process(BaseProcess):
         if clip_range:
             cmd += '"[{}..{}]"'.format(clip_range[0], clip_range[1])
         step.set_cmd(cmd, name='out')
-        step.set_cmd('pd.read_table(StringIO(out))', name='df', type=1)
-        step.set_cmd('df[df.columns[2:]]', name='df', type=1)
+        step.set_cmd('df = pd.read_table(StringIO(out))', type=1)
+        step.set_cmd('df = df[df.columns[2:]]', type=1)
         # If given roi is Template instance
         if list_of_roi:
-            step.set_var(name='list_roi', value=list_of_roi)
-            step.set_cmd('list_roi', name='df.columns', type=1)
+            step.set_var(name='list_rois', value=list_of_roi)
+            step.set_cmd('avail_rois = [int(roi.strip().split("_")[1])-1 for roi in list(df.columns)]', type=1)
+            step.set_cmd('final_list_rois = list(np.array(list_rois)[avail_rois])', type=1)
+            step.set_cmd('df.columns = final_list_rois', type=1)
         # again, if CBV parameter are given, put commends and methods into custom build function
         if cbv_param:
-            if isinstance(cbv_param, list) and len(cbv_param) == 2:
+            if isinstance(cbv_param, list) and (len(cbv_param) == 2):
                 step.set_var(name='te', value=cbv_param[0])
                 step.set_var(name='n_tr', value=cbv_param[1])
                 step.set_cmd('cbv_path = json.load(open(cbv[i].Abspath))["cbv"]', type=1)
@@ -835,10 +859,10 @@ class AFNI_Process(BaseProcess):
                 cbv_cmd = '3dROIstats -mask {rois} {cbv_path}'
                 step.set_cmd(cbv_cmd, name='cbv_out')
                 # step.set_cmd('temp_outputs.append([out, err])', type=1)
-                step.set_cmd('pd.read_table(StringIO(cbv_out))', name='cbv_df', type=1)
-                step.set_cmd('cbv_df[cbv_df.columns[2:]]', name='cbv_df', type=1)
+                step.set_cmd('cbv_df = pd.read_table(StringIO(cbv_out))', type=1)
+                step.set_cmd('cbv_df = cbv_df[cbv_df.columns[2:]]', type=1)
                 if list_of_roi:
-                    step.set_cmd('cbv_df.columns = list_roi', type=1)
+                    step.set_cmd('cbv_df.columns = final_list_rois', type=1)
             else:
                 methods.raiseerror(messages.Errors.InputValueError, 'Please check input CBV parameters')
         step.set_cmd('if len(df.columns):', type=1)
@@ -883,3 +907,33 @@ class AFNI_Process(BaseProcess):
         step.set_cmd(cmd)
         output_path = step.run('TemporalClipping', surfix, debug=debug)
         return dict(clippedfunc=output_path)
+
+    def afni_GroupAverage(self, func, idx_coef=1, idx_tval=2, surfix='func', debug=False, **kwargs):
+        """ This processor performing the Mixed Effects Meta Analysis to estimate group mean
+        It's required to install R, plus 'snow' package.
+
+        If you want to cite the analysis approach, use the following at this moment:
+
+        Chen et al., 2012. FMRI Group Analysis Combining Effect Estimates
+        and Their Variances. NeuroImage. NeuroImage 60: 747-765.
+
+        :param func:
+        :param idx_coef:
+        :param idx_tval:
+        :param surfix:
+        :param kwargs:
+        :return:
+        """
+        step = Step(self, n_thread=1)
+        step.set_message('** Estimate group mean using Mixed effect meta analysis')
+        func = self.check_input(func)
+        step.set_input(name='func', path=func, type=2)
+        step.set_output(name='output', dc=1, type=1, prefix='MEMA_1sampTtest')
+        step.set_var(name='idx_coef', value=idx_coef)
+        step.set_var(name='idx_tval', value=idx_tval)
+        step.set_var(name='jobs', value=multiprocessing.cpu_count())
+        step.set_var(name='group', value='subj')
+        cmd = 'onesample_ttest -i {func} -o {output} -b {idx_coef} -t {idx_tval} -j {jobs} -g {group}'
+        step.set_cmd(cmd)
+        output_path = step.run('GroupAverage', surfix, debug=debug)
+        return dict(groupavr=output_path)

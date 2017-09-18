@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+
+__author__ = 'SungHo Lee (shlee@unc.edu)'
+__version_info__ = ('2017', '09', '17')
+
+import os, argparse, sys
+import pynit as pn
+
+def get_MEMAinput(list_files, idx_b, idx_t):
+    output = []
+    for subj in list_files:
+        inputs = pn.methods.splitnifti(os.path.basename(subj)).split('_')
+        try:
+            input = inputs[0].split('-')[1]
+        except:
+            input = inputs[0]
+        output.append("{0} {1}'[{2}]' {1}'[{3}]'".format(input, subj, idx_b, idx_t))
+    return ' '.join(output)
+
+def run_MEMAcommand(list_files, output, group, idx_b=1, idx_t=2, jobs=1, maxzero=0.25):
+    data = get_MEMAinput(list_files, idx_b, idx_t)
+    cmd = "3dMEMA -prefix {} -jobs {} -set {} {} \
+    -max_zeros {} -model_outliers -residual_Z -HKtest".format(output, jobs, group, data, maxzero)
+    out, err = pn.shell(cmd)
+    return out, err
+    # return cmd
+
+def main():
+    parser = argparse.ArgumentParser(prog='onesample_ttest', description="Estimate major effects of one sample group")
+    parser.add_argument("-i", "--inputs", nargs='*', help="Subject", default=None)
+    parser.add_argument("-o", "--output", help='Output path', type=str)
+    parser.add_argument("-g", "--group", help='name of group', type=str, default='GroupAvr')
+    parser.add_argument("-b", "--idx_b", help='index of beta weight image', type=int, default=1)
+    parser.add_argument("-t", "--idx_t", help='index of t value image', type=int, default=2)
+    parser.add_argument("-j", "--jobs", help='number of jobs', type=int, default=1)
+    args = parser.parse_args()
+
+    if args.inputs and args.output:
+        out, err = run_MEMAcommand(args.inputs, args.output, args.group, args.idx_b, args.idx_t, args.jobs)
+        sys.stdout.write(out)
+        sys.stderr.write(err)
+    else:
+        parser.print_usage()
+
+if __name__ == '__main__':
+
+    main()
+

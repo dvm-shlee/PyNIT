@@ -3,7 +3,7 @@ import unittest
 from pynit.handler.base import BaseProcessor
 from pynit import Project, Process
 
-testpath = '/Users/shlee419/Desktop/DataFiles/2_Testing/170718_test'
+testpath = '/Users/shlee419/DataFiles/2_Testing/170718_test'
 
 class TestBaseProcessor(unittest.TestCase):
 

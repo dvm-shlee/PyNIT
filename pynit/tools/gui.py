@@ -10,7 +10,7 @@ except:
     pass
 
 
-def afni(procobj, input_path, tmpobj=None):
+def afni(procobj, input_path):
     """Launch afni
 
     :param procobj:
@@ -19,8 +19,6 @@ def afni(procobj, input_path, tmpobj=None):
     """
     groups = procobj._subjects[:]
     groups_path = map(os.path.join, [input_path] * len(groups), groups)
-    if tmpobj:
-        groups_path += [os.path.dirname(tmpobj.image.get_filename())]
     out, err = methods.shell('afni {}'.format(str(' '.join(groups_path))))
     return out, err
 

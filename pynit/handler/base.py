@@ -538,7 +538,7 @@ class BaseProcessor(object):
         :param type:    0-file: use input filename,
                                 cannot use this type if input type is group,
                         1-folder: use basedir, prefix parameter cannot be used for this type,
-                                if input type is group, process root level will be used
+                                if input type is group, prefix need to be used to specify filename
                         2-sub-folder or new-file: generate new folder using prefix,
                                 if ext parameter is assigned, then generate new output file instead,
                                 if ext is 'remove' then use prefix as prefix like type 0
@@ -575,10 +575,13 @@ class BaseProcessor(object):
         for cmd in self.__cmd:
             if command == cmd.command:
                 methods.raiseerror(messages.Errors.InputValueError, 'Already assigned in container')
+        # if type==0:
         nspace = self.__retreive_namespaces_from_command(command)
         nspace, nscode = self.__convert_namespace(nspace)
         if any(ns not in self.__assigned_namespace for ns in nspace):
             methods.raiseerror(messages.Errors.InputValueError, 'Namespace are not correctly assigned')
+        # else:
+        #     nscode=None
         if type not in [0, 1, 2]:
             methods.raiseerror(messages.Errors.InputTypeError,
                                'Wrong command type')
@@ -706,7 +709,7 @@ class BaseProcessor(object):
                 else:
                     leveldir = None
         else:
-            leveldir = None
+            leveldir = 'subj'
         return leveldir
 
     def __convert_filtercode(self, dataclass, path, filters, type):
@@ -792,7 +795,10 @@ class BaseProcessor(object):
                 if op.type == 0:
                     mk_pathes.append('os.path.dirname({0})'.format(op.name))
                 elif op.type == 1:
-                    mk_pathes.append('{0}'.format(op.name))
+                    if self.__group:
+                        mk_pathes.append('os.path.dirname({0})'.format(op.name))
+                    else:
+                        mk_pathes.append('{0}'.format(op.name))
                 elif op.type == 2:
                     if op.ext:
                         mk_pathes.append('os.path.dirname({0})'.format(op.name))
@@ -839,17 +845,29 @@ class BaseProcessor(object):
             else:
                 code = 'os.path.join("{0}", title, {1})'.format(path, filename)
         elif type == 1:
-            if prefix:
-                methods.raiseerror(messages.Errors.InputValueError, 'Cannot use prefix on this type of output')
             if self.__mainset:
+                if prefix:
+                    methods.raiseerror(messages.Errors.InputValueError, 'Cannot use prefix on this type of output')
                 if leveldir:
                     code = 'os.path.join("{0}", title, {1})'.format(path, leveldir)
                 else:
                     code = 'os.path.join("{0}", title)'.format(path)
-            elif self.__group:
-                code = 'os.path.join("{0}", title)'.format(path)
             else:
-                methods.raiseerror(messages.Errors.InputTypeError, 'Main or group input was not assigned')
+                if self.__group:
+                    if not ext:
+                        ext = 'nii.gz'
+                    if prefix:
+                        if ext == 'remove':
+                            code = 'os.path.join("{0}", title, {1}, "{2}")'.format(path, leveldir, prefix)
+                        else:
+                            code = 'os.path.join("{0}", title, {1}, "{2}"+".{3}")'.format(path, leveldir, prefix, ext)
+                    else:
+                        if ext == 'remove':
+                            code = 'os.path.join("{0}", title, {1}, {2})'.format(path, leveldir, leveldir)
+                        else:
+                            code = 'os.path.join("{0}", title, {1}, {2}+".{3}")'.format(path, leveldir, leveldir, ext)
+                else:
+                    methods.raiseerror(messages.Errors.InputTypeError, 'Main or group input was not assigned')
         elif type == 2:
             if not prefix:
                 methods.raiseerror(messages.Errors.InputValueError, 'Please assign folder name using prefix argument')
@@ -1039,7 +1057,7 @@ class BaseProcessor(object):
         :return:
         """
         if self.__group:
-            header = ['def {0}(self, title):'.format(name)]
+            header = ['def {0}(self, title, idx, subj):'.format(name)]
         else:
             if self.__proc.sessions:
                 args = 'subj, sess'
@@ -1201,12 +1219,11 @@ class BaseProcessor(object):
                     func += self.__indent(self.__convert_cmdcode(), level=level)
                     if self.__opened_temps:
                         func += self.__indent(self.__configure_tempobj_closure(), level=level)
-                # elif 4 in outputs.keys():
-                #     pass
         else:
             if self.__group:
                 level = 1
                 func += self.__configure_loop_contents(level=level)
+                func += self.__indent(['stdout_collector = []'], level=level)
                 func += self.__indent(self.__convert_cmdcode(), level=level)
             else:
                 methods.raiseerror(messages.Errors.InputTypeError, 'Main or group input was not assigned')
@@ -1234,7 +1251,12 @@ class BaseProcessor(object):
                 else:
                     outputs = ['STDOUT:\n{0}\nMessage:\n{1}\n\n'.format(out, err) for out, err in outputs]
                 today = "".join(str(datetime.date.today()).split('-'))
-                with open(os.path.join(self.__proc.path, output_path, 'stephistory-{}.log'.format(today)), 'a') as f:
+
+                if os.path.exists(os.path.join(self.__proc.path, output_path)):
+                    path = self.__proc.path
+                else:
+                    path = self.__proc._rpath
+                with open(os.path.join(path, output_path, 'stephistory-{}.log'.format(today)), 'a') as f:
                     f.write('\n\n'.join(outputs))
             else:
                 pass
@@ -1250,8 +1272,10 @@ class BaseProcessor(object):
             pool = ThreadPool(thread)
             self.__proc.logger.info("Step::[{0}] is executed with {1} thread(s).".format(title, thread))
             if self.__group:
-                self.__proc.logger.info("Step::The inputs are identified as group")
-                self.worker(self.__proc, output_path)
+                for idx, subj in enumerate(progressbar(self.__proc.subjects, desc='Subjects')):
+                    self.__proc.logger.info("Step::The inputs are identified as group")
+                    outputs = self.worker([self.__proc, output_path, idx, subj])
+                    output_writer(outputs, output_path)
             else:
                 if self.__proc.sessions:
                     self.__proc.logger.info("Step::The inputs are identified as multi-session scans")

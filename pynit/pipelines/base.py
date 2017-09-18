@@ -88,6 +88,25 @@ class Pipelines(object):
             output = ["List of available pipelines:"] + avails
             print("\n".join(output))
 
+    def set_param(self, **kwargs):
+        """Set additional parameters
+
+        :param kwargs:
+        :return:
+        """
+        if self.selected:
+            for key, value in kwargs.items():
+                if hasattr(self.selected, key):
+                    if isinstance(value, str):
+                        command = 'self.selected.{} = "{}"'.format(key, value)
+                    else:
+                        command = 'self.selected.{} = {}'.format(key, value)
+                    exec(command)
+                else:
+                    methods.raiseerror(messages.Errors.KeywordError, '{} is not available keyword for this project')
+        else:
+            methods.raiseerror(messages.Errors.InitiationFailure, 'Pipeline package is not specified')
+
     def afni(self, idx):
         self._proc.afni(idx, self._tmpobj)
 
