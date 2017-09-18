@@ -156,7 +156,7 @@ class B_evoked_fMRI_analysis(PipeTemplate):
         # Define attributes
         self.tmpobj = tmpobj
         self.proc = proc
-        self.thr = thresholds
+        self.thresholds = thresholds
         self.paradigm = paradigm
         self.cbv = cbv_param
         self.crop = crop
@@ -176,7 +176,7 @@ class B_evoked_fMRI_analysis(PipeTemplate):
         step = [step for step in self.proc.steps if self.surfix in step and 'REMLfit' in step][0]
         # Calculate group average activity map (one-sample ttest)
         self.proc.afni_GroupAverage(step)
-        # if not self.mask:
+        # if not self.mask: #TODO: remove this
         #     # Extract clusters using evoked results (3)
         #     try:
         #         step = [step for step in self.proc.steps if self.surfix in step and 'REMLfit' in step][0]
@@ -195,8 +195,8 @@ class B_evoked_fMRI_analysis(PipeTemplate):
         else:
             cbv_id = False
         # Check threshold
-        if not self.thr:
-            self.thr = [None, None]
+        if not self.thresholds:
+            self.thresholds = [None, None]
         # Check if the surfix is extended by case argument
         if self.case:
             surfix = "{}_{}".format(self.surfix, self.case)
@@ -209,7 +209,7 @@ class B_evoked_fMRI_analysis(PipeTemplate):
             mask = self.mask
             if self.subject_wise:
                 step = [step for step in self.proc.steps if self.surfix in step and 'REMLfit' in step][0]
-                clst = self.proc.afni_ClusterMap(step, 1, pval=self.thr[0], clst_size=self.thr[1], surfix=surfix)
+                clst = self.proc.afni_ClusterMap(step, 1, pval=self.thresholds[0], clst_size=self.thresholds[1], surfix=surfix)
                 mask = self.proc.afni_EstimateSubjectROIs(clst['mask'], mask, surfix=surfix)
         else:
             mask = self.tmpobj
@@ -234,7 +234,7 @@ class B_evoked_fMRI_analysis(PipeTemplate):
             self.proc.afni_ROIStats(1, step, clip_range=self.crop, option=self.option, label=self.mask,
                                     cbv_param=self.cbv, surfix=surfix, cbv=cbv_id)
 
-# class C_resting_state_fMRI_analysis(PipeTemplate):
+# class C_resting_state_fMRI_analysis(PipeTemplate): #TODO: part for ver 0.1.3
 #     def __init__(self, proc, tmpobj, surfix='func'):
 #         """Collection of GLM analysis pipelines for Shihlab at UNC
 #         Author  : SungHo Lee(shlee@unc.edu)

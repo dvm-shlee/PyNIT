@@ -97,12 +97,9 @@ class Pipelines(object):
         if self.selected:
             for key, value in kwargs.items():
                 if hasattr(self.selected, key):
-                    if isinstance(value, str):
-                        command = 'self.selected.{} = "{}"'.format(key, value)
-                    else:
-                        command = 'self.selected.{} = {}'.format(key, value)
-                    exec(command)
+                    setattr(self.selected, key, value)
                 else:
+                    print(key)
                     methods.raiseerror(messages.Errors.KeywordError, '{} is not available keyword for this project')
         else:
             methods.raiseerror(messages.Errors.InitiationFailure, 'Pipeline package is not specified')
