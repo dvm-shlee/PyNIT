@@ -908,7 +908,8 @@ class AFNI_Process(BaseProcess):
         output_path = step.run('TemporalClipping', surfix, debug=debug)
         return dict(clippedfunc=output_path)
 
-    def afni_GroupAverage(self, func, idx_coef=1, idx_tval=2, surfix='func', debug=False, **kwargs):
+    def afni_GroupAverage(self, func, idx_coef=1, idx_tval=2, surfix='func',
+                          outliers=None, debug=False):
         """ This processor performing the Mixed Effects Meta Analysis to estimate group mean
         It's required to install R, plus 'snow' package.
 
@@ -920,6 +921,7 @@ class AFNI_Process(BaseProcess):
         :param func:
         :param idx_coef:
         :param idx_tval:
+        :param outliers:
         :param surfix:
         :param kwargs:
         :return:
@@ -927,7 +929,11 @@ class AFNI_Process(BaseProcess):
         step = Step(self, n_thread=1)
         step.set_message('** Estimate group mean using Mixed effect meta analysis')
         func = self.check_input(func)
-        step.set_input(name='func', path=func, type=2)
+        if outliers:
+            filters = dict(ignore=outliers)
+        else:
+            filters = None
+        step.set_input(name='func', path=func, type=2, filters=filters)
         step.set_output(name='output', dc=1, type=1, prefix='MEMA_1sampTtest')
         step.set_var(name='idx_coef', value=idx_coef)
         step.set_var(name='idx_tval', value=idx_tval)

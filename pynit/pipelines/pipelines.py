@@ -122,7 +122,7 @@ class A_fMRI_preprocess(PipeTemplate):
 
 class B_evoked_fMRI_analysis(PipeTemplate):
     def __init__(self, proc, tmpobj, paradigm=None, fwhm=0.5, thresholds=None, mask=None, cbv_param=None, crop=None,
-                 option=None, ui=False, case=None, subject_wise=False, surfix='func'):
+                 option=None, ui=False, case=None, outliers=None, subject_wise=False, surfix='func'):
         """Collection of GLM analysis pipelines for Shihlab at UNC
         Author  : SungHo Lee(shlee@unc.edu)
         Revised : Sep.9st.2017
@@ -158,10 +158,11 @@ class B_evoked_fMRI_analysis(PipeTemplate):
         self.proc = proc
         self.thresholds = thresholds
         self.paradigm = paradigm
-        self.cbv = cbv_param
+        self.cbv_param = cbv_param
         self.crop = crop
         self.fwhm = str(fwhm)
         self.option = option
+        self.outliers = outliers
         self.mask = mask
         self.case = case
         self.subject_wise = subject_wise
@@ -173,24 +174,19 @@ class B_evoked_fMRI_analysis(PipeTemplate):
         self.proc.afni_SpatialSmoothing(0, fwhm=self.fwhm, tmpobj=self.tmpobj, surfix=self.surfix)
         # Perform GLM analysis (2: GLM, 3: REMLfit)
         self.proc.afni_GLManalysis(1, self.paradigm, clip_range=self.crop, surfix=self.surfix)
-        step = [step for step in self.proc.steps if self.surfix in step and 'REMLfit' in step][0]
-        # Calculate group average activity map (one-sample ttest)
-        self.proc.afni_GroupAverage(step)
-        # if not self.mask: #TODO: remove this
-        #     # Extract clusters using evoked results (3)
-        #     try:
-        #         step = [step for step in self.proc.steps if self.surfix in step and 'REMLfit' in step][0]
-        #         if self.thr:
-        #             self.proc.afni_ClusterMap(step, 1, self.tmpobj, ui=self.ui, pval=self.thr[0],
-        #                                       clst_size=self.thr[1], surfix=self.surfix)
-        #         else:
-        #             self.proc.afni_ClusterMap(step, 1, self.tmpobj, ui=self.ui, surfix=self.surfix)
-        #     except:
-        #         pass
 
-    def pipe_02_Extract_Timecourse(self):
+    def pipe_02_GroupAverage(self):
+        if self.case:
+            surfix = "{}_{}".format(self.surfix, self.case)
+        else:
+            surfix = self.surfix
+        # Calculate group average activity map (one-sample ttest)
+        step = [step for step in self.proc.steps if self.surfix in step and 'REMLfit' in step][0]
+        self.proc.afni_GroupAverage(step, outliers=self.outliers, surfix=surfix)
+
+    def pipe_03_Extract_Timecourse(self):
         # Check if the image modality is CBV
-        if self.cbv:
+        if self.cbv_param:
             cbv_id = 0
         else:
             cbv_id = False
@@ -220,19 +216,19 @@ class B_evoked_fMRI_analysis(PipeTemplate):
                 pass
             else:
                 if not self.subject_wise:
-                    self.proc.afni_ROIStats(1, mask, cbv=cbv_id, cbv_param=self.cbv, surfix=fullts)
+                    self.proc.afni_ROIStats(1, mask, cbv=cbv_id, cbv_param=self.cbv_param, surfix=fullts)
                 else:
                     step = [step for step in self.proc.steps if surfix in step and 'ClusteredMask' in step][0]
-                    self.proc.afni_ROIStats(1, step, cbv=cbv_id, cbv_param=self.cbv, surfix=fullts)
+                    self.proc.afni_ROIStats(1, step, cbv=cbv_id, cbv_param=self.cbv_param, surfix=fullts)
         if not self.subject_wise:
             # If mask given, extract timecourse using the given mask
-            self.proc.afni_ROIStats(1, mask, cbv=cbv_id, cbv_param=self.cbv, clip_range=self.crop,
+            self.proc.afni_ROIStats(1, mask, cbv=cbv_id, cbv_param=self.cbv_param, clip_range=self.crop,
                                     option=self.option, surfix=surfix)
         # Extract timecourse using the mask you generated at step1
         else:
             step = [step for step in self.proc.steps if surfix in step and 'SubjectROIs' in step][0]
             self.proc.afni_ROIStats(1, step, clip_range=self.crop, option=self.option, label=self.mask,
-                                    cbv_param=self.cbv, surfix=surfix, cbv=cbv_id)
+                                    cbv_param=self.cbv_param, surfix=surfix, cbv=cbv_id)
 
 # class C_resting_state_fMRI_analysis(PipeTemplate): #TODO: part for ver 0.1.3
 #     def __init__(self, proc, tmpobj, surfix='func'):
