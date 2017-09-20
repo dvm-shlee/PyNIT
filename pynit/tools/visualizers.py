@@ -449,7 +449,10 @@ class BrainPlot(object):
         number_of_rois = len(label.keys())
         colors_for_rois = [label[idx][1] for idx in label.keys()]
         bounds = np.linspace(0, number_of_rois, number_of_rois)
-        norm = colors.BoundaryNorm(boundaries=bounds, ncolors=number_of_rois)
+        if number_of_rois > 2:
+            norm = colors.BoundaryNorm(boundaries=bounds, ncolors=number_of_rois)
+        else:
+            norm = None
         cmap = colors.ListedColormap(colors_for_rois[1:], 'indexed')
         # Plot image
         for i in range(slice_grid[1] * slice_grid[2]):

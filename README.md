@@ -1,5 +1,5 @@
 # PyNIT (Python NeuroImaging Toolkit)
-### Version: 0.1.3
+### Version: 0.1.4
 
 PyNIT is a pipeline tool for in vivo neuroimaging, especially optimized for rodent, that runs on the [Jupyter Notebook](http://jupyter-notebook.readthedocs.io/en/stable/), an interactive research computing environment. This package provides hierarchically designed classes to help easily create and apply the pipelines using [FSL](https://fsl.fmrib.ox.ac.uk), [AFNI](https://afni.nimh.nih.gov), and [ANTs](http://stnava.github.io/ANTs/), which are the most used packaged in fMRI analysis. For consistent behavior, it is designed to work only with datasets that follow the BIDS ([Brain Imaging Data Structure](http://bids.neuroimaging.io)) guidelines.
 
@@ -60,12 +60,12 @@ PyNIT is licensed under the term of the GNU GENERAL PUBLIC LICENSE Version 3
 ## Code
 Install PyNIT with:
 ```
-git clone https://github.com/dvm-shlee/pynit.git
+pip install pynit
 ```
 
 Update with:
 ```
-git pull
+pip install --upgrade pynit
 ```
 
 ## Author
