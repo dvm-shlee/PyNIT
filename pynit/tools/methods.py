@@ -83,17 +83,18 @@ def mkdir(*paths):
     """
     for path in paths:
         basedir = os.path.dirname(path)
-        if not os.path.exists(basedir):
-            parentdir = os.path.dirname(basedir)
-            if not os.path.exists(parentdir):
+        if basedir:
+            if not os.path.exists(basedir):
+                parentdir = os.path.dirname(basedir)
+                if not os.path.exists(parentdir):
+                    try:
+                        os.mkdir(parentdir)
+                    except:
+                        raiseerror(messages.InputPathError, '{} is not exists'.format(os.path.dirname(parentdir)))
                 try:
-                    os.mkdir(parentdir)
+                    os.mkdir(basedir)
                 except:
-                    raiseerror(messages.InputPathError, '{} is not exists'.format(os.path.dirname(parentdir)))
-            try:
-                os.mkdir(basedir)
-            except:
-                pass
+                    pass
         if not (os.path.exists(path) and os.path.isdir(path)):
             try:
                 os.mkdir(path)

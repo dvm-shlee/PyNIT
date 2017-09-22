@@ -81,6 +81,15 @@ class BaseProcess(object):
         else:
             return input_path
 
+    def update(self):
+        processing_path = os.path.join(self.prj.path,
+                                       self.prj.ds_type[1],
+                                       self.processing)
+        for f in os.listdir(processing_path):
+            if f not in self.executed.values():
+                self._history[f] = os.path.join(processing_path, f)
+        self.save_history()
+
     def check_filters(self, **kwargs):
         """Check filters for input datasets
 

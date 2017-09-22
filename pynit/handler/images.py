@@ -358,10 +358,10 @@ class Atlas(object):
 
     def extract(self, path, contra=False, merge=False, surfix=None):
         if not os.path.exists(path):
-            try:
-                methods.mkdir(path)
-            except:
-                raise messages.InputPathError
+            # try:
+            methods.mkdir(path)
+            # except:
+            #     raise messages.InputPathError
         num_of_rois = int(np.max(self._image._dataobj))
         for i in range(num_of_rois + 1):
             if not i:
