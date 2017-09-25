@@ -224,7 +224,7 @@ class Project(object):
         self.__filters = [None] * 6
         # Each values are represented subject, session, dtype(or pipeline), step(or results) file_tags, ignores
 
-        self.__path = project_path
+        self.__path = os.path.abspath(project_path)
 
         # Set internal objects
         self.__df = pd.DataFrame()
