@@ -27,6 +27,8 @@ try:
         from pprint import pprint as display
         HTML = str
         from tqdm import tqdm as progressbar
+        def clear_output():
+            pass
 except:
     pass
 
