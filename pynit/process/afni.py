@@ -220,9 +220,9 @@ class AFNI_Process(BaseProcess):
         func_mask = step.run('MaskPrep', surfix, debug=debug)
         if ui:
             if self._viewer == 'itksnap':
-                display(widgets.VBox([title(value='-'*43 + ' Anatomical images ' + '-'*43),
+                display(widgets.VBox([title('-'*43 + ' Anatomical images ' + '-'*43),
                                       gui.itksnap(self, anat_mask, anat),
-                                      title(value='<br>' + '-'*43 + ' Functional images ' + '-'*43),
+                                      title('<br>' + '-'*43 + ' Functional images ' + '-'*43),
                                       gui.itksnap(self, func_mask, mimg_path)]))
             else:
                 methods.raiseerror(messages.Errors.InputValueError,
@@ -680,7 +680,7 @@ class AFNI_Process(BaseProcess):
         :param surfix:
         :return:
         """
-        display(title(value='** Run signal processing for resting state data'))
+        display(title('** Run signal processing for resting state data'))
         step = Step(self)
         func = self.check_input(func)
         ort = self.check_input(ort)

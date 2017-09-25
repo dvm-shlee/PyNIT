@@ -17,6 +17,8 @@ try:
         from IPython.display import display, display_html, clear_output
         jupyter_env = True
     else:
+        title = str
+        from pprint import pprint as display
         from tqdm import tqdm as progressbar
 except:
     pass

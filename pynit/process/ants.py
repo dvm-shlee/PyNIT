@@ -22,7 +22,7 @@ class ANTs_Process(BaseProcess):
         :return:            output path
         :rtype:             dict
         """
-        display(title(value='** Processing non-linear coregistration.....'))
+        display(title('** Processing non-linear coregistration.....'))
         anat = self.check_input(anat)
         meanfunc = self.check_input(meanfunc)
         step = Step(self, n_thread=1)
@@ -39,7 +39,7 @@ class ANTs_Process(BaseProcess):
         pass
 
     def ants_MotionCorrection(self, func, surfix='func', debug=False):
-        display(title(value='** Extracting time-course data from ROIs'))
+        display(title('** Extracting time-course data from ROIs'))
         func = self.check_input(func)
         step = Step(self)
         step.set_input(name='func', path=func, type=False)

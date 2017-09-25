@@ -19,6 +19,8 @@ try:
         from tqdm import tqdm_notebook as progressbar
         jupyter_env = True
     else:
+        title = str
+        from pprint import pprint as display
         from tqdm import tqdm as progressbar
 except:
     pass
@@ -131,7 +133,7 @@ class Pipelines(object):
         :param idx:
         :return:
         """
-        display(title(value='---=[[[ Running "{}" pipeline ]]]=---'.format(self.selected.avail[idx])))
+        display(title('---=[[[ Running "{}" pipeline ]]]=---'.format(self.selected.avail[idx])))
         exec('self.selected.pipe_{}(**kwargs)'.format(self.selected.avail[idx]))
 
     def update(self):
@@ -206,7 +208,7 @@ class Pipelines(object):
         :param kwargs:      ADditional option for initiating pipeline
         :return:
         """
-        display(title(value='---=[[[ Move subject to group folder ]]]=---'))
+        display(title('---=[[[ Move subject to group folder ]]]=---'))
         self.initiate(target, listing=False, **kwargs)
         input_proc = Process(self.__prj, self.avail[origin])
         init_path = self.__init_path('GroupOrganizing')
