@@ -24,6 +24,8 @@ try:
         from IPython.display import display, display_html, clear_output
         jupyter_env = True
     else:
+        from pprint import pprint as display
+        HTML = str
         from tqdm import tqdm as progressbar
 except:
     pass
