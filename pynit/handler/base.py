@@ -12,10 +12,12 @@ from ..tools.visualizers import BrainPlot
 from collections import namedtuple
 import datetime
 from time import sleep
+from IPython import get_ipython
 
 jupyter_env = False
 try:
-    if len([key for key in sys.modules.keys() if 'ipykernel' in key]):
+    cfg = get_ipython().config
+    if cfg['IPKernelApp']['parent_appname'] == 'ipython-notebook':
         from tqdm import tqdm_notebook as progressbar
         from ipywidgets import widgets
         from ipywidgets.widgets import HTML

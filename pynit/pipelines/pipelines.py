@@ -88,7 +88,7 @@ class A_fMRI_preprocess(PipeTemplate):
         self.proc.afni_ApplyCoregAll(8, 5, surfix=self.surfix)
         if not self.aniso:
             # Align anatomy image to template space (10)
-            self.proc.ants_SpatialNorm(3, self.tmpobj, surfix=self.surfix)
+            self.proc.ants_SpatialNorm(3, self.tmpobj, surfix='anat')
             # Align functional images to template space (11)
             self.proc.ants_ApplySpatialNorm(9, 10, surfix=self.surfix)
         else:

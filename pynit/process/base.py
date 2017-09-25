@@ -4,11 +4,13 @@ import pickle
 from pynit.tools import messages
 from pynit.tools import methods
 from pynit.tools import gui
+from IPython import get_ipython
 
 # Import modules for interfacing with jupyter notebook
 jupyter_env = False
 try:
-    if len([key for key in sys.modules.keys() if 'ipykernel' in key]):
+    cfg = get_ipython().config
+    if cfg['IPKernelApp']['parent_appname'] == 'ipython-notebook':
         from tqdm import tqdm_notebook as progressbar
         from ipywidgets import widgets
         from ipywidgets.widgets import HTML as title

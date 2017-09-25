@@ -1,9 +1,13 @@
 import sys, os
 import messages
 import methods
+from IPython import get_ipython
+
+# Import modules for interfacing with jupyter notebook
 jupyter_env = False
 try:
-    if len([key for key in sys.modules.keys() if key == 'ipykernel']):
+    cfg = get_ipython().config
+    if cfg['IPKernelApp']['parent_appname'] == 'ipython-notebook':
         from ipywidgets import widgets
         jupyter_env = True
 except:

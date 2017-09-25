@@ -8,10 +8,12 @@ from pynit.tools import methods
 from pynit.handler.project import Project
 from pynit.pipelines import pipelines
 from pynit.process import Process
+from IPython import get_ipython
 
 jupyter_env = False
 try:
-    if len([key for key in sys.modules.keys() if 'ipykernel' in key]):
+    cfg = get_ipython().config
+    if cfg['IPKernelApp']['parent_appname'] == 'ipython-notebook':
         from ipywidgets.widgets import HTML as title
         from IPython.display import display, clear_output
         from tqdm import tqdm_notebook as progressbar
@@ -20,7 +22,6 @@ try:
         from tqdm import tqdm as progressbar
 except:
     pass
-
 
 class Pipelines(object):
     """ Pipeline handler
