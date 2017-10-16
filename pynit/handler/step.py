@@ -1,28 +1,6 @@
 import sys
 from base import BaseProcessor
-
-#########################################
-# The imported modules belows           #
-# check jupyter notebook environment    #
-#########################################
-from IPython import get_ipython
-
-# Import modules for interfacing with jupyter notebook
-jupyter_env = False
-try:
-    cfg = get_ipython().config
-    if cfg['IPKernelApp']['parent_appname'] == 'ipython-notebook':
-        from tqdm import tqdm_notebook as progressbar
-        from ipywidgets import widgets
-        from ipywidgets.widgets import HTML as title
-        from IPython.display import display, display_html
-        jupyter_env = True
-    else:
-        title = str
-        from pprint import pprint as display
-        from tqdm import tqdm as progressbar
-except:
-    pass
+from base import HTML as title, display, clear_output, jupyter_env, progressbar
 
 
 class Step(BaseProcessor):

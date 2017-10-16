@@ -17,20 +17,17 @@ from IPython import get_ipython
 jupyter_env = False
 try:
     cfg = get_ipython().config
-    if cfg['IPKernelApp']['parent_appname'] == 'ipython-notebook':
-        from tqdm import tqdm_notebook as progressbar
-        from ipywidgets import widgets
-        from ipywidgets.widgets import HTML
-        from IPython.display import display, display_html, clear_output
-        jupyter_env = True
-    else:
-        from pprint import pprint as display
-        HTML = str
-        from tqdm import tqdm as progressbar
-        def clear_output():
-            pass
+    from tqdm import tqdm_notebook as progressbar
+    from ipywidgets import widgets
+    from ipywidgets.widgets import HTML
+    from IPython.display import display, display_html, clear_output
+    jupyter_env = True
 except:
-    pass
+    from pprint import pprint as display
+    HTML = str
+    from tqdm import tqdm as progressbar
+    def clear_output():
+        pass
 
 
 ########################################################################################################################
@@ -469,6 +466,7 @@ class BaseProcessor(object):
                         1-side input: supportive inputs
                         2-group: inputs will be treated as group, not running loop
         """
+        # path = self.
         dc, path = self.__check_dataclass(path)
         self.__input_dc = dc
         if type in [0,1,2]:
@@ -1026,7 +1024,11 @@ class BaseProcessor(object):
         :param command:
         :return:
         """
-        tmpns = [obj.strip('{}') for obj in re.findall(r"[{\w'}]+", command) if obj[0] == '{' and obj[-1] == '}']
+        def find(s, ch):
+            return [i for i, ltr in enumerate(s) if ltr == ch]
+        # tmpns = [obj.strip('{}') for obj in re.findall(r"[{\w'}]+", command) if obj[0] == '{' and obj[-1] == '}']
+        tmpns = [obj[find(obj,'{')[0]+1:find(obj, '}')[-1]]
+                 for obj in re.findall(r"[{\w'}]+", command) if '{' in obj and '}' in obj]
         nss = []
         for ns in tmpns:
             if "}{" in ns:

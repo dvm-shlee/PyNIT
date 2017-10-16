@@ -445,7 +445,7 @@ class BrainPlot(object):
             data += data[::-1, :, :]
         # Make transparent
         data = data.astype(float)
-        data[data == 0] = np.nan
+        data[data == 0.] = np.nan
         number_of_rois = len(label.keys())
         colors_for_rois = [label[idx][1] for idx in label.keys()]
         bounds = np.linspace(0, number_of_rois, number_of_rois)
@@ -456,9 +456,13 @@ class BrainPlot(object):
         cmap = colors.ListedColormap(colors_for_rois[1:], 'indexed')
         # Plot image
         for i in range(slice_grid[1] * slice_grid[2]):
-            ax = axes.flat[i]
-            ax.imshow(data[:, :, i].T, origin='lower', interpolation='nearest', norm=norm, cmap=cmap)
-            ax.set_axis_off()
+            if False in np.isnan(data[:,:,i].flatten()):
+                ax = axes.flat[i]
+                ax.imshow(data[:, :, i].T, origin='lower', interpolation='nearest', norm=norm, cmap=cmap)
+                ax.set_axis_off()
+            else:
+                ax = axes.flat[i]
+                ax.set_axis_off()
         if legend:
             ncols = 2
             nrows = int(np.ceil(1. * (number_of_rois-1) / ncols))

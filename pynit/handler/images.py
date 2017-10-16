@@ -5,6 +5,7 @@ import numpy as np
 import copy as ccopy
 from .base import ImageObj
 from .base import BrainPlot
+from .base import display, jupyter_env
 from ..tools import messages, methods
 from scipy import ndimage
 from shutil import rmtree
@@ -13,26 +14,6 @@ try:
     import SimpleITK as sitk
 except ImportError:
     pass
-
-# Import modules for interfacing with jupyter notebook
-from IPython import get_ipython
-
-# Import modules for interfacing with jupyter notebook
-jupyter_env = False
-try:
-    cfg = get_ipython().config
-    if cfg['IPKernelApp']['parent_appname'] == 'ipython-notebook':
-        from ipywidgets import widgets
-        from ipywidgets.widgets import HTML as title
-        from IPython.display import display, display_html
-        jupyter_env = True
-    else:
-        title = str
-        from pprint import pprint as display
-        from tqdm import tqdm as progressbar
-except:
-    pass
-
 
 def load(filename):
     """ Load imagefile

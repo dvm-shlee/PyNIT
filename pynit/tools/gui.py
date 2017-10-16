@@ -7,9 +7,8 @@ from IPython import get_ipython
 jupyter_env = False
 try:
     cfg = get_ipython().config
-    if cfg['IPKernelApp']['parent_appname'] == 'ipython-notebook':
-        from ipywidgets import widgets
-        jupyter_env = True
+    from ipywidgets import widgets
+    jupyter_env = True
 except:
     pass
 

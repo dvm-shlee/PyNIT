@@ -13,17 +13,17 @@ from IPython import get_ipython
 jupyter_env = False
 try:
     cfg = get_ipython().config
-    if cfg['IPKernelApp']['parent_appname'] == 'ipython-notebook':
-        from ipywidgets.widgets import HTML as title
-        from IPython.display import display, clear_output
-        from tqdm import tqdm_notebook as progressbar
-        jupyter_env = True
-    else:
-        title = str
-        from pprint import pprint as display
-        from tqdm import tqdm as progressbar
+    from tqdm import tqdm_notebook as progressbar
+    from ipywidgets import widgets
+    from ipywidgets.widgets import HTML as title
+    from IPython.display import display, display_html, clear_output
+    jupyter_env = True
 except:
-    pass
+    from pprint import pprint as display
+    title = str
+    from tqdm import tqdm as progressbar
+    def clear_output():
+        pass
 
 class Pipelines(object):
     """ Pipeline handler
@@ -55,6 +55,8 @@ class Pipelines(object):
         avails = ["\t{} : {}".format(*item) for item in self.avail.items()]
         output = ["\nList of available packages:"] + avails
         print("\n".join(output))
+
+        self.update()
 
     @property
     def avail(self):
@@ -146,13 +148,8 @@ class Pipelines(object):
                 self._proc._history[f] = os.path.join(processing_path, f)
         self._proc.save_history()
 
-    # def load(self, pipeline):
-    #     """Load custom pipeline
-    #
-    #     :param pipeline:
-    #     :return:
-    #     """
-    #     pass
+    def get_proc(self):
+        return self._proc
 
     def __init_path(self, name):
         """Initiate path

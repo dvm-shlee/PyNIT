@@ -10,18 +10,17 @@ from IPython import get_ipython
 jupyter_env = False
 try:
     cfg = get_ipython().config
-    if cfg['IPKernelApp']['parent_appname'] == 'ipython-notebook':
-        from tqdm import tqdm_notebook as progressbar
-        from ipywidgets import widgets
-        from ipywidgets.widgets import HTML as title
-        from IPython.display import display, display_html, clear_output
-        jupyter_env = True
-    else:
-        title = str
-        from pprint import pprint as display
-        from tqdm import tqdm as progressbar
+    from tqdm import tqdm_notebook as progressbar
+    from ipywidgets import widgets
+    from ipywidgets.widgets import HTML as title
+    from IPython.display import display, display_html, clear_output
+    jupyter_env = True
 except:
-    pass
+    from pprint import pprint as display
+    title = str
+    from tqdm import tqdm as progressbar
+    def clear_output():
+        pass
 
 
 class BaseProcess(object):
@@ -57,6 +56,7 @@ class BaseProcess(object):
 
         # Initiate
         self.init_proc()
+        self.update()
 
     @property
     def prj(self):

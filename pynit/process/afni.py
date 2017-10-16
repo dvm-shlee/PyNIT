@@ -670,7 +670,10 @@ class AFNI_Process(BaseProcess):
                               fwhm=None, dt=None, surfix='func', debug=False, **kwargs):
         """Wrapper method of afni's 3dTproject for signal processing of resting state data
 
-        :param func:
+        :param func:    input path for functional image, three type of path can be used
+                        1. datatype path from the raw data (e.g. 'anat' or 'dti')
+                        2. absolute path
+                        3. index of path which is shown on 'executed' method
         :param norm:
         :param ort:
         :param mask:
@@ -910,7 +913,7 @@ class AFNI_Process(BaseProcess):
 
     def afni_GroupAverage(self, func, idx_coef=1, idx_tval=2, surfix='func',
                           outliers=None, debug=False):
-        """ This processor performing the Mixed Effects Meta Analysis to estimate group mean
+        """ This processor performing the Mixed Effects Meta Analysis to estimate group mean (3dMEMA)
         It's required to install R, plus 'snow' package.
 
         If you want to cite the analysis approach, use the following at this moment:
@@ -921,7 +924,7 @@ class AFNI_Process(BaseProcess):
         :param func:
         :param idx_coef:
         :param idx_tval:
-        :param outliers:
+        :param outliers: keyword
         :param surfix:
         :param kwargs:
         :return:
