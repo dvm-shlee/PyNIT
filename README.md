@@ -63,6 +63,11 @@ Install PyNIT with:
 pip install pynit
 ```
 
+And activate the widget feature with:
+```
+jupyter nbextension enable --py widgetsnbextension
+```
+
 Update with:
 ```
 pip install --upgrade pynit

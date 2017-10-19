@@ -20,13 +20,15 @@ setup(name='PyNIT',
       packages=find_packages(),
       install_requires=['jupyter', 'tqdm', 'pandas', 'openpyxl', 'xlrd', 'nibabel', #platform
                         'matplotlib', 'seaborn', 'scikit-image',                    #visulaization
-                        'numpy', 'scipy', 'scikit-learn'                            #computation
+                        'numpy', 'scipy', 'scikit-learn',                           #computation
+                        'psutil',
                         ],
       scripts=['pynit/bin/brk2nifti',
                'pynit/bin/checkscans',
                'pynit/bin/check_reg',
                'pynit/bin/antsSyN',
-               'pynit/bin/onesample_ttest'
+               'pynit/bin/onesample_ttest',
+               'pynit/bin/pynit',
                ],
       classifiers=[
             # How mature is this project? Common values are
