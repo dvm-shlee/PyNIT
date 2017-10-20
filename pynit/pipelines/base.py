@@ -56,8 +56,6 @@ class Pipelines(object):
         output = ["\nList of available packages:"] + avails
         print("\n".join(output))
 
-        self.update()
-
     @property
     def avail(self):
         pipes = [pipe for pipe in dir(pipelines) if 'PipeTemplate' not in pipe if '__' not in pipe]
