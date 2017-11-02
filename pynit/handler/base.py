@@ -12,22 +12,7 @@ from ..tools.visualizers import BrainPlot
 from collections import namedtuple
 import datetime
 from time import sleep
-from IPython import get_ipython
-
-jupyter_env = False
-try:
-    cfg = get_ipython().config
-    from tqdm import tqdm_notebook as progressbar
-    from ipywidgets import widgets
-    from ipywidgets.widgets import HTML
-    from IPython.display import display, display_html, clear_output
-    jupyter_env = True
-except:
-    from pprint import pprint as display
-    HTML = str
-    from tqdm import tqdm as progressbar
-    def clear_output():
-        pass
+from ..tools import display, clear_output, progressbar
 
 
 ########################################################################################################################
@@ -442,6 +427,7 @@ class BaseProcessor(object):
 
     def set_parallel(self, n_thread):
         """ Method to initiate parallel computing
+
         :param n_thread:    Number of thread for parallel computing
         """
         if isinstance(n_thread, int):
@@ -975,6 +961,7 @@ class BaseProcessor(object):
     def __convert_cmdcode(self):
         list_cmd = []
         for i, cmd in enumerate(self.__cmd):
+
             if cmd.type == 0: #command line tool
                 if cmd.name:
                     list_cmd.append("{0}, err = methods.shell('{1}'.format({2}))".format(cmd.name,
@@ -985,6 +972,7 @@ class BaseProcessor(object):
                     list_cmd.append("out, err = methods.shell('{0}'.format({1}))".format(cmd.command,
                                                                                          ', '.join(cmd.nscode)))
                     list_cmd.append('stdout_collector.append((out, err))')
+
             elif cmd.type == 1: #python methods
                 if cmd.name:
                     adtn_cmd = list()
@@ -996,7 +984,6 @@ class BaseProcessor(object):
                         adtn_cmd.append('{0} = {1}'.format(cmd.name, updated_cmd))
                     else:
                         adtn_cmd.append('{0} = {1}'.format(cmd.name, cmd.command))
-                        # list_cmd.append('stdout_collector.append(({0}, None))'.format(cmd.command))
                     adtn_cmd.append('stdout_collector.append(({0}, None))'.format(cmd.command))
                     list_cmd.extend(self.__indent(adtn_cmd, level=cmd.level))
                 else:
@@ -1012,8 +999,10 @@ class BaseProcessor(object):
                     else:
                         adtn_cmd = self.__indent('{0}'.format(cmd.command), level=cmd.level)
                         list_cmd.append(adtn_cmd)
+
             elif cmd.type == 2: #TODO: need to integrate scheduler function for cluster computing
                 methods.raiseerror(messages.Errors.InputTypeError, 'Scheduler is not available yet')
+
             else:
                 methods.raiseerror(messages.Errors.InputTypeError, 'Wrong command type')
         return list_cmd
@@ -1247,7 +1236,7 @@ class BaseProcessor(object):
         :return: None
         """
         if self.__message:
-            display(HTML(self.__message))
+            display(self.__message)
         def output_writer(outputs, output_path):
             if outputs:
                 if isinstance(outputs[0], list):
@@ -1308,7 +1297,7 @@ class BaseProcessor(object):
             self.__proc.save_history()
             self.__prj.reload()
             clear_output()
-            display(HTML('Done.....'))
+            display('Done.....')
             sleep(0.5)
             clear_output()
             return output_path

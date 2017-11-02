@@ -3,11 +3,10 @@ from pynit.handler.images import TempFile, Template
 from pynit.handler.step import Step
 import multiprocessing
 
-class AFNI_Process(BaseProcess):
-    # def __init__(self, *args, **kwargs):
-    #     super(AFNI_Process, self).__init__(*args, **kwargs)
 
-    def afni_MeanImgCalc(self, func, cbv=False, surfix='func', debug=False):
+class AFNI_Process(BaseProcess):
+
+    def afni_MeanImgCalc(self, func, cbv=False, surfix='func', n_thread='max', debug=False):
         """ Calculate mean image through time axis using '3dcalc' to get better SNR image
         this process do motion correction before calculate mean image
 
@@ -26,7 +25,7 @@ class AFNI_Process(BaseProcess):
         :rtype:             dict
         """
         func = self.check_input(func)
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         step.set_message('** Processing mean image calculation.....')
         step.set_input(name='func', path=func, idx=0)
         step.set_output(name='output', type=0)
@@ -54,7 +53,7 @@ class AFNI_Process(BaseProcess):
             output_path = step.run('MeanImgCalc-BOLD', surfix, debug=debug)
         return dict(meanfunc=output_path)
 
-    def afni_SliceTimingCorrection(self, func, tr=None, tpattern='altplus', surfix='func', debug=False):
+    def afni_SliceTimingCorrection(self, func, tr=None, tpattern='altplus', n_thread='max', surfix='func', debug=False):
         """ Correct temporal mismatch of image acquisition timing due to the slice timing
         this process use AFNI's '3dTshift'.
 
@@ -77,7 +76,7 @@ class AFNI_Process(BaseProcess):
         """
         func = self.check_input(func)
         options = str()
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         step.set_message('** Processing slice timing correction.....')
         step.set_input(name='func', path=func)
         step.set_output(name='output', type=0)
@@ -94,7 +93,7 @@ class AFNI_Process(BaseProcess):
         output_path = step.run('SliceTmCorrect', surfix, debug=debug)
         return dict(func=output_path)
 
-    def afni_MotionCorrection(self, func, base, surfix='func', debug=False):
+    def afni_MotionCorrection(self, func, base, surfix='func', n_thread='max', debug=False):
         """ Applying rigid transformation through time axis to correct head motion
         all images in the input path will be aligned on first image of base path you provides
         this process use AFNI's '3dvolreg'
@@ -115,7 +114,7 @@ class AFNI_Process(BaseProcess):
         """
         func = self.check_input(func)
         base = self.check_input(base)
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         step.set_message('** Processing motion correction.....')
         step.set_input(name='func', path=func, type=False)
 
@@ -145,7 +144,7 @@ class AFNI_Process(BaseProcess):
         output_path = step.run('MotionCorrection', surfix, debug=debug)
         return dict(func=output_path)
 
-    def afni_MaskPrep(self, anat, meanfunc, tmpobj, surfix='func', ui=False, debug=False):
+    def afni_MaskPrep(self, anat, meanfunc, tmpobj, surfix='func', n_thread='max', ui=False, debug=False):
         """ Prepare mask images by reorient template mask image to individual image
         and provide launcher to open image viewer to help manual mask drawing
         this process use AFNI's '3dAllineate'
@@ -168,7 +167,7 @@ class AFNI_Process(BaseProcess):
         :rtype:             dict
         """
         anat = self.check_input(anat)
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         step.set_message('** Processing mask image preparation.....')
         mimg_path = None
         # try:
@@ -257,7 +256,7 @@ class AFNI_Process(BaseProcess):
             return dict(anat_mask=anat_mask,
                         func_mask=func_mask,)
 
-    def afni_PasteMask(self, mask, destination, debug=False):
+    def afni_PasteMask(self, mask, destination, n_thread='max', debug=False):
         """ Paste the updated mask into the Processing folder
 
         :param mask:
@@ -266,7 +265,7 @@ class AFNI_Process(BaseProcess):
         """
         mask = self.check_input(mask, dc=1)
         destination = self.check_input(destination)
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         step.set_message('** Upload updated mask files.....')
         step.set_input(name='mask', path=mask, filters=dict(file_tag='_mask'))
         step.set_input(name='target', path=destination, type=1)
@@ -276,7 +275,7 @@ class AFNI_Process(BaseProcess):
         step.set_cmd(cmd, type=1)
         step.run('PasteMask', debug=debug)
 
-    def afni_SkullStrip(self, anat, meanfunc, surfix='func', debug=False):
+    def afni_SkullStrip(self, anat, meanfunc, surfix='func', n_thread='max', debug=False):
         """ Subtract out the image outside of the brain mask,
         'afni_MaskPrep' must be executed before run this process.
 
@@ -299,7 +298,7 @@ class AFNI_Process(BaseProcess):
         anat_mask = self.check_input(anat_mask)
         func_mask = [self.steps[idx] for idx, step in self.executed.items() if 'MaskPrep-{}'.format(surfix) in step][0]
         func_mask = self.check_input(func_mask)
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         step.set_message('** Processing skull stripping.....')
         step.set_input(name='anat', path=anat, idx=0)
         step.set_input(name='anat_mask', path=anat_mask, type=1, idx=0)
@@ -320,7 +319,7 @@ class AFNI_Process(BaseProcess):
         func_path = step.run('SkullStrip', surfix, debug=debug)
         return dict(anat=anat_path, func=func_path)
 
-    def afni_Coreg(self, anat, meanfunc, aniso=False, inverse=False, surfix='func', debug=False):
+    def afni_Coreg(self, anat, meanfunc, aniso=False, inverse=False, surfix='func', n_thread='max', debug=False):
         """ Applying bias field correction with ANTs N4 algorithm and then align functional image to
         anatomical space using Afni's 3dAllineate command
 
@@ -343,7 +342,7 @@ class AFNI_Process(BaseProcess):
         """
         anat = self.check_input(anat)
         meanfunc = self.check_input(meanfunc)
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         step.set_message('** Processing coregistration.....')
         step.set_input(name='func', path=meanfunc, idx=0)
         step.set_input(name='anat', path=anat, type=1, idx=0)
@@ -385,7 +384,7 @@ class AFNI_Process(BaseProcess):
         result_path = step.run('Check_Registration', surfix, debug=debug)
         return dict(func=output_path, checkreg = result_path)
 
-    def afni_SkullStripAll(self, func, funcmask, surfix='func', debug=False):
+    def afni_SkullStripAll(self, func, funcmask, surfix='func', n_thread='max', debug=False):
         """ Applying arithmetic skull stripping
 
         :param func:        input path for all functional image, three type of path can be used
@@ -403,7 +402,7 @@ class AFNI_Process(BaseProcess):
         """
         funcmask = self.check_input(funcmask)
         func = self.check_input(func)
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         step.set_message('** Processing skull stripping to all {} data.....'.format(surfix))
         step.set_input(name='func', path=func)
         step.set_input(name='mask', path=funcmask, type=1, idx=0)
@@ -413,7 +412,7 @@ class AFNI_Process(BaseProcess):
         output_path = step.run('Apply_SkullStrip', surfix, debug=debug)
         return dict(func=output_path)
 
-    def afni_ApplyCoregAll(self, func, coregfunc, surfix='func', debug=False):
+    def afni_ApplyCoregAll(self, func, coregfunc, surfix='func', n_thread='max', debug=False):
         """ Applying transform matrix to all functional data using AFNI's '3dAllineate'
 
         :param func:        input path for all functional image, three type of path can be used
@@ -431,7 +430,7 @@ class AFNI_Process(BaseProcess):
         """
         coregfunc = self.check_input(coregfunc)
         func = self.check_input(func)
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         step.set_message('** Applying coregistration to all {} data.....'.format(surfix))
         tform_filters = {'ext': '.aff12.1D'}
         step.set_input(name='func', path=func)
@@ -443,7 +442,7 @@ class AFNI_Process(BaseProcess):
         output_path = step.run('Apply_Coreg', surfix, debug=debug)
         return dict(func=output_path)
 
-    def afni_SpatialNorm(self, anat, tmpobj, surfix='anat', debug=False):
+    def afni_SpatialNorm(self, anat, tmpobj, surfix='anat', n_thread='max', debug=False):
         """ Align anatomical image to template brain space using AFNI's '3dAllineate'
 
         :param anat:        input path for anatomical image, three type of path can be used
@@ -460,7 +459,7 @@ class AFNI_Process(BaseProcess):
         :rtype:             dict
         """
         anat = self.check_input(anat)
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         step.set_message('** Processing spatial normalization.....')
         step.set_input(name='anat', path=anat, idx=0)
         step.set_var(name='tmpobj', value=tmpobj.template_path, type=1)
@@ -472,7 +471,7 @@ class AFNI_Process(BaseProcess):
         output_path = step.run('SpatialNorm', surfix, debug=debug)
         return dict(normanat=output_path)
 
-    def afni_ApplySpatialNorm(self, func, normanat, surfix='func', debug=False):
+    def afni_ApplySpatialNorm(self, func, normanat, surfix='func', n_thread='max', debug=False):
         """ Applying transform matrix to all functional data for spatial normalization
         this processor use AFNI's '3dAllineate'
 
@@ -491,7 +490,7 @@ class AFNI_Process(BaseProcess):
         """
         func = self.check_input(func)
         normanat = self.check_input(normanat)
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         step.set_message('** Applying spatial normalization to all {} data.....'.format(surfix))
         step.set_input(name='func', path=func)
         step.set_input(name='normanat', path=normanat, type=1, idx=0)
@@ -503,7 +502,7 @@ class AFNI_Process(BaseProcess):
         output_path = step.run('ApplySpatialNorm', surfix, debug=debug)
         return dict(normfunc=output_path)
 
-    def afni_SpatialSmoothing(self, func, fwhm=0.5, tmpobj=None, surfix='func', debug=False, **kwargs):
+    def afni_SpatialSmoothing(self, func, fwhm=0.5, tmpobj=None, surfix='func', n_thread='max', debug=False, **kwargs):
         """ Apply gaussian smoothing kernel with given FWHM,
         this process use AFNI's '3dBlurInMask'
 
@@ -523,7 +522,7 @@ class AFNI_Process(BaseProcess):
         :rtype:             dict
         """
         func = self.check_input(func)
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         step.set_message('** Processing spatial smoothing.....')
         step.set_input(name='func', path=func, filters=kwargs)
         if not fwhm:
@@ -540,7 +539,7 @@ class AFNI_Process(BaseProcess):
         output_path = step.run('SpatialSmoothing', surfix, debug=debug)
         return dict(func=output_path)
 
-    def afni_GLManalysis(self, func, paradigm, clip_range=None, surfix='func', debug=False, **kwargs):
+    def afni_GLManalysis(self, func, paradigm, clip_range=None, surfix='func', n_thread='max', debug=False, **kwargs):
         """ run task-based fMRI analysis including estimating the temporal auto-correlation,
         this process use AFNI's '3dDeconvolve' and '3dREMLfit'
 
@@ -561,7 +560,7 @@ class AFNI_Process(BaseProcess):
         :rtype:             dict
         """
         func = self.check_input(func)
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         step.set_message('** Processing General Linear Analysis')
         step.set_input(name='func', path=func, filters=kwargs)
         step.set_var(name='paradigm', value=paradigm)
@@ -596,7 +595,7 @@ class AFNI_Process(BaseProcess):
         output_path = step.run('REMLfit', surfix, debug=debug)
         return dict(GLM=output_path)
 
-    def afni_ClusterMap(self, stats, func, pval=0.01, clst_size=40, surfix='func', debug=False):
+    def afni_ClusterMap(self, stats, func, pval=0.01, clst_size=40, surfix='func', n_thread='max', debug=False):
         """ function to generate mask images from cluster using given threshold parameter.
         this process use AFNI's '3dAttribute', 'cdf', and '3dclust'
 
@@ -615,7 +614,7 @@ class AFNI_Process(BaseProcess):
         """
         stats = self.check_input(stats)
         func = self.check_input(func)
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         step.set_message('** Generating clustered masks')
         step.set_input(name='glm', path=stats)
         step.set_input(name='func', path=func, type=1)
@@ -634,23 +633,11 @@ class AFNI_Process(BaseProcess):
         step.set_cmd('with open(methods.splitnifti(output) + ".json", "wb") as f:', type=1)
         step.set_cmd('\tjson.dump(dict(source=func[i].Abspath), f)', type=1)
         output_path = step.run('ClusteredMask', surfix=surfix, debug=debug)
-        # if jupyter_env:
-        #     if ui:
-        #         if self._viewer == 'itksnap':
-        #             display(gui.itksnap(self, output_path, tmpobj.image.get_filename()))
-        #         else:
-        #             methods.raiseerror(messages.Errors.InputValueError,
-        #                                '"{}" is not available'.format(self._viewer))
-        #     else:
-        #         pass
-        # else:
-        #     return dict(mask=output_path)
-
         return dict(mask=output_path)
 
-    def afni_EstimateSubjectROIs(self, cluster, mask, surfix='func', debug=False):
+    def afni_EstimateSubjectROIs(self, cluster, mask, surfix='func', n_thread='max', debug=False):
         cluster = self.check_input(cluster)
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         step.set_message('** Estimate ROI masks for each subject')
         step.set_input(name='cluster', path=cluster)
         step.set_input(name='func', path=cluster, filters=dict(ext='.json'), type=1)
@@ -667,7 +654,7 @@ class AFNI_Process(BaseProcess):
         return dict(mask=output_path)
 
     def afni_SignalProcessing(self, func, norm=True, ort=None, clip_range=None, mask=None, bpass=None,
-                              fwhm=None, dt=None, surfix='func', debug=False, **kwargs):
+                              fwhm=None, dt=None, surfix='func', n_thread='max', debug=False, **kwargs):
         """Wrapper method of afni's 3dTproject for signal processing of resting state data
 
         :param func:    input path for functional image, three type of path can be used
@@ -684,7 +671,7 @@ class AFNI_Process(BaseProcess):
         :return:
         """
         display(title('** Run signal processing for resting state data'))
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         func = self.check_input(func)
         ort = self.check_input(ort)
         step.set_input(name='func', path=func, filters=kwargs)
@@ -769,7 +756,7 @@ class AFNI_Process(BaseProcess):
         return dict(signalprocess=output_path)
 
     def afni_ROIStats(self, func, rois, cbv=False, cbv_param=None, clip_range=None, option=None,
-                      label=None, surfix='func', debug=False, **kwargs):
+                      label=None, surfix='func', n_thread='max', debug=False, **kwargs):
         """Extracting time-course data from ROIs
 
         :param func:    Input path for functional data
@@ -818,7 +805,7 @@ class AFNI_Process(BaseProcess):
         rois = self.check_input(rois)
 
         # Initiate step instance
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         step.set_message('** Extracting time-course data from ROIs')
 
         # If given roi path is single file
@@ -887,7 +874,7 @@ class AFNI_Process(BaseProcess):
             tmp.close()
         return dict(timecourse=output_path)
 
-    def afni_TemporalClipping(self, func, clip_range, surfix='func', debug=False, **kwargs):
+    def afni_TemporalClipping(self, func, clip_range, surfix='func', n_thread='max', debug=False, **kwargs):
         """
 
         :param func:
@@ -896,7 +883,7 @@ class AFNI_Process(BaseProcess):
         :param kwargs:
         :return:
         """
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         step.set_message('** Temporal clipping of functional image')
         func = self.check_input(func)
         step.set_input(name='func', path=func, filters=kwargs)
@@ -912,7 +899,7 @@ class AFNI_Process(BaseProcess):
         return dict(clippedfunc=output_path)
 
     def afni_GroupAverage(self, func, idx_coef=1, idx_tval=2, surfix='func',
-                          outliers=None, debug=False):
+                          outliers=None, debug=False, n_thread=1):
         """ This processor performing the Mixed Effects Meta Analysis to estimate group mean (3dMEMA)
         It's required to install R, plus 'snow' package.
 
@@ -926,10 +913,9 @@ class AFNI_Process(BaseProcess):
         :param idx_tval:
         :param outliers: keyword
         :param surfix:
-        :param kwargs:
         :return:
         """
-        step = Step(self, n_thread=1)
+        step = Step(self, n_thread=n_thread)
         step.set_message('** Estimate group mean using Mixed effect meta analysis')
         func = self.check_input(func)
         if outliers:

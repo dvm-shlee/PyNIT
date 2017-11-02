@@ -22,6 +22,10 @@ class Notice(object):
 class Errors(object):
     """ Correction of CustomExceptions
     """
+    class InsufficientEnv(EnvironmentError):
+        """InsufficientEnv"""
+        pass
+
     class PackageUpdateFailure(EnvironmentError):
         """PackageUpdateFailure"""
         pass

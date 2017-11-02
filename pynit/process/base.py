@@ -1,26 +1,7 @@
 import os
-import sys
 import pickle
-from pynit.tools import messages
-from pynit.tools import methods
-from pynit.tools import gui
-from IPython import get_ipython
-
-# Import modules for interfacing with jupyter notebook
-jupyter_env = False
-try:
-    cfg = get_ipython().config
-    from tqdm import tqdm_notebook as progressbar
-    from ipywidgets import widgets
-    from ipywidgets.widgets import HTML as title
-    from IPython.display import display, display_html, clear_output
-    jupyter_env = True
-except:
-    from pprint import pprint as display
-    title = str
-    from tqdm import tqdm as progressbar
-    def clear_output():
-        pass
+from pynit.tools import methods, messages, HTML as title, widgets
+from pynit.tools import gui, display, notebook_env
 
 
 class BaseProcess(object):
@@ -121,19 +102,27 @@ class BaseProcess(object):
         :param base_idx:
         :return:
         """
-        if base_idx:
-            display(gui.itksnap(self, self.steps[idx], self.steps[base_idx]))
+        if notebook_env:
+            if base_idx:
+                display(gui.itksnap(self, self.steps[idx], self.steps[base_idx]))
+            else:
+                display(gui.itksnap(self, self.steps[idx]))
         else:
-            display(gui.itksnap(self, self.steps[idx]))
+            methods.raiseerror(messages.Errors.InsufficientEnv, 'This method only works on Jupyter Notebook')
 
-    def afni(self, idx, dc):
+    def afni(self, idx, tmpobj=None, dc=0):
         """Launch AFNI gui
 
         :param idx:
         :param tmpobj:
         :return:
         """
-        gui.afni(self, self.steps[idx])
+        if dc==0:
+            gui.afni(self, self.steps[idx], tmpobj)
+        elif dc==1:
+            gui.afni(self, self.results[idx], tmpobj)
+        else:
+            methods.raiseerror(messages.Errors.InputValueError, '')
 
     @property
     def path(self):
@@ -163,10 +152,7 @@ class BaseProcess(object):
                 del self._history[step]
         n_hist = len(self._history.keys())
         output = zip(range(n_hist), sorted(self._history.keys()))
-        if jupyter_env:
-            return dict(output)
-        else:
-            return dict(output)
+        return dict(output)
 
     @property
     def reported(self):

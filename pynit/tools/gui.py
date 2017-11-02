@@ -1,19 +1,10 @@
-import sys, os
+import os
 import messages
 import methods
-from IPython import get_ipython
-
-# Import modules for interfacing with jupyter notebook
-jupyter_env = False
-try:
-    cfg = get_ipython().config
-    from ipywidgets import widgets
-    jupyter_env = True
-except:
-    pass
+from .__init__ import widgets
 
 
-def afni(procobj, input_path):
+def afni(procobj, input_path, tmpobj=None):
     """Launch afni
 
     :param procobj:
@@ -22,7 +13,10 @@ def afni(procobj, input_path):
     """
     groups = procobj._subjects[:]
     groups_path = map(os.path.join, [input_path] * len(groups), groups)
-    out, err = methods.shell('afni {}'.format(str(' '.join(groups_path))))
+    if tmpobj:
+        out, err = methods.shell('afni {} -dset {}'.format(str(' '.join(groups_path)), tmpobj._path))
+    else:
+        out, err = methods.shell('afni {}'.format(str(' '.join(groups_path))))
     return out, err
 
 

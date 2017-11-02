@@ -6,7 +6,7 @@ class ANTs_Process(BaseProcess):
     # def __init__(self, *args, **kwargs):
     #     super(ANTs_Process, self).__init__(*args, **kwargs)
 
-    def ants_Coreg(self, anat, meanfunc, surfix='func', debug=False):
+    def ants_Coreg(self, anat, meanfunc, surfix='func', n_thread=1, debug=False):
         """This step align the anatomical data to given template brain space using ANTs non-linear SyN algorithm
 
         :param anat:        input path for anatomical image, three type of path can be used
@@ -25,7 +25,7 @@ class ANTs_Process(BaseProcess):
         display(title('** Processing non-linear coregistration.....'))
         anat = self.check_input(anat)
         meanfunc = self.check_input(meanfunc)
-        step = Step(self, n_thread=1)
+        step = Step(self, n_thread=n_thread)
         step.set_input(name='meanfunc', path=meanfunc, idx=0)
         step.set_input(name='anat', path=anat, type=1, idx=0)
         step.set_var(name='thread', value=multiprocessing.cpu_count())
@@ -38,10 +38,10 @@ class ANTs_Process(BaseProcess):
     def ants_ApplyCoreg(self):
         pass
 
-    def ants_MotionCorrection(self, func, surfix='func', debug=False):
+    def ants_MotionCorrection(self, func, surfix='func', n_thread='max', debug=False):
         display(title('** Extracting time-course data from ROIs'))
         func = self.check_input(func)
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         step.set_input(name='func', path=func, type=False)
         step.set_output(name='prefix', ext='remove')
         cmd01 = "antsMotionCorr -d 3 -a {func} -o {prefix}-avg.nii.gz"
@@ -53,7 +53,7 @@ class ANTs_Process(BaseProcess):
         output_path = step.run('MotionCorrection', surfix=surfix, debug=debug)
         return dict(func=output_path)
 
-    def ants_BiasFieldCorrection(self, anat, func, debug=False):
+    def ants_BiasFieldCorrection(self, anat, func, n_thread='max', debug=False):
         """N4BiasFieldCorrection
 
         :param anat:
@@ -62,7 +62,7 @@ class ANTs_Process(BaseProcess):
         :return:
         """
         anat = self.check_input(anat)
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         step.set_input(name='anat', path=anat)
         step.set_output(name='output')
         cmd1 = 'N4BiasFieldCorrection -i {anat} -o {output}'
@@ -78,7 +78,7 @@ class ANTs_Process(BaseProcess):
         func_path = step.run('BiasField', 'func', debug=debug)
         return dict(anat=anat_path, func=func_path)
 
-    def ants_SpatialNorm(self, anat, tmpobj, surfix='anat', debug=False):
+    def ants_SpatialNorm(self, anat, tmpobj, surfix='anat', n_thread=1, debug=False):
         """This step align the anatomical data to given template brain space using ANTs non-linear SyN algorithm
 
         :param anat     :   str or int
@@ -89,7 +89,7 @@ class ANTs_Process(BaseProcess):
         :return:
         """
         anat = self.check_input(anat)
-        step = Step(self, n_thread=1)
+        step = Step(self, n_thread=n_thread)
         step.set_message('** Processing spatial normalization.....')
         step.set_input(name='anat', path=anat, idx=0)
         step.set_var(name='tmpobj', value=tmpobj.template_path)
@@ -100,7 +100,7 @@ class ANTs_Process(BaseProcess):
         output_path = step.run('SpatialNorm', surfix, debug=debug)
         return dict(normanat=output_path)
 
-    def ants_ApplySpatialNorm(self, func, warped, surfix='func', debug=False, **kwargs):
+    def ants_ApplySpatialNorm(self, func, warped, surfix='func', n_thread=1, debug=False, **kwargs):
         """This step applying the non-linear transform matrix from the anatomical image to functional images
 
         :param func     :   str or int
@@ -124,7 +124,7 @@ class ANTs_Process(BaseProcess):
         # Check and correct inputs
         func = self.check_input(func)
         warped = self.check_input(warped)
-        step = Step(self)
+        step = Step(self, n_thread=n_thread)
         step.set_message('** Processing spatial normalization.....')
         # Set filters for input transform data
         baseimg_filter = dict(ignore=['_1InverseWarp', '_1Warp', '_inversed'])

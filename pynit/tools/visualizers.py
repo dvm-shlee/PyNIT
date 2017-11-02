@@ -1,7 +1,6 @@
 # Import external packages
 import numpy as np
 import nibabel as nib
-import sys
 import scipy.ndimage as ndimage
 from skimage import feature, exposure
 
@@ -13,8 +12,11 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import colors
 import seaborn as sns
-
 import argparse
+
+from .__init__ import notebook_env, display
+if notebook_env:
+    from ipywidgets import interact, fixed
 
 # Set error bar as standard deviation and standard error
 def _plot_std_bars(central_data=None, ci=None, data=None, *args, **kwargs):
@@ -48,14 +50,6 @@ sns.timeseries._plot_std_bars = _plot_std_bars
 sns.timeseries._plot_std_band = _plot_std_band
 sns.timeseries._plot_sterr_bars = _plot_sterr_bars
 sns.timeseries._plot_sterr_band = _plot_sterr_band
-
-# Import interactive plot in jupyter notebook
-if len([key for key in sys.modules.keys() if key == 'ipykernel']):
-    from ipywidgets import interact, fixed
-    from IPython.display import display
-    jupyter_env = True
-else:
-    jupyter_env = False
 
 # Set figure style here
 mpl.rcParams['figure.dpi'] = 120
@@ -253,11 +247,11 @@ class BrainPlot(object):
                 ax.set_aspect(abs(resol[1] / resol[0]))
             else:
                 pass
-            if jupyter_env:
+            if notebook_env:
                 display(plt.gcf())
 
         # Check image dimension, only 3D and 4D is available
-        if jupyter_env:
+        if notebook_env:
             fig, ax = plt.subplots()
             fig.patch.set_facecolor('white')
             # ax = plt.axes()
@@ -281,7 +275,7 @@ class BrainPlot(object):
             data = convert_to_3d(imageobj)
             axes.imshow(data[..., int(slice_num)].T, origin='lower', cmap='gray')
             axes.set_axis_off()
-            if jupyter_env:
+            if notebook_env:
                 display(fig)
 
     @staticmethod
@@ -319,7 +313,7 @@ class BrainPlot(object):
                 ax.imshow(mask.T, origin='lower', interpolation='nearest', cmap=cmap, norm=m_norm, alpha=0.8)
             else:
                 ax.imshow(np.zeros((dim[0], dim[1])).T, origin='lower', interpolation='nearest', cmap=cmap)
-        if jupyter_env:
+        if notebook_env:
             display(fig)
         return fig, axes
 

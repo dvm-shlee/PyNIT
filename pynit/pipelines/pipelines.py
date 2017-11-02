@@ -17,26 +17,32 @@ class A_fMRI_preprocess(PipeTemplate):
     def __init__(self, proc, tmpobj, anat='anat', func='func', tr=None, tpattern=None, aniso=False,
                  cbv=False, ui=False, surfix='func'):
         """Collection of preprocessing pipelines for Shihlab at UNC
-        Author  : SungHo Lee(shlee@unc.edu)
-        Revised : Sep.9th.2017
+Author  : SungHo Lee(shlee@unc.edu)
+Revised : Sep.9th.2017
 
-        Parameters:
-            anat    : str
-                Path of anatomical images (default: 'anat')
-            func    : str
-                Path of functional images (default: 'func')
-            tr      : int
-                Temporal sampling time for volume (default: None)
-            tpattern: str
-                Slice order code based on afni command '3dTshift' (default: None)
-            aniso   : bool
-                Set True if you use 2D anitotropic sliced image (default: False)
-            cbv     : str
-                Path of MION infusion image (default: False)
-            ui      : bool
-                UI supports (default: False)
-            surfix  : str
-                Surfix for output folder (default: 'func')
+Parameters:
+    anat    : str
+        Path of anatomical images (default: 'anat')
+    func    : str
+        Path of functional images (default: 'func')
+    tr      : int
+        Temporal sampling time(sec) for a volume (default: None)
+    tpattern: str
+        Slice order code based on afni command '3dTshift' (default: None)
+            alt+z = altplus   = alternating in the plus direction
+            alt+z2            = alternating, starting at slice #1 instead of #0
+            alt-z = altminus  = alternating in the minus direction
+            alt-z2            = alternating, starting at slice #nz-2 instead of #nz-1
+            seq+z = seqplus   = sequential in the plus direction
+            seq-z = seqminus  = sequential in the minus direction
+    aniso   : bool
+        Set True if you use 2D anitotropic sliced image (default: False)
+    cbv     : str
+        Path of MION infusion image (default: False)
+    ui      : bool
+        UI supports (default: False)
+    surfix  : str
+        Surfix for output folder (default: 'func')
         """
         # Define attributes
         self.proc = proc
@@ -124,34 +130,38 @@ class B_evoked_fMRI_analysis(PipeTemplate):
     def __init__(self, proc, tmpobj, paradigm=None, fwhm=0.5, thresholds=None, mask=None, cbv_param=None, crop=None,
                  option=None, ui=False, case=None, outliers=None, subject_wise=False, surfix='func'):
         """Collection of GLM analysis pipelines for Shihlab at UNC
-        Author  : SungHo Lee(shlee@unc.edu)
-        Revised : Sep.9st.2017
+Author  : SungHo Lee(shlee@unc.edu)
+Revised : Sep.9st.2017
 
-        Parameters:
-            paradigm    : list
-                Mandatary input for evoked paradigm
-            fwhm        : float
-                Voxel Smoothness
-            thresholds : list (default: None)
-                Threshold for generating clusters [pval, num_of_voxels]
-            mask        : path (default: None)
-                ROIs mask for extracting timecourses
-                if not provided, then generating cluster map using evoked responses
-            cbv_param   : [echotime, number_of_volume_to_calc_average], list (default: None)
-                parameters to calculate CBV, if this parameters are given, CBV correction will be calculated
-            crop        : list [start, end]
-                range that you want to crop the time-course data
-            option      : str
-                option for ROIs extraction ('bilateral', 'merge', or 'contra')
-            ui          : bool
-                UI supports (default: False)
-            case        : str
-                Set this if you want to try multiple cases (default: None)
-                This parameter will be added as additional surfix next to the original surfix value
-            subject_wise: bool
-                Set this value as True if you want to apply subject level mask to extract timecourse data
-                The subject level masks are estimated by subtract group mask from individual clustered map
-            surfix      : str
+Parameters:
+    paradigm    : list
+        stimulation paradigm. [[[onset timepoints], [model,[param]]], [], ..]
+        e.g. [[[30, 100],['BLOCK',[10,1]]],[...],..]
+    fwhm        : float
+        Voxel Smoothness (mm)
+    thresholds : list (default: None)
+        Threshold for generating clusters [pval, num_of_voxels]
+    mask        : path (default: None)
+        ROIs mask for extracting timecourses
+        if not provided, then generating cluster map using evoked responses
+    cbv_param   : [echotime, number_of_volume_to_calc_average], list (default: None)
+        parameters to calculate CBV, if this parameters are given, CBV correction will be calculated
+
+    crop        : list [start, end]
+        range that you want to crop the time-course data (default: None)
+    option      : str
+        option for ROIs extraction ('bilateral', 'merge', or 'contra') (default: None)
+    ui          : bool
+        UI supports (default: False)
+    case        : str
+        Set this if you want to try multiple cases (default: None)
+        This parameter will be added as additional surfix next to the original surfix value
+    subject_wise: bool
+        Set this value as True if you want to apply subject level mask to extract timecourse data
+        The subject level masks are estimated by subtract group mask from individual clustered map
+        (default: False)
+    surfix      : str
+        folder surfix (default: 'func')
         """
         # Define attributes
         self.tmpobj = tmpobj

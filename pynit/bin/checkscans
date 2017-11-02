@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 __author__ = 'SungHo Lee (shlee@unc.edu)'
-# __version_info__ = ('2015', '09', '16')
-# __version_info__ = ('2017', '02', '09')
+__version_info__ = ('2017', '11', '02')
 
-import os, argparse, glob
+import os, argparse, glob, re
+from pynit.handler.images import BrukerRawData
 
 parser = argparse.ArgumentParser(prog='checkscans', description="Check the Scans in the Subjects of Bruker's Raw files")
 parser.add_argument("input", help="Input Image", type=str)
@@ -12,94 +12,60 @@ parser.add_argument("input", help="Input Image", type=str)
 args = parser.parse_args()
 
 def check_subject(subject_path):
+    # load subject information
+    header = BrukerRawData(subject_path).subject
+
     cur_path = os.getcwd()
     path = os.path.join(cur_path, subject_path)
-    scan_list = []
-    study_name = None
-    location = None
-    for comp in os.listdir(path):
-        if os.path.isdir(os.path.join(path, comp)):
-            try:
-                comp = int(comp)
-                scan_list.append(comp)
-            except:
-                pass
-        elif comp == 'subject':
-            with open(os.path.join(path, 'subject'), "r") as subj_file:
-                for line in subj_file:
-                    #if '##ORIGIN=' in line:
-                        #origin = line[9:].strip()
-                    #elif '##OWNER=' in line:
-                        #owner = line[8:].strip()
-                    if '##$SUBJECT_id' in line:
-                        study_name = subj_file.next().strip()[1:-1]
-                    elif '##$SUBJECT_location=' in line:
-                        location = subj_file.next().strip()[1:-1]
-
-    print('\n\nFolder [ %s ]' % subject_path)
-    print('\nThe lists for subject id [ %s ]' % study_name)
-    print('The protocols are saved in the folder of [ %s ]\n' % location)
-
-    for scan in sorted(scan_list):
-        scan_path = os.path.join(path, str(scan))
+    regex = re.compile('^[0-9]+$')
+    scan_list = sorted([int(n) for n in os.listdir(path) if (os.path.isdir(os.path.join(path, n)) and regex.match(n))])
+    context = []
+    context.append('*' * 90)
+    context.append('Folder: {}'.format(subject_path))
+    context.append('Scan date: {:<22}\tResearcher: {}'.format(header['SUBJECT_date'], header['SUBJECT_name_string']))
+    context.append('Protocol: {:<22}\tSession: {:<20}\tStudyNo: {}'.format(header['SUBJECT_location'],
+                                                                   header['SUBJECT_study_name'],
+                                                                   header['SUBJECT_study_nr']))
+    context.append('AnimalID: {:<22}\tSex: {:<19}\tWeight: {}kg'.format(header['SUBJECT_id'],
+                                                              header['SUBJECT_sex'],
+                                                              header['SUBJECT_weight']))
+    context.append('*' * 90)
+    context.append('Acquired scans:')
+    for num in sorted(scan_list):
+        _h = BrukerRawData(subject_path, num=num)
+        _shape = 'x'.join([str(i) for i in _h.get_shape() if i != 1][::-1])
+        scan_path = os.path.join(path, str(num))
+        has_data = '- No data'
+        reco = None
         if 'fid' in os.listdir(scan_path):
-            with open(os.path.join(scan_path, 'acqp')) as acqp_file:
-                n_slices = None
-                protocol_name = None
-                te = None
-                tr = None
-                dim = None
-                matrix = None
-                frame = None
-
-                for line in acqp_file:
-                    #if "##$ACQ_slice_thick=" in line:
-                        #slice_thick = line[19:]
-                    if "##$NSLICES=" in line:
-                        n_slices = line[11:].strip()
-                    elif "##$ACQ_protocol_name=" in line:
-                        protocol_name = acqp_file.next()[1:-2]
-                    elif "##$ACQ_echo_time=" in line:
-                        te = acqp_file.next().strip()
-                    elif "##$ACQ_repetition_time" in line:
-                        tr = acqp_file.next().strip()
-
-            with open(os.path.join(scan_path, 'method')) as mtd_file:
-                for line in mtd_file:
-                    if "##$PVM_Matrix=" in line:
-                        matrix = mtd_file.next().strip()
-                    elif "##$PVM_SpatDimEnum=" in line:
-                        dim = line[19:].strip()
-                        if dim == '3D':
-                            n_slices = ''
-                    elif "##$PVM_NRepetitions=" in line:
-                        frame = line[20:].strip()
-
-            print('[ %s ] %s (%s acqusition): < %s %s %s > TE: %s ms, TR: %s ms' % (scan, protocol_name,
-                                                                              dim, matrix, n_slices,
-                                                                              frame, te, tr))
+            has_data = ''
             pdata_path = os.path.join(scan_path, 'pdata')
-            recos = [str(reco) for reco in os.listdir(pdata_path) if os.path.isdir(os.path.join(pdata_path, reco))]
-            for reco in recos:
-                with open(os.path.join(scan_path, 'pdata', reco, 'reco')) as reco_file:
-                    map_mode = None
-                    map_range = None
-                    for line in reco_file:
-                        if "##$RECO_map_mode=" in line:
-                            map_mode = line[17:].strip()
-                        elif "##$RECO_map_range=" in line:
-                            map_range = reco_file.next().strip().split(' ')
-                print('\tpdata: {}, Recon-mode: {}, Range: {}'.format(reco, map_mode, map_range))
-        else:
-            pass
+            reco = [str(n) for n in os.listdir(pdata_path) if os.path.isdir(os.path.join(pdata_path, n))]
+        try:
+            te = "TE:{}".format(_h.acqp['ACQ_echo_time'])
+        except:
+            te = ''
+        context.append(' [{}] {} ({}) <{}> TR:{} {} {}'.format(str(num), _h.acqp['ACQ_protocol_name'],
+                                                               _h.method['Method'], _shape,
+                                                               _h.acqp['ACQ_repetition_time'],
+                                                               te, has_data))
+        if reco:
+            _context = []
+            for r in reco:
+                _r = BrukerRawData(subject_path, num=num, pid=r).reco
+                _context.append('    pid={}, mode={}, range={}'.format(r, _r['RECO_map_mode'],
+                                                                       _r['RECO_map_range']))
+            context.extend(_context)
+    context.append('\n')
+    return "\n".join(context)
 
 list = glob.glob(args.input+"*")
 if list == []:
-    print('This folder is not exist')
+    print('There is no available folder to meet your input')
 else:
     for folder in list:
         if os.path.isdir(folder):
-            check_subject(folder)
+            print(check_subject(folder))
         else:
             pass
 

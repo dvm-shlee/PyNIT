@@ -37,12 +37,15 @@ def shell(cmd):
         raiseerror(messages.Errors.InputValueError, 'Command can not be executed.')
 
 
-def scheduler(cmd):
+def scheduler(cmd, type='slurm'):
     """ Execute shell command through scheduler for cluster computing
-
     :param cmd: command to execute
     :return: stdout, error
     """
+    if type == 'slurm':
+        pass
+    else:
+        pass
     return cmd
 
 
@@ -79,7 +82,9 @@ def raiseerror(exception, message):
 
 
 def mkdir(*paths):
-    """ Make list of directories
+    """ make all given directories
+    :param paths: directories want to make
+    :type paths: str[,str,..]
     """
     for path in paths:
         basedir = os.path.dirname(path)
@@ -103,18 +108,31 @@ def mkdir(*paths):
 
 
 def path_splitter(path):
-    """ Split path structure into list
+    """ Split path sting into list
+
+    :param path: path string want to split
+    :type path: str
     """
     return path.strip(os.sep).split(os.sep)
 
 
 def copyfile(output_path, input_path):
-    """ Copy File
+    """ copy files from input_path to output_path
+
+    :param output_path: destination path
+    :param input_path: origin path
+    :type output_path: str
+    :type input_path: str
     """
     shutil.copyfile(input_path, output_path)
 
 
 def update(*args):
+    """ Upgrade python module
+
+    :param args: list of python modules want to upgrade. if not given, this method upgrade pynit module
+    :type args: str, ...
+    """
     if not len(args):
         pip.main(['install', '--upgrade', 'pynit'])
     else:
@@ -122,4 +140,8 @@ def update(*args):
 
 
 def install(*args):
+    """ Install python module
+    :param args: list of python modules want to install
+    :type args: str, ...
+    """
     pip.main(['install'] + args)

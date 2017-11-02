@@ -4,8 +4,13 @@ PyNIT (Python NeuroImaging Toolkit)
 """
 from distutils.core import setup
 from setuptools import find_packages
+import re, io
 
-__version__ = '0.1.5'
+__version__ = re.search(
+    r'__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
+    io.open('pynit/__init__.py', encoding='utf_8_sig').read()
+    ).group(1)
+
 __author__ = 'SungHo Lee'
 __email__ = 'shlee@unc.edu'
 __url__ = 'https://dvm-shlee.github.io'
@@ -18,9 +23,18 @@ setup(name='PyNIT',
       url=__url__,
       license='GNLv3',
       packages=find_packages(),
-      install_requires=['jupyter', 'tqdm', 'pandas', 'openpyxl', 'xlrd', 'nibabel', #platform
-                        'matplotlib', 'seaborn', 'scikit-image',                    #visulaization
-                        'numpy', 'scipy', 'scikit-learn',                           #computation
+      install_requires=['jupyter>=1.0.0',
+                        'tqdm',
+                        'pandas',
+                        'openpyxl',
+                        'xlrd',
+                        'nibabel',
+                        'matplotlib',
+                        'seaborn',
+                        'scikit-image',
+                        'numpy',
+                        'scipy',
+                        'scikit-learn',
                         'psutil',
                         ],
       scripts=['pynit/bin/brk2nifti',

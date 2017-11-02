@@ -1,29 +1,13 @@
 import json
 import os
-import sys
 from shutil import copy
-
 from pynit.tools import messages
 from pynit.tools import methods
 from pynit.handler.project import Project
 from pynit.pipelines import pipelines
 from pynit.process import Process
-from IPython import get_ipython
+from ..tools import progressbar, display, clear_output, HTML as title
 
-jupyter_env = False
-try:
-    cfg = get_ipython().config
-    from tqdm import tqdm_notebook as progressbar
-    from ipywidgets import widgets
-    from ipywidgets.widgets import HTML as title
-    from IPython.display import display, display_html, clear_output
-    jupyter_env = True
-except:
-    from pprint import pprint as display
-    title = str
-    from tqdm import tqdm as progressbar
-    def clear_output():
-        pass
 
 class Pipelines(object):
     """ Pipeline handler
@@ -107,30 +91,35 @@ class Pipelines(object):
         else:
             methods.raiseerror(messages.Errors.InitiationFailure, 'Pipeline package is not specified')
 
-    def afni(self, idx):
-        self._proc.afni(idx, self._tmpobj)
+    def afni(self, idx, dc=0):
+        """
 
-    def help(self, pipeline):
+        :param idx:
+        :param dc:
+        :return:
+        """
+        self._proc.afni(idx, self._tmpobj, dc=dc)
+
+    def help(self, idx):
         """ Print help function
 
-        :param pipeline:
+        :param idx: index of available pipeline package
+        :type idx: int
         :return:
         """
         selected = None
-        if isinstance(pipeline, int):
-            pipeline = self.avail[pipeline]
-        if pipeline in self.avail.values():
-            command = 'selected = pipelines.{}(self._proc, self._tmpobj)'.format(pipeline)
+        if isinstance(idx, int):
+            idx = self.avail[idx]
+        if idx in self.avail.values():
+            command = 'selected = pipelines.{}(self._proc, self._tmpobj)'.format(idx)
             exec(command)
             print(selected.__init__.__doc__)
-            avails = ["\t{} : {}".format(*item) for item in selected.avail.items()]
-            output = ["List of available pipelines:"] + avails
-            print("\n".join(output))
 
     def run(self, idx, **kwargs):
         """Execute selected pipeline
 
-        :param idx:
+        :param idx: index of available pipeline
+        :type idx: int
         :return:
         """
         display(title('---=[[[ Running "{}" pipeline ]]]=---'.format(self.selected.avail[idx])))
@@ -147,7 +136,13 @@ class Pipelines(object):
         self._proc.save_history()
 
     def get_proc(self):
-        return self._proc
+        if self._proc:
+            return self._proc
+        else:
+            methods.raiseerror(messages.Errors.PackageUpdateFailure, 'Pipeline package is not defined')
+
+    def get_prj(self):
+        return self.__prj
 
     def __init_path(self, name):
         """Initiate path
@@ -192,16 +187,27 @@ class Pipelines(object):
 
     def group_organizer(self, origin, target, step_id, group_filters, option_filters=None, cbv=None,
                         **kwargs):
-        """Organizing groups for 2nd level analysis
+        """Organizing groups using given filter for applying 2nd level analysis
 
-        :param origin:      Pipeline id of original location
-        :param target:      Pipeline id of destination
-        :param step_id:     step ID of processed folder need to be use for organizing group
-        :param group_filters: Group filters, (e.g. dict(group=[[subj_id],[sess_id],filters], ...))
-        :param option_filters:  dict(step_id=filters, ...)
-        :param cbv:         If CBV image, put step ID
-        :param kwargs:      ADditional option for initiating pipeline
-        :return:
+        :param origin:          index of package that subjects data are located
+        :param target:          index of package that groups need to be organized
+        :param step_id:         step ID that contains preprocessed subjects data
+        :param group_filters:   group filters, (e.g. dict(group1=[list(subj_id,..),
+                                                                  list(sess_id,..),
+                                                                  dict(file_tag=.., ignore=..)],
+                                                          group2=...))
+        :param cbv:             if CBV correction needed, put step ID of preprocessed MION infusion image
+                                (Default=None)
+        :param option_filters:  if additional files need to be sent to the group folder,
+                                dict(step_id=filters, ...) (Default=None)
+        :param kwargs:          Additional option to initiate pipeline package
+        :type origin:           int
+        :type target:           int
+        :type step_id:          int
+        :type group_filters:    dict
+        :type cbv:              int
+        :type option_filters:   dict
+        :type kwargs:           key=value pairs
         """
         display(title('---=[[[ Move subject to group folder ]]]=---'))
         self.initiate(target, listing=False, **kwargs)
