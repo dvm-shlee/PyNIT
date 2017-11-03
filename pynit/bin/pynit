@@ -1,9 +1,13 @@
 #!/usr/bin/env python
-
-import argparse
+import argparse, re, io
 import numpy as np
 import nibabel as nib
 from sklearn.linear_model import BayesianRidge
+
+__version__ = re.search(
+    r'__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
+    io.open('../__init__.py', encoding='utf_8_sig').read()
+    ).group(1)
 
 
 def get_mask(path):

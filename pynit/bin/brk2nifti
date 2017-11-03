@@ -1,24 +1,81 @@
 #!/usr/bin/env python
 
 __author__ = 'SungHo Lee (shlee@unc.edu)'
-__version_info__ = ('2017', '03', '25')
-__version__ = '-'.join(__version_info__) + 'REV04'
+__version_info__ = ('2017', '11', '02')
+__version__ = '-'.join(__version_info__)
 
-import argparse, os
+import argparse, os, re
 from pynit.handler.images import BrukerRawData
+from pynit.tools import methods
 
 
 def main():
     parser = argparse.ArgumentParser(prog='brk2nifti', description="Convert Bruker raw data to Nifti formated image")
-    parser.add_argument("pid", help="Proccessed ID (in case image is reconstructed)")
     parser.add_argument("path", help="Folder location for the Bruker raw data", type=str)
-    parser.add_argument("filename", help="Filename w/o extension to export NifTi image", type=str)
+    parser.add_argument("-o", "--output", help="Filename w/o extension to export NifTi image", type=str, default=False)
+    parser.add_argument("-i", "--pid", help="Proccessed ID (in case image is reconstructed)", type=int, default=1)
+    parser.add_argument("-s", "--scanid", help="Folder location for the Bruker raw data", type=str, default=False)
     parser.add_argument("-V", "--version", action="version", version="%(prog)s ("+__version__+")")
-    parser.add_argument("-o", "--orient", help="Reorientation to correct space", action='store_true', default=0)
+    parser.add_argument("-O", "--orient", help="Reorientation to correct space", action='store_true', default=0)
     args = parser.parse_args()
 
-    img = BrukerRawData(os.getcwd(), args.path, args.pid, ori=args.orient, convert=True)
-    img.nii.to_filename('{}.nii.gz'.format(args.filename))
+    path = args.path
+    if not args.output:
+        _subj = BrukerRawData(path).subject
+        output = "sub-{}".format(_subj['SUBJECT_id'])
+    else:
+        output = args.output
+    if args.scanid:
+        output = "{}-{}-{}".format(output, args.pid, str(args.scanid).zfill(2))
+        img = BrukerRawData(path, args.scanid, args.pid, ori=args.orient, convert=True)
+        img.nii.to_filename('{}.nii.gz'.format(output))
+    else:
+        methods.mkdir(output)
+        regex = re.compile('^[0-9]+$')
+        scan_list = sorted([int(n) for n in os.listdir(path) if (os.path.isdir(os.path.join(path, n)) and regex.match(n))])
+        for num in sorted(scan_list):
+            try:
+                pid_list = sorted([int(n) for n in os.listdir(os.path.join(path, str(num), 'pdata')) if regex.match(n)])
+                _raw = BrukerRawData(path, num)
+                _method = _raw.method['Method']
+                if _method == 'EPI':
+                    if _raw.method['PVM_NRepetitions'] > 1:
+                        dtype = 'func'
+                    else:
+                        dtype = None
+                elif _method == 'DtiEpi':
+                    dtype = 'dwi'
+                elif _method == 'FieldMap':
+                    dtype = 'fmap'
+                elif _method == 'RARE' or _method == 'FLASH':
+                    if isinstance(_raw.method['PVM_SPackArrSliceOrient'], str):
+                        dtype = 'anat'
+                    else:
+                        dtype = None
+                else:
+                    dtype = None
+                if dtype:
+                    for pid in pid_list:
+                        ses = BrukerRawData(path).subject['SUBJECT_study_name']
+                        if ses:
+                            ses_path = os.path.join(output, 'ses-{}'.format(ses))
+                            dtype_path = os.path.join(output, 'ses-{}'.format(ses), dtype)
+                            methods.mkdir(ses_path, dtype_path)
+                            surfix = 'ses-{}_{}'.format(ses, str(num).zfill(2))
+                        else:
+                            dtype_path = os.path.join(output, dtype)
+                            methods.mkdir(dtype_path)
+                            surfix = '{}'.format(str(num).zfill(2))
+                        if len(pid_list) > 1:
+                            surfix = '{}_rec-{}'.format(surfix, str(pid).zfill(2))
+                        filepath = os.path.join(dtype_path, '{}_{}.nii.gz'.format(output, surfix))
+                        try:
+                            img = BrukerRawData(path, num, pid, ori=args.orient, convert=True)
+                            img.nii.to_filename(filepath)
+                        except:
+                            pass
+            except:
+                pass
 
 if __name__ == '__main__':
     main()

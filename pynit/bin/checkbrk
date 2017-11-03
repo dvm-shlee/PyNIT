@@ -32,30 +32,33 @@ def check_subject(subject_path):
     context.append('*' * 90)
     context.append('Acquired scans:')
     for num in sorted(scan_list):
-        _h = BrukerRawData(subject_path, num=num)
-        _shape = 'x'.join([str(i) for i in _h.get_shape() if i != 1][::-1])
-        scan_path = os.path.join(path, str(num))
-        has_data = '- No data'
-        reco = None
-        if 'fid' in os.listdir(scan_path):
-            has_data = ''
-            pdata_path = os.path.join(scan_path, 'pdata')
-            reco = [str(n) for n in os.listdir(pdata_path) if os.path.isdir(os.path.join(pdata_path, n))]
         try:
-            te = "TE:{}".format(_h.acqp['ACQ_echo_time'])
+            _h = BrukerRawData(subject_path, num=num)
+            _shape = 'x'.join([str(i) for i in _h.get_shape() if i != 1][::-1])
+            scan_path = os.path.join(path, str(num))
+            has_data = '- No data'
+            reco = None
+            if 'fid' in os.listdir(scan_path):
+                has_data = ''
+                pdata_path = os.path.join(scan_path, 'pdata')
+                reco = [str(n) for n in os.listdir(pdata_path) if os.path.isdir(os.path.join(pdata_path, n))]
+            try:
+                te = "TE:{}".format(_h.acqp['ACQ_echo_time'])
+            except:
+                te = ''
+            context.append(' [{}] {} ({}) <{}> TR:{} {} {}'.format(str(num), _h.acqp['ACQ_protocol_name'],
+                                                                   _h.method['Method'], _shape,
+                                                                   _h.acqp['ACQ_repetition_time'],
+                                                                   te, has_data))
+            if reco:
+                _context = []
+                for r in reco:
+                    _r = BrukerRawData(subject_path, num=num, pid=r).reco
+                    _context.append('    pid={}, mode={}, range={}'.format(r, _r['RECO_map_mode'],
+                                                                           _r['RECO_map_range']))
+                context.extend(_context)
         except:
-            te = ''
-        context.append(' [{}] {} ({}) <{}> TR:{} {} {}'.format(str(num), _h.acqp['ACQ_protocol_name'],
-                                                               _h.method['Method'], _shape,
-                                                               _h.acqp['ACQ_repetition_time'],
-                                                               te, has_data))
-        if reco:
-            _context = []
-            for r in reco:
-                _r = BrukerRawData(subject_path, num=num, pid=r).reco
-                _context.append('    pid={}, mode={}, range={}'.format(r, _r['RECO_map_mode'],
-                                                                       _r['RECO_map_range']))
-            context.extend(_context)
+            context.append(' [{}] -No data'.format(str(num)))
     context.append('\n')
     return "\n".join(context)
 
