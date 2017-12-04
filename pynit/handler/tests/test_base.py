@@ -3,7 +3,7 @@ import unittest
 from pynit.handler.base import BaseProcessor
 from pynit import Project, Process
 
-testpath = '/Users/shlee419/DataFiles/2_Testing/170718_test'
+testpath = '/Users/shlee419/DataFiles/2_Testing/171101_TestProject'
 
 class TestBaseProcessor(unittest.TestCase):
 
@@ -89,17 +89,17 @@ class TestBaseProcessor(unittest.TestCase):
     def test_0_1_GIBFO(self):    # Group Inputs, Base Folder Outputs
         print('{0} Testing case of Group Inputs, Base Folder Outputs {0}'.format('*-' * 10))
         step = BaseProcessor(self.prc)
-        step.set_input(name='test_group1', path='func', filters=dict(subj=['a', 'b', 'c']), type=2, kwargs=dict(test='123'))
-        step.set_input(name='test_group2', path='func', filters=dict(subj=['d', 'e', 'f']), type=2)
-        step.set_output(name='test_output', dc=1, type=1)
+        step.set_input(name='test_group1', path='func', filters=dict(subj=['a', 'b', 'c']), type=3, kwargs=dict(test='123'))
+        step.set_input(name='test_group2', path='func', filters=dict(subj=['d', 'e', 'f']), type=3)
+        step.set_output(name='test_output', dc=1, type=1, prefix='test')
         step.set_cmd('3dcopy {test_group1} {test_group1_test} {test_group2} {test_output}')
         print(step.build_func(name='test') + '\n\n')
 
     def test_0_2_GIBFO(self):    # Group Inputs, New Folder Outputs
         print('{0} Testing case of Group Inputs, New Folder Outputs {0}'.format('*-' * 10))
         step = BaseProcessor(self.prc)
-        step.set_input(name='test_group1', path='func', filters=dict(subj=['a', 'b', 'c']), type=2, kwargs=dict(test='123'))
-        step.set_input(name='test_group2', path='func', filters=dict(subj=['d', 'e', 'f']), type=2)
+        step.set_input(name='test_group1', path='func', filters=dict(subj=['a', 'b', 'c']), type=3, kwargs=dict(test='123'))
+        step.set_input(name='test_group2', path='func', filters=dict(subj=['d', 'e', 'f']), type=3)
         step.set_output(name='test_output', dc=1, type=2, prefix='test')
         step.set_cmd('3dcopy {test_group1} {test_group1_test} {test_group2} {test_output}')
         print(step.build_func(name='test') + '\n\n')
@@ -107,8 +107,8 @@ class TestBaseProcessor(unittest.TestCase):
     def test_0_3_GIBFO(self):    # Group Inputs, New Folder Outputs
         print('{0} Testing case of Group Inputs, New Folder Outputs {0}'.format('*-' * 10))
         step = BaseProcessor(self.prc)
-        step.set_input(name='test_group1', path='func', filters=dict(subj=['a', 'b', 'c']), type=2, kwargs=dict(test='123'))
-        step.set_input(name='test_group2', path='func', filters=dict(subj=['d', 'e', 'f']), type=2)
+        step.set_input(name='test_group1', path='func', filters=dict(subj=['a', 'b', 'c']), type=3, kwargs=dict(test='123'))
+        step.set_input(name='test_group2', path='func', filters=dict(subj=['d', 'e', 'f']), type=3)
         step.set_output(name='test_output', dc=1, type=2, prefix='test', ext='remove')
         step.set_cmd('3dcopy {test_group1} {test_group1_test} {test_group2} {test_output}')
         print(step.build_func(name='test') + '\n\n')
@@ -116,10 +116,19 @@ class TestBaseProcessor(unittest.TestCase):
     def test_0_4_GIBFO(self):    # Group Inputs, New File Outputs
         print('{0} Testing case of Group Inputs, New File Outputs with extension {0}'.format('*-' * 10))
         step = BaseProcessor(self.prc)
-        step.set_input(name='test_group1', path='func', filters=dict(subj=['a', 'b', 'c']), type=2, kwargs=dict(test='123'))
-        step.set_input(name='test_group2', path='func', filters=dict(subj=['d', 'e', 'f']), type=2)
+        step.set_input(name='test_group1', path='func', filters=dict(subj=['a', 'b', 'c']), type=3, kwargs=dict(test='123'))
+        step.set_input(name='test_group2', path='func', filters=dict(subj=['d', 'e', 'f']), type=3)
         step.set_output(name='test_output', dc=1, type=2, prefix='test', ext='nii.gz')
         step.set_cmd('3dcopy {test_group1} {test_group1_test} {test_group2} {test_output}')
+        print(step.build_func(name='test') + '\n\n')
+
+    def test_10_MIBFO(self):    # Group Inputs, New File Outputs
+        print('{0} Testing case of Multi Inputs, New File Outputs with extension {0}'.format('*-' * 10))
+        step = BaseProcessor(self.prc)
+        step.set_input(name='func', path='func', type=2)
+        step.set_output(name='test_output', dc=1, type=1, level=1,
+                        prefix='test', ext='nii.gz')
+        step.set_cmd('3dcopy {func} {test_output}')
         print(step.build_func(name='test') + '\n\n')
 
     def tearDown(self):

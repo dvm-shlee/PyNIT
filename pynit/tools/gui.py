@@ -4,21 +4,33 @@ import methods
 from .__init__ import widgets
 
 
-def afni(procobj, input_path, tmpobj=None):
+def afni(procobj, input_path, tmpobj=None): #TODO: update for multi-session case
     """Launch afni
 
     :param procobj:
     :param input_path:
+    :param tmpobj:
     :return:
     """
     groups = procobj._subjects[:]
     groups_path = map(os.path.join, [input_path] * len(groups), groups)
+
     if tmpobj:
         out, err = methods.shell('afni {} -dset {}'.format(str(' '.join(groups_path)), tmpobj._path))
     else:
         out, err = methods.shell('afni {}'.format(str(' '.join(groups_path))))
     return out, err
 
+
+def fsleyes(procobj, input_path, tmpobj=None): #TODO: need to make this work
+    """ Launch fsleyes
+
+    :param procobj:
+    :param input_path:
+    :param tmpobj:
+    :return:
+    """
+    pass
 
 def itksnap(procobj, input_path, temp_path=None):
     """ run itksnap for given pass
@@ -85,6 +97,7 @@ def itksnap(procobj, input_path, temp_path=None):
         else:
             scan_list = []
             try:
+                print(subj_path)
                 for scan in os.listdir(subj_path):
                     if all(ext in scan for ext in img_ext):
                         scan_list.append(scan)

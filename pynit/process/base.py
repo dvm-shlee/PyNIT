@@ -118,8 +118,10 @@ class BaseProcess(object):
         :return:
         """
         if dc==0:
+            self.update()
             gui.afni(self, self.steps[idx], tmpobj)
         elif dc==1:
+            self.update()
             gui.afni(self, self.results[idx], tmpobj)
         else:
             methods.raiseerror(messages.Errors.InputValueError, '')

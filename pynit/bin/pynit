@@ -4,10 +4,7 @@ import numpy as np
 import nibabel as nib
 from sklearn.linear_model import BayesianRidge
 
-__version__ = re.search(
-    r'__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
-    io.open('../__init__.py', encoding='utf_8_sig').read()
-    ).group(1)
+__version__ = '0.0.1'
 
 
 def get_mask(path):
@@ -32,10 +29,15 @@ def dualRegression(args):
     input_data = np.asarray(nib.load(args.input).dataobj)
     ics = np.asarray(nib.load(args.regressor).dataobj)
     mask = get_mask(args.mask)
-    comp_n = args.index
 
     x, y, z, t = input_data.shape
-    ics = ics.reshape(x * y * z, ics.shape[-1])
+    if len(ics.shape) > 3:
+        ics = ics.reshape(x * y * z, ics.shape[-1])
+        comp_n = args.index
+    else:
+        ics = ics.reshape(x * y * z)
+        ics = np.expand_dims(ics, 3)
+        comp_n = 0
     mask = mask.reshape(x * y * z)
     input_data = input_data.reshape(x * y * z, t)
 
@@ -53,7 +55,7 @@ def dualRegression(args):
 def main():
     parser = argparse.ArgumentParser(prog='pynit',# formatter_class=SmartFormatter,
                                      description="Collection of PyNIT processing and analyzing functions")
-    parser.add_argument("-v", "--version", action='version', version ='%(prog)s 0.0.1')
+    parser.add_argument("-v", "--version", action='version', version ='%(prog)s v{}'.format(__version__))
 
     subparsers = parser.add_subparsers(title='Sub-commands',
                                        description='Something description',
@@ -71,7 +73,10 @@ def main():
 
     args = parser.parse_args()
     if args.function == 'dualreg':
+        # try:
         args.func(args)
+        # except:
+        #     print(dualreg.format_usage())
     else:
         pass
 

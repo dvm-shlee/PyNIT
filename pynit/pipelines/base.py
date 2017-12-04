@@ -6,26 +6,38 @@ from pynit.tools import methods
 from pynit.handler.project import Project
 from pynit.pipelines import pipelines
 from pynit.process import Process
-from ..tools import progressbar, display, clear_output, HTML as title
+from ..tools import progressbar, display, clear_output, HTML as title, display_html
 
 
+#TODO: option for logging need to be subdivided, error messages need to be more clear
 class Pipelines(object):
     """ Pipeline handler
 
     This class is the major features of PyNIT project (for most of general users)
     You can either use default pipeline packages we provide or load custom designed pipelines
     """
-    def __init__(self, prj_path, tmpobj, logging=True, viewer='itksnap'):
+    def __init__(self, prj_path, tmpobj, logging=True, viewer='itksnap', **kwargs):
         """Initiate class
 
-        :param prj_path:
-        :param tmpobj:
-        :param logging:
+        :param prj_path:    Project path
+        :param tmpobj:      Template image
+        :param logging:     generate log file (default=True)
+        :param viewer:      viewer tool to edit ROI, this feature only tested on Mac (default='itksnap')
+        :param ds_ref:      Data class reference (default='NIRAL')
+        :param img_format:  Image format reference (default='NifTi-1')
+        :type prj_path:     str
+        :type tmpobj:       pynit.Template
+        :type logging:      bool
+        :type viewer:       str
+        :type ds_ref:       str
+        :type img_format:   str
         """
 
         # Define default attributes
-        self.__prj = Project(prj_path)
+        self.__prj = Project(prj_path, **kwargs)
+        self._procobj = Process
         self._proc = None
+        self._pipeobj = pipelines
         self._tmpobj = tmpobj
         self._logging = logging
         self.selected = None
@@ -42,25 +54,52 @@ class Pipelines(object):
 
     @property
     def avail(self):
-        pipes = [pipe for pipe in dir(pipelines) if 'PipeTemplate' not in pipe if '__' not in pipe]
+        pipes = [pipe for pipe in dir(self._pipeobj) if 'PipeTemplate' not in pipe if '__' not in pipe if pipe[0] != '_']
         n_pipe = len(pipes)
         output = dict(zip(range(n_pipe), pipes))
         return output
 
-    def initiate(self, pipeline, verbose=False, listing=True, **kwargs):
-        """Initiate pipeline
+    #TODO: method to clean pipeline steps folder need to be provided
 
-        :param pipeline:
-        :param verbose:
-        :param kwargs:
-        :return:
+    def unload(self):
+        """ Unload all plugin, and use default pipelines and processes
+        """
+        self._procobj = Process
+        self._pipeobj = pipelines
+
+    def load(self, proc=None, pipe=None):
+        """ Load plugin for custom-coded pipelines and processes.
+        If you want more detail information about this plugin feature,
+        please visit out documentation.
+
+        :param proc:    custom-coded processes (python script)
+        :param pipe:    custom-coded pipelines (python script)
+        :type proc:     str
+        :type pipe:     str
+        """
+        import imp
+        if proc:
+            self._procobj = imp.load_source('Process', proc).Process
+        if pipe:
+            self._pipeobj = imp.load_source('', pipe)
+        del imp
+
+    def initiate(self, package_id, verbose=False, listing=True, **kwargs):
+        """Initiate package
+
+        :param package_id:  Id code for package to initiate
+        :param verbose:     Printing out the help of initiating package
+        :param kwargs:      Input parameters for initiating package
+        :type package_id:   int
+        :type verbose:      bool
+        :type kwargs:       key=value pairs
         """
         self.__prj.reload()
-        if isinstance(pipeline, int):
-            pipeline = self.avail[pipeline]
-        if pipeline in self.avail.values():
-            self._proc = Process(self.__prj, pipeline, logging=self._logging, viewer=self._viewer)
-            command = 'self.selected = pipelines.{}(self._proc, self._tmpobj'.format(pipeline)
+        if isinstance(package_id, int):
+            package_id = self.avail[package_id]
+        if package_id in self.avail.values():
+            self._proc = self._procobj(self.__prj, package_id, logging=self._logging, viewer=self._viewer)
+            command = 'self.selected = self._pipeobj.{}(self._proc, self._tmpobj'.format(package_id)
             if kwargs:
                 command += ', **{})'.format('kwargs')
             else:
@@ -71,25 +110,35 @@ class Pipelines(object):
         if verbose:
             print(self.selected.__init__.__doc__)
         if listing:
+            display_html("The package '{}' is initiated.<br>"
+                         "Please double check if all parameters are "
+                         "correctly provided before run this pipline".format(package_id))
             avails = ["\t{} : {}".format(*item) for item in self.selected.avail.items()]
             output = ["List of available pipelines:"] + avails
             print("\n".join(output))
 
     def set_param(self, **kwargs):
-        """Set additional parameters
+        """Set parameters
 
-        :param kwargs:
-        :return:
+        :param kwargs:      Input parameters for current initiated package
         """
         if self.selected:
             for key, value in kwargs.items():
                 if hasattr(self.selected, key):
                     setattr(self.selected, key, value)
+                    self.selected.update()
                 else:
                     print(key)
                     methods.raiseerror(messages.Errors.KeywordError, '{} is not available keyword for this project')
         else:
             methods.raiseerror(messages.Errors.InitiationFailure, 'Pipeline package is not specified')
+
+    def get_param(self):
+        if self.selected:
+            return dict([(param, getattr(self.selected, param)) for param in dir(self.selected) if param[0] != '_'
+                         if 'pipe_' not in param if param not in ['avail', 'proc', 'tmpobj', 'update']])
+        else:
+            return None
 
     def afni(self, idx, dc=0):
         """
@@ -98,7 +147,7 @@ class Pipelines(object):
         :param dc:
         :return:
         """
-        self._proc.afni(idx, self._tmpobj, dc=dc)
+        self._proc.afni(idx, dc=dc)
 
     def help(self, idx):
         """ Print help function
@@ -111,7 +160,7 @@ class Pipelines(object):
         if isinstance(idx, int):
             idx = self.avail[idx]
         if idx in self.avail.values():
-            command = 'selected = pipelines.{}(self._proc, self._tmpobj)'.format(idx)
+            command = 'selected = self._pipeobj.{}(self._proc, self._tmpobj)'.format(idx)
             exec(command)
             print(selected.__init__.__doc__)
 
@@ -122,8 +171,9 @@ class Pipelines(object):
         :type idx: int
         :return:
         """
+        self.set_param(**kwargs)
         display(title('---=[[[ Running "{}" pipeline ]]]=---'.format(self.selected.avail[idx])))
-        exec('self.selected.pipe_{}(**kwargs)'.format(self.selected.avail[idx]))
+        exec('self.selected.pipe_{}()'.format(self.selected.avail[idx]))
 
     def update(self):
         proc = self._proc
@@ -186,28 +236,56 @@ class Pipelines(object):
             methods.raiseerror(messages.Errors.InitiationFailure, 'Error on initiating step')
 
     def group_organizer(self, origin, target, step_id, group_filters, option_filters=None, cbv=None,
-                        **kwargs):
+                        listing=True, help=False, **kwargs):
         """Organizing groups using given filter for applying 2nd level analysis
+        In terms of the 'filters', here is two types that you have to distinguish,
+        First type is group filter to classify data into group, it can be defined as below
+        :example:
+        case 1. Assume that you have a subjects of 'sub-e01', 'sub-e02' as an experimental group
+                and 'sub-c01', 'sub-c02' as an control group, and have two sessions for each saline injection
+                and drug injection ('ses-sal' and 'ses-drg' respectively). Finally, the files you want to
+                analyze has 'task-pharm' tag as filename.
+                To design filter, you you can define group filters as below
+
+        >> exp_group = ['sub-e01', 'sub-e02']
+        >> con_group = ['sub-c01', 'sub-c02']
+        >> sess = ['ses-sal', 'ses-drg']
+        >> filename_filters = dict(file_tag=['task-pharm'])
+        >> group_filters = dict(exp_sal= [ exp_group, sess[0], filename_filters ],
+                                exp_drg= [ exp_group, sess[1], filename_filters ],
+                                con_sal= [ con_group, sess[0], filename_filters ],
+                                con_drg= [ con_group, sess[1], filename_filters ],)
+
+        Second type is filename filter which is widely used in PyNIT. This filter, you
 
         :param origin:          index of package that subjects data are located
         :param target:          index of package that groups need to be organized
         :param step_id:         step ID that contains preprocessed subjects data
-        :param group_filters:   group filters, (e.g. dict(group1=[list(subj_id,..),
-                                                                  list(sess_id,..),
-                                                                  dict(file_tag=.., ignore=..)],
-                                                          group2=...))
+        :param group_filters:   Filters to provide components of group. Please provide as below shape
+                                e.g. dict(group1=[list(subj_id,..),
+                                                  list(sess_id,..),
+                                                  dict(file_tag=.., ignore=..)],
+                                          group2=[list(...), list(...), filename_filter]))
         :param cbv:             if CBV correction needed, put step ID of preprocessed MION infusion image
                                 (Default=None)
-        :param option_filters:  if additional files need to be sent to the group folder,
-                                dict(step_id=filters, ...) (Default=None)
+        :param option_filters:  While running pipeline, only the files inside the package folder are used.
+                                (e.g. 'A_fMRI_preprocess'). in case you want to use other derived data
+                                or meta data such as physiological records, estimated motion paradigm,
+                                you should provide option_filters to move together with your image data.
+                                In case you want to use this filter, please provide as below shape
+                                e.g. dict(step_id=filename_filters,
+                                          step_id=filename_filters,...)
+                                step id can be 1) DataType is source folder, or 2) index of pipeline step
+                                (Default=None)
         :param kwargs:          Additional option to initiate pipeline package
+                                To provide this options please check help document on the package
         :type origin:           int
         :type target:           int
         :type step_id:          int
-        :type group_filters:    dict
+        :type group_filters:    dict(key=list(list, list, dict), key=list(list, list, dict),...)
         :type cbv:              int
-        :type option_filters:   dict
-        :type kwargs:           key=value pairs
+        :type option_filters:   dict(key=dict(), key=dict(),...)
+        :type kwargs:           key=value, key=value, ...
         """
         display(title('---=[[[ Move subject to group folder ]]]=---'))
         self.initiate(target, listing=False, **kwargs)
@@ -218,7 +296,7 @@ class Pipelines(object):
         for group in progressbar(sorted(groups), desc='Subjects'):
             grp_path = os.path.join(init_path, group)
             methods.mkdir(grp_path)
-            if self.__prj.single_session:
+            if self.__prj.single_session: # If dataset is single session
                 if group_filters[group][2]:
                     dset = self.__prj(1, input_proc.processing, input_proc.executed[step_id],
                                       *group_filters[group][0], **group_filters[group][2])
@@ -227,9 +305,14 @@ class Pipelines(object):
                                       *group_filters[group][0])
                 if option_filters:
                     for i, id in enumerate(option_filters.keys()):
-                        oset[i] = self.__prj(1, input_proc.processing, input_proc.executed[id],
-                                             *group_filters[group][0], **option_filters[id])
-            else:
+                        if isinstance(id, int):
+                            oset[i] = self.__prj(1, input_proc.processing, input_proc.executed[id],
+                                                 *group_filters[group][0], **option_filters[id])
+                        elif isinstance(id, str):
+                            if id in list(set(self.__prj.df.DataType)):
+                                oset[i] = self.__prj(1, input_proc.processing, id,
+                                                     *group_filters[group][0], **option_filters[id])
+            else: # multi-session data
                 grp_path = os.path.join(init_path, group, 'Files')
                 methods.mkdir(grp_path)
                 if group_filters[group][2]:
@@ -242,16 +325,28 @@ class Pipelines(object):
                 if option_filters:
                     oset = dict()
                     for i, id in enumerate(option_filters.keys()):
-                        oset[i] = self.__prj(1, input_proc.processing, input_proc.executed[id],
-                                             *(group_filters[group][0] + group_filters[group][1]),
-                                             **option_filters[id])
-            for i, finfo in dset:
+                        if isinstance(id, int):
+                            oset[i] = self.__prj(1, input_proc.processing, input_proc.executed[id],
+                                                 *(group_filters[group][0] + group_filters[group][1]),
+                                                 **option_filters[id])
+                        elif isinstance(id, str):
+                            if id in list(set(self.__prj.df.DataType)):
+                                oset[i] = self.__prj(0, input_proc.processing, id,
+                                                     *(group_filters[group][0] + group_filters[group][1]),
+                                                     **option_filters[id])
+                            else:
+                                pass #TODO: error message, and log something
+                        else:
+                            pass #TODO: error message, and log something
+
+            # Copy selected files into the group folder
+            for i, finfo in dset: # Preprocessed dataset
                 output_path = os.path.join(grp_path, finfo.Filename)
                 if os.path.exists(output_path):
                     pass
                 else:
                     copy(finfo.Abspath, os.path.join(grp_path, finfo.Filename))
-                    if cbv:
+                    if cbv: # CBV infusion files
                         if self.__prj.single_session:
                             cbv_file = self.__prj(1, input_proc.processing, input_proc.executed[cbv], finfo.Subject)
                         else:
@@ -259,12 +354,12 @@ class Pipelines(object):
                                                   finfo.Subject, finfo.Session)
                         with open(methods.splitnifti(output_path)+'.json', 'wb') as f:
                             json.dump(dict(cbv=cbv_file[0].Abspath), f)
-            if option_filters:
+            if option_filters: # Regressors or other metadata
                 for prj in oset.values():
                     for i, finfo in prj:
                         output_path = os.path.join(grp_path, finfo.Filename)
                         if os.path.exists(output_path):
-                            pass
+                            pass #TODO: log something
                         else:
                             copy(finfo.Abspath, os.path.join(grp_path, finfo.Filename))
 
@@ -273,7 +368,15 @@ class Pipelines(object):
         self._proc.save_history()
         self._proc.prj.reload()
         clear_output()
-        self.help(target)
+        display_html("The package '{}' is initiated.<br>"
+                     "Please double check if all parameters are "
+                     "correctly provided before run this pipline".format(self.avail[target]))
+        if help:
+            self.help(target)
+        if listing:
+            avails = ["\t{} : {}".format(*item) for item in self.selected.avail.items()]
+            output = ["List of available pipelines:"] + avails
+            print("\n".join(output))
 
     @property
     def executed(self):

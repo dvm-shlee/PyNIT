@@ -370,7 +370,8 @@ class BaseProcessor(object):
         self.__mainset = None
         self.__sideset = list()
         self.__group = list()
-        self.__filters = dict(main=None, side=dict(), group=dict())
+        self.__multi = list()
+        self.__filters = dict(main=None, side=dict(), group=dict(), multi=dict())
         self.__var = list()
         self.__output = list()
         self.__assigned_namespace = ['title', 'subj', 'sess', 'i', 'idx',
@@ -430,9 +431,13 @@ class BaseProcessor(object):
 
         :param n_thread:    Number of thread for parallel computing
         """
+        self.__proc.logger.info("Step::n_thread is setted as {}".format(n_thread))
         if isinstance(n_thread, int):
             if n_thread >= 1:
-                self._parallel = n_thread
+                if n_thread > multiprocessing.cpu_count():
+                    self._parallel = multiprocessing.cpu_count()
+                else:
+                    self._parallel = n_thread
         elif isinstance(n_thread, str):
             if n_thread == 'max':
                 self._parallel = multiprocessing.cpu_count()
@@ -448,14 +453,18 @@ class BaseProcessor(object):
         :param path:    input main path
         :param filters: set of filters for input instance
         :param idx:     file index, if this is given, input became static mode
-        :param type:    0-main input: this inputs will be looped to execute the command
-                        1-side input: supportive inputs
-                        2-group: inputs will be treated as group, not running loop
+        :param type:    0-main input:       this input type take each file as input
+                        1-side input:       this input type take each file as input, but
+                                            main input needs to be specified prior
+                        2-multi inputs:     this input type takes all files in the subject/session level as inputs
+                                            can be used for one-sample t-test
+                        3-groups inputs:    this input type takes all files in the step folder
+                                            can be used for group-level analysis (ANOVA, so on..)
         """
         # path = self.
         dc, path = self.__check_dataclass(path)
         self.__input_dc = dc
-        if type in [0,1,2]:
+        if type in [0,1,2,3]:
             self.__check_namespace(name)
             if type == 0:
                 if self.__mainset:
@@ -467,7 +476,11 @@ class BaseProcessor(object):
                 self.__sideset.append(_dset(name=name, idx=idx))
                 self.__filters['side'][name] = _fltr(name=name,
                                                      code=self.__convert_filtercode(dc, path, filters, type))
-            elif type == 2:     # Group: inputs will be treated as group, not going to be looped
+            elif type == 2:
+                self.__multi.append(_gset(name=name, args=args, kwargs=kwargs))
+                self.__filters['multi'][name] = _fltr(name=name,
+                                                      code=self.__convert_filtercode(dc, path, filters, type))
+            elif type == 3:
                 self.__group.append(_gset(name=name, args=args, kwargs=kwargs))
                 self.__filters['group'][name] = _fltr(name=name,
                                                       code=self.__convert_filtercode(dc, path, filters, type))
@@ -643,7 +656,7 @@ class BaseProcessor(object):
         """
         def raise_error():
             methods.raiseerror(messages.Errors.InputTypeError, 'Only one major output can be assigned')
-        if self.__group:
+        if self.__group or self.__multi:
             if type == 0:
                 if not prefix:
                     methods.raiseerror(messages.Errors.InputTypeError, 'prefix parameter must be provided for this type')
@@ -685,19 +698,22 @@ class BaseProcessor(object):
             self.__dc = dc
 
     def __check_output_level(self, level):
-        if not self.__group:
-            if self.__proc.sessions:
-                if level == 0:
-                    leveldir = 'subj, sess'
-                elif level == 1:
-                    leveldir = 'subj'
+        if not self.__multi:
+            if not self.__group:
+                if self.__proc.sessions:
+                    if level == 0:
+                        leveldir = 'subj, sess'
+                    elif level == 1:
+                        leveldir = 'subj'
+                    else:
+                        leveldir = None
                 else:
-                    leveldir = None
+                    if level == 0:
+                        leveldir = 'subj'
+                    else:
+                        leveldir = None
             else:
-                if level == 0:
-                    leveldir = 'subj'
-                else:
-                    leveldir = None
+                leveldir = None
         else:
             leveldir = 'subj'
         return leveldir
@@ -722,16 +738,19 @@ class BaseProcessor(object):
             else:
                 output_filters.extend(['subj'])
         else:
-            if isinstance(filters, dict):
-                for k, vs in filters.items():
-                    if k in group_filter_ref:
-                        if isinstance(vs, list):
-                            output_filters.extend(['"{0}"'.format(v) for v in vs])
-                        elif isinstance(vs, str):
-                            output_filters.append('"{0}"'.format(vs))
-                        else:
-                            methods.raiseerror(messages.Errors.InputTypeError, 'Value type must be str or list')
-                        del(filters[k])
+            if type == 2:
+                output_filters.extend(['subj'])
+            elif type == 3:
+                if isinstance(filters, dict):
+                    for k, vs in filters.items():
+                        if k in group_filter_ref:
+                            if isinstance(vs, list):
+                                output_filters.extend(['"{0}"'.format(v) for v in vs])
+                            elif isinstance(vs, str):
+                                output_filters.append('"{0}"'.format(vs))
+                            else:
+                                methods.raiseerror(messages.Errors.InputTypeError, 'Value type must be str or list')
+                            del(filters[k])
         if isinstance(filters, dict):
             if any(k not in filter_ref for k in filters.keys()):
                 methods.raiseerror(messages.Errors.KeywordError, 'Unable filter keyword')
@@ -762,13 +781,19 @@ class BaseProcessor(object):
                         inputcode += '[{}]'.format(sip.idx)
                     inputcodes.append(inputcode)
         else:
-            if self.__group:
+            if self.__multi:
                 inputcodes = []
-                for grp in self.__group:
+                for grp in self.__multi:
                     inputcodes.append('{0} = self.prj({1})'.format(grp.name,
-                                                                     self.__filters['group'][grp.name].code))
+                                                                   self.__filters['multi'][grp.name].code))
             else:
-                methods.raiseerror(messages.Errors.InputTypeError, 'Inputs are not sufficiently assigned')
+                if self.__group:
+                    inputcodes = []
+                    for grp in self.__group:
+                        inputcodes.append('{0} = self.prj({1})'.format(grp.name,
+                                                                         self.__filters['group'][grp.name].code))
+                else:
+                    methods.raiseerror(messages.Errors.InputTypeError, 'Inputs are not sufficiently assigned')
         if self.__var:
             for var in self.__var:
                 if var.type == 0:
@@ -843,21 +868,33 @@ class BaseProcessor(object):
                 else:
                     code = 'os.path.join("{0}", title)'.format(path)
             else:
-                if self.__group:
+                if self.__group or self.__multi:
                     if not ext:
                         ext = 'nii.gz'
                     if prefix:
                         if ext == 'remove':
-                            code = 'os.path.join("{0}", title, {1}, "{2}")'.format(path, leveldir, prefix)
+                            if leveldir:
+                                code = 'os.path.join("{0}", title, {1}, "{2}")'.format(path, leveldir, prefix)
+                            else:
+                                code = 'os.path.join("{0}", title, "{1}")'.format(path, prefix)
                         else:
-                            code = 'os.path.join("{0}", title, {1}, "{2}"+".{3}")'.format(path, leveldir, prefix, ext)
+                            if leveldir:
+                                code = 'os.path.join("{0}", title, {1}, "{2}"+".{3}")'.format(path, leveldir,
+                                                                                              prefix, ext)
+                            else:
+                                code = 'os.path.join("{0}", title, "{1}"+".{2}")'.format(path, prefix, ext)
                     else:
-                        if ext == 'remove':
-                            code = 'os.path.join("{0}", title, {1}, {2})'.format(path, leveldir, leveldir)
+                        if leveldir:
+                            if ext == 'remove':
+                                code = 'os.path.join("{0}", title, {1}, {2})'.format(path, leveldir, leveldir)
+                            else:
+                                code = 'os.path.join("{0}", title, {1}, {2}+".{3}")'.format(path, leveldir,
+                                                                                            leveldir, ext)
                         else:
-                            code = 'os.path.join("{0}", title, {1}, {2}+".{3}")'.format(path, leveldir, leveldir, ext)
+                            methods.raiseerror(messages.Errors.InputTypeError,
+                                               'incorrect dir')
                 else:
-                    methods.raiseerror(messages.Errors.InputTypeError, 'Main or group input was not assigned')
+                    methods.raiseerror(messages.Errors.InputTypeError, 'Main, multi or group input was not assigned')
         elif type == 2:
             if not prefix:
                 methods.raiseerror(messages.Errors.InputValueError, 'Please assign folder name using prefix argument')
@@ -871,7 +908,7 @@ class BaseProcessor(object):
                     code = 'os.path.join("{0}", title, {1}, "{2}")'.format(path, leveldir, prefix)
                 else:
                     code = 'os.path.join("{0}", title, "{1}")'.format(path, prefix)
-            elif self.__group:
+            elif self.__group or self.__multi:
                 if ext:
                     if ext == 'remove':
                         filename = '{0}'.format(prefix)
@@ -881,7 +918,7 @@ class BaseProcessor(object):
                     filename = '{0}'.format(prefix)
                 code = 'os.path.join("{0}", title, "{1}")'.format(path, filename)
             else:
-                methods.raiseerror(messages.Errors.InputTypeError, 'Main input was not assigned')
+                methods.raiseerror(messages.Errors.InputTypeError, 'Main, multi or group input was not assigned')
         elif type == 3:
             if self.__mainset:
                 if prefix:
@@ -918,6 +955,20 @@ class BaseProcessor(object):
                         ns_code.append('{0} = "{1}"'.format(kwarg_ns, value))
                         self.__assigned_namespace.append(kwarg_ns)
                         nspace.append(kwarg_ns)
+        elif self.__multi:
+            for grp in self.__multi:
+                if grp.args:
+                    for i, arg in enumerate(grp.args):
+                        arg_ns = '{0}_arg{1}'.format(grp.name, str(i).zfill(2))
+                        ns_code.append('{0} = "{1}"'.format(arg_ns, arg))
+                        self.__assigned_namespace.append(arg_ns)
+                        nspace.append(arg_ns)
+                if grp.kwargs:
+                    for key, value in grp.kwargs.items():
+                        kwarg_ns = '{0}_{1}'.format(grp.name, key)
+                        ns_code.append('{0} = "{1}"'.format(kwarg_ns, value))
+                        self.__assigned_namespace.append(kwarg_ns)
+                        nspace.append(kwarg_ns)
         for ns in nspace:
             if self.__mainset:
                 if ns in [self.__mainset.name]:
@@ -933,10 +984,15 @@ class BaseProcessor(object):
                             else:
                                 ns_code.append('{0}={0}[i].Abspath'.format(ns))
             else:
-                if not self.__group:
-                    methods.raiseerror(messages.InputObjectError, 'No sufficient input was assigned')
+                if not self.__multi:
+                    if not self.__group:
+                        methods.raiseerror(messages.InputObjectError, 'No sufficient input was assigned')
+                    else:
+                        for grp in self.__group:
+                            if ns in [grp.name]:
+                                ns_code.append('{0} = " ".join(list({0}.df.Abspath))'.format(ns))
                 else:
-                    for grp in self.__group:
+                    for grp in self.__multi:
                         if ns in [grp.name]:
                             ns_code.append('{0} = " ".join(list({0}.df.Abspath))'.format(ns))
             if self.__var:
@@ -1053,14 +1109,17 @@ class BaseProcessor(object):
         :param name: namespace for built function
         :return:
         """
-        if self.__group:
+        if self.__multi:
             header = ['def {0}(self, title, idx, subj):'.format(name)]
         else:
-            if self.__proc.sessions:
-                args = 'subj, sess'
+            if self.__group:
+                header = ['def {0}(self, title):'.format(name)]
             else:
-                args = 'subj'
-            header = ['def {0}(self, title, idx, {1}):'.format(name, args)]
+                if self.__proc.sessions:
+                    args = 'subj, sess'
+                else:
+                    args = 'subj'
+                header = ['def {0}(self, title, idx, {1}):'.format(name, args)]
         header += self.__indent(self.__configure_environment() + ['stdout_basket = []'], level=1)
         return header
 
@@ -1217,14 +1276,20 @@ class BaseProcessor(object):
                     if self.__opened_temps:
                         func += self.__indent(self.__configure_tempobj_closure(), level=level)
         else:
-            if self.__group:
+            if self.__multi:
                 level = 1
                 func += self.__configure_loop_contents(level=level)
                 func += self.__indent(['stdout_collector = []'], level=level)
                 func += self.__indent(self.__convert_cmdcode(), level=level)
             else:
-                methods.raiseerror(messages.Errors.InputTypeError, 'Main or group input was not assigned')
-        func += self.__configure_tail(level)
+                if self.__group:
+                    level = 1
+                    func += self.__configure_loop_contents(level=level)
+                    func += self.__indent(['stdout_collector = []'], level=level)
+                    func += self.__indent(self.__convert_cmdcode(), level=level)
+                else:
+                    methods.raiseerror(messages.Errors.InputTypeError, 'Main or group input was not assigned')
+        func += self.__configure_tail(level+1)
         return '\n'.join(func)
 
     def run(self, title, surfix=None, debug=False):
@@ -1268,31 +1333,38 @@ class BaseProcessor(object):
             thread = self._parallel
             pool = ThreadPool(thread)
             self.__proc.logger.info("Step::[{0}] is executed with {1} thread(s).".format(title, thread))
-            if self.__group:
+            if self.__multi:
                 for idx, subj in enumerate(progressbar(self.__proc.subjects, desc='Subjects')):
-                    self.__proc.logger.info("Step::The inputs are identified as group")
+                    self.__proc.logger.info("Step::The inputs are identified as multi type")
                     outputs = self.worker([self.__proc, output_path, idx, subj])
                     output_writer(outputs, output_path)
             else:
-                if self.__proc.sessions:
-                    self.__proc.logger.info("Step::The inputs are identified as multi-session scans")
-                    for idx, subj in enumerate(progressbar(self.__proc.subjects, desc='Subjects')):
-                        iteritem = [(self.__proc, output_path, idx, subj, sess) for sess in self.__proc.sessions]
-                        for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Sessions',
-                                                   leave=False, total=len(iteritem)):
+                if self.__group:
+                    self.__proc.logger.info("Step::The inputs are identified as groups type")
+                    outputs = self.worker([self.__proc, output_path])
+                    output_writer(outputs, output_path)
+                else:
+                    if self.__proc.sessions:
+                        self.__proc.logger.info("Step::The inputs are identified as multi-session scans")
+                        for idx, subj in enumerate(progressbar(self.__proc.subjects, desc='Subjects')):
+                            iteritem = [(self.__proc, output_path, idx, subj, sess) for sess in self.__proc.sessions]
+                            for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Sessions',
+                                                       leave=False, total=len(iteritem)):
+                                if 4 not in [o.type for o in self.__output]:
+                                    output_writer(outputs, output_path)
+                                else:
+                                    # self.__proc.logger.info("Step::This step don't generate output folder")
+                                    pass
+                    else:
+                        self.__proc.logger.info("Step::The inputs are identified as single-session scans")
+                        iteritem = [(self.__proc, output_path, idx, subj) for idx, subj in enumerate(self.__proc.subjects)]
+                        for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Subjects',
+                                                   total=len(iteritem)):
                             if 4 not in [o.type for o in self.__output]:
                                 output_writer(outputs, output_path)
                             else:
-                                self.__proc.logger.info("Step::This step don't generate output folder")
-                else:
-                    self.__proc.logger.info("Step::The inputs are identified as single-session scans")
-                    iteritem = [(self.__proc, output_path, idx, subj) for idx, subj in enumerate(self.__proc.subjects)]
-                    for outputs in progressbar(pool.imap_unordered(self.worker, iteritem), desc='Subjects',
-                                               total=len(iteritem)):
-                        if 4 not in [o.type for o in self.__output]:
-                            output_writer(outputs, output_path)
-                        else:
-                            self.__proc.logger.info("Step::This step don't generate output folder")
+                                # self.__proc.logger.info("Step::This step don't generate output folder")
+                                pass
             self.__proc._history[os.path.basename(output_path)] = output_path
             self.__proc.save_history()
             self.__prj.reload()
@@ -1314,5 +1386,5 @@ class BaseProcessor(object):
         try:
             exec ('output = {0}(*args)'.format(name))  # execute function
         except Exception as e:
-            print(e)
+                print(e)
         return output

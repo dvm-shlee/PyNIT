@@ -183,12 +183,14 @@ class AFNI_Process(BaseProcess):
         cmd01 = 'N4BiasFieldCorrection -d 3 -i {anat} -o {temp_01}'
         cmd02 = '3dAllineate -prefix {temp_02} -NN -onepass -EPI -base {temp_01} -cmass+xy {mask}'
         cmd03 = '3dcalc -prefix {output} -expr "astep(a, 0.5)" -a {temp_02}'
+        # cmd = '3dcalc -prefix {output} -expr "astep(a, 0)" -a {anat}'
         step.set_output(name='output', type=0)
         step.set_output(name='temp_01', type=3)
         step.set_output(name='temp_02', type=3)
         step.set_cmd(cmd01)
         step.set_cmd(cmd02)
         step.set_cmd(cmd03)
+        # step.set_cmd(cmd)
         anat_mask = step.run('MaskPrep', 'anat', debug=debug)
         step.reset()
         step.set_message('** Processing mask image preparation.....')
@@ -210,12 +212,14 @@ class AFNI_Process(BaseProcess):
         cmd01 = 'N4BiasFieldCorrection -d 3 -i {func} -o {temp_01}'
         cmd02 = '3dAllineate -prefix {temp_02} -NN -onepass -EPI -base {temp_01} -cmass+xy {mask}'
         cmd03 = '3dcalc -prefix {output} -expr "astep(a, 0.5)" -a {temp_02}'
+        # cmd = '3dcalc -prefix {output} -expr "astep(a, 0)" -a {func}'
         step.set_output(name='output', type=0)
         step.set_output(name='temp_01', type=3)
         step.set_output(name='temp_02', type=3)
         step.set_cmd(cmd01)
         step.set_cmd(cmd02)
         step.set_cmd(cmd03)
+        # step.set_cmd(cmd)
         func_mask = step.run('MaskPrep', surfix, debug=debug)
         if ui:
             if self._viewer == 'itksnap':
@@ -361,9 +365,13 @@ class AFNI_Process(BaseProcess):
         if aniso == 1:
             cmd03 = "3dAllineate -prefix {output} -onepass -EPI -base {temp_01} -cmass+xy " \
                     "-1Dmatrix_save {transmat} {temp_02}"
+            # cmd03 = "3dAllineate -prefix {output} -onepass -EPI -base {anat} -cmass+xy " \
+            #         "-1Dmatrix_save {transmat} {func}"
         else:
             cmd03 = "3dAllineate -prefix {output} -twopass -EPI -base {temp_01} " \
                     "-1Dmatrix_save {transmat} {temp_02}"
+            # cmd03 = "3dAllineate -prefix {output} -twopass -EPI -base {anat} " \
+            #         "-1Dmatrix_save {transmat} {func}"
         step.set_cmd(cmd03)
         output_path = step.run('Coregistration', surfix, debug=debug)
         step.reset()
@@ -464,7 +472,7 @@ class AFNI_Process(BaseProcess):
         step.set_input(name='anat', path=anat, idx=0)
         step.set_var(name='tmpobj', value=tmpobj.template_path, type=1)
         step.set_output(name='output')
-        step.set_output(name='transmat', ext='.aff12.1D')
+        step.set_output(name='transmat', ext='aff12.1D')
         cmd = '3dAllineate -prefix {output} -twopass -cmass+xy -zclip -conv 0.01 -base {tmpobj} ' \
               '-cost crM -check nmi -warp shr -1Dmatrix_save {transmat} {anat}'
         step.set_cmd(cmd)
@@ -653,27 +661,32 @@ class AFNI_Process(BaseProcess):
         output_path = step.run('SubjectROIs', surfix=surfix, debug=debug)
         return dict(mask=output_path)
 
-    def afni_SignalProcessing(self, func, norm=True, ort=None, clip_range=None, mask=None, bpass=None,
-                              fwhm=None, dt=None, surfix='func', n_thread='max', debug=False, **kwargs):
+    def afni_SignalProcessing(self, func, norm=True, ort=None, ort_filter=None, clip_range=None,
+                              mask=None, bpass=None, fwhm=None, dt=None, surfix='func', n_thread='max',
+                              debug=False, **kwargs):
         """Wrapper method of afni's 3dTproject for signal processing of resting state data
 
-        :param func:    input path for functional image, three type of path can be used
-                        1. datatype path from the raw data (e.g. 'anat' or 'dti')
-                        2. absolute path
-                        3. index of path which is shown on 'executed' method
-        :param norm:
+        :param func:        input path for functional image, three type of path can be used
+                            1. datatype path from the raw data (e.g. 'anat' or 'dti')
+                            2. absolute path
+                            3. index of path which is shown on 'executed' method
+        :param norm:        Normalize each output time series to have sum of squares = 1
+                            (Default=True)
         :param ort:
-        :param mask:
+        :param ort_filter:  Filename based filter, available keys=['file_tag', 'ignore', 'ext']
+        :param mask:        mask file path
         :param bpass:
         :param fwhm:
         :param dt:
         :param surfix:
+        :typr ort:
         :return:
         """
         display(title('** Run signal processing for resting state data'))
         step = Step(self, n_thread=n_thread)
         func = self.check_input(func)
-        ort = self.check_input(ort)
+        if not isinstance(ort, list) and not isinstance(ort, dict):
+            ort = self.check_input(ort)
         step.set_input(name='func', path=func, filters=kwargs)
         step.set_output(name='output')
         cmd = ['3dTproject -prefix {output}']
@@ -695,8 +708,8 @@ class AFNI_Process(BaseProcess):
                         irange = "'[" + "{}..{}".format(*clip_range) + "]'"
                         step.set_var(name='orange', value=orange, type=1)
                         step.set_var(name='irange', value=irange, type=1)
-
-            ort_filter = {'ext': '.1D', 'ignore': ['.aff12']}
+            if not ort_filter:
+                ort_filter = {'ext': '.1D', 'ignore': ['.aff12']}
             if kwargs:
                 for key in kwargs.keys():
                     if 'ignore' in key:
@@ -711,19 +724,27 @@ class AFNI_Process(BaseProcess):
                 for key, value in ort.items():
                     ortpath = self.check_input(value)
                     if clip_range:
-                        cmd.append('-ort {{}}'.format(key)+'{orange}')
+                        cmd.append('-ort {{{0}}}'.format(key)+'{orange}')
                     else:
-                        cmd.append('-ort {{}}'.format(key))
-                    step.set_input(name=key, path=ortpath, filters=ort_filter, type=1)
+                        cmd.append('-ort {{{0}}}'.format(key))
+                    try:
+                        sub_filter = ort_filter[key]
+                    except:
+                        sub_filter = ort_filter
+                    step.set_input(name=key, path=ortpath, filters=sub_filter, type=1)
             elif isinstance(ort, list):
                 for i, o in enumerate(ort):
                     exec('ort_{} = self.check_input({})'.format(str(i), o))
                     ort_name = 'ort_{}'.format(str(i))
                     if clip_range:
-                        cmd.append('-ort {}'.format(ort_name)+'{orange}')
+                        cmd.append('-ort {{{0}}}'.format(ort_name)+'{orange}')
                     else:
-                        cmd.append('-ort {}'.format(ort_name))
-                    step.set_input(name=ort_name, path=o, filters=ort_filter, type=1)
+                        cmd.append('-ort {{{0}}}'.format(ort_name))
+                    try:
+                        sub_filter = ort_filter[i]
+                    except:
+                        sub_filter = ort_filter
+                    step.set_input(name=ort_name, path=o, filters=sub_filter, type=1)
             elif isinstance(ort, str):
                 ort = self.check_input(ort)
                 if clip_range:
@@ -911,8 +932,9 @@ class AFNI_Process(BaseProcess):
         :param func:
         :param idx_coef:
         :param idx_tval:
-        :param outliers: keyword
+        :param outliers: the option to exclude certain subject or files, use specific keywords in the filename
         :param surfix:
+        :type outliers: str
         :return:
         """
         step = Step(self, n_thread=n_thread)
@@ -932,3 +954,38 @@ class AFNI_Process(BaseProcess):
         step.set_cmd(cmd)
         output_path = step.run('GroupAverage', surfix, debug=debug)
         return dict(groupavr=output_path)
+
+    def afni_Tstats(self, func, n_thread='max', surfix='func', debug=False): #TODO: Can put more flexible options
+        """ tSNR calculation
+
+        :param func:
+        :param n_thread:
+        :param surfix:
+        :param debug:
+        :return:
+        """
+        step = Step(self, n_thread=n_thread)
+        step.set_message('** 3dTstats.')
+        func = self.check_input(func)
+        step.set_input(name='func', path=func)
+        step.set_output(name='output')
+        cmd = '3dTstat -tsnr -prefix {output} {func}'
+        step.set_cmd(cmd)
+        output_path = step.run('tSNRcalc', surfix, debug=debug)
+        return dict(tSNR=output_path)
+
+    # def afni_MultiscaleEntropy(self, func, mask, scales=5, entwin=3, polort=2, debug=False, n_thread=1):
+    #     step = Step(self, n_thread=n_thread)
+    #     step.set_message('** Compute Multi-Scale Entropy.')
+    #     func = self.check_input(func)
+    #     if isinstance(mask, Template):
+    #         step.set_var(name='mask', value=str(mask.mask))
+    #     mask = self.check_input(mask)s
+    #
+    #     step.set_input(name='func', path=func)
+    #     step.set_input(name='func', path=func)
+    #     step.set_output(name='output')
+    #     step.set_var(name='scales', value=scales)
+    #     step.set_var(name='entwin', value=entwin)
+    #     step.set_var(name='polort', value=polort)
+    #     cmd = '3dMSE -scales {scales} -entwin {entwin} -polort {polort} -mask '

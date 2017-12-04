@@ -293,7 +293,6 @@ class BrainPlot(object):
         # Set grid shape
         data, slice_grid, size = set_mosaic_fig(data, dim, resol, slice_axis, scale)
         fig, axes = BrainPlot.mosaic(fixed_img, scale=scale, norm=norm, cmap='bone', **kwargs)
-        fig.set_facecolor('black')
         # Applying inversion
         invert = check_invert(kwargs)
         data = apply_invert(data, *invert)
@@ -309,10 +308,12 @@ class BrainPlot(object):
             sob = np.hypot(sx, sy)
             mask[sob == False] = np.nan
             m_norm = colors.Normalize(vmin=0, vmax=1.5)
-            if i < slice_grid[0]:
+            if i < slice_grid[0] and False in np.isnan(mask.flatten()):
                 ax.imshow(mask.T, origin='lower', interpolation='nearest', cmap=cmap, norm=m_norm, alpha=0.8)
             else:
-                ax.imshow(np.zeros((dim[0], dim[1])).T, origin='lower', interpolation='nearest', cmap=cmap)
+                ax.imshow(np.zeros((dim[0], dim[1])).T, origin='lower', interpolation='nearest', cmap='bone')
+            ax.set_axis_off()
+        fig.set_facecolor('black')
         if notebook_env:
             display(fig)
         return fig, axes
@@ -578,14 +579,3 @@ class Plot(object):
             cbar = ax.collections[0].colorbar
             cbar.set_ticks([vmin, 0, vmax])
             # cbar.set_ticklabels(['low', '20%', '75%', '100%'])
-
-def main():
-    parser = argparse.ArgumentParser(prog='visualizers', description="GroupAnalysis for Heather_Cocaine")
-    parser.add_argument("-i", "--path", help="Main folder", type=str)
-    parser.add_argument("--ic", default=None)
-    parser.add_argument("--cond", nargs='*', default=None)
-    parser.add_argument("--prefix", default=None)
-    args = parser.parse_args()
-
-if __name__ == '__main__':
-    main()
