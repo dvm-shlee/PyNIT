@@ -507,11 +507,11 @@ class BrukerRawData(object):
             self._acqp = self.parsing(acqp, 'acqp')
             self._method = self.parsing(method, 'method')
 
-            if pid:
+            if isinstance(pid, int):
                 try:
                     with open(os.path.join(path, num, 'pdata', str(pid), 'reco')) as f:
                         reco = f.readlines()[:]
-                    self._reco = self.parsing(reco, 'reco')
+                        self._reco = self.parsing(reco, 'reco')
                     # Check datatype
                     dtype = self._reco['RECO_wordtype']
                     if dtype == '_16BIT_SGN_INT':
@@ -663,7 +663,7 @@ class BrukerRawData(object):
         try:
             matrix = self.reco['RECO_size'][::-1]
         except:
-            matrix = self.method['PVM_EncMatrix']
+            matrix = self.method['PVM_EncMatrix'][::-1]
         try:
             slices = self.acqp['NSLICES']
         except:
@@ -680,6 +680,10 @@ class BrukerRawData(object):
             dim = self.method['PVM_SpatDimEnum']
             if dim == '2D':
                 matrix = [slices] + matrix
+            elif dim == '3D':
+                sliceori, readori, pos1, pow2 = self.get_orient()
+                if readori == 'H_F':
+                    matrix = [matrix[0], matrix[2], matrix[1]]
         except:
             pass
         try:
