@@ -97,7 +97,6 @@ def itksnap(procobj, input_path, temp_path=None):
         else:
             scan_list = []
             try:
-                print(subj_path)
                 for scan in os.listdir(subj_path):
                     if all(ext in scan for ext in img_ext):
                         scan_list.append(scan)
