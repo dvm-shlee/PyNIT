@@ -4,25 +4,17 @@ from ..tools import display_html as _display
 class PipeTemplate(object):
     """ Pipeline template class
     """
-    # parallel = False
-    # n_thread = 1
+
     @property
     def avail(self):
         pipes = [pipe[5:] for pipe in dir(self) if 'pipe_' in pipe]
         output = dict(zip(range(len(pipes)), pipes))
         return output
 
-    # def update(self):
-    #     if self.parallel:
-    #         self.n_thread = 'max'
-    #     else:
-    #         self.n_thread = 1
 
-
-
-# class Q_Quality_assesments(PipeTemplate):
-#     def __init__(self):
-#         pass
+class Q_Quality_assesments(PipeTemplate):
+    def __init__(self):
+        pass
 
 
 class A_fMRI_preprocess(PipeTemplate):
@@ -30,11 +22,12 @@ class A_fMRI_preprocess(PipeTemplate):
                  cbv=False, ui=False, surfix='func', n_thread='max'):
         """Collection of preprocessing pipelines for Shihlab at UNC
 Author  : SungHo Lee(shlee@unc.edu)
-Revised : Sep.9th.2017
+Revised : Dec.11st.2017
 
 Parameters:
     anat    : str
         Path of anatomical images (default: 'anat')
+        Set as None if anatomical images are not prepared (EPI template need to be provided)
     func    : str
         Path of functional images (default: 'func')
     tr      : int
@@ -53,10 +46,10 @@ Parameters:
         Path of MION infusion image (default: False)
     ui      : bool
         UI supports (default: False)
-    parallel    : bool
-        Set parallel processing, pynit pipeline use multithreading to run paralell processing
-        Please deactivate when you use linux virtual machine.
-        (default: False)
+    n_thread: int or str
+        Set parallel processing, pynit pipeline use multi-threading to run parallel processing
+        Please set to 1 if you use the linux virtual machine.
+        (default: 'max')
     surfix  : str
         Surfix for output folder (default: 'func')
         """
@@ -71,7 +64,6 @@ Parameters:
         self.cbv = cbv
         self.ui = ui
         self.surfix = surfix
-        # self.update()
         self.n_thread = n_thread
 
     def pipe_01_Brain_Mask_Preparation(self):
@@ -82,48 +74,80 @@ Parameters:
             self.proc.afni_MeanImgCalc(self.cbv, cbv=True, n_thread=self.n_thread, surfix=self.surfix)
         else:
             self.proc.afni_MeanImgCalc(self.func, n_thread=self.n_thread, surfix=self.surfix)
-        # Mask preparation (1-anat, 2-func)
+        # Mask preparation (1-anat, 2-func) or (1-func) if no anat
         if self.ui:
             self.proc.afni_MaskPrep(self.anat, 0, self.tmpobj, n_thread=self.n_thread, ui=True)
         else:
             self.proc.afni_MaskPrep(self.anat, 0, self.tmpobj, n_thread=self.n_thread)
 
     def pipe_02_Standard_Preprocessing(self):
+        """ Standard preprocessing
         """
-        """
-        # Update mask files (1-anat, 2-func)
+        # Update mask files (1-anat, 2-func) or (1-func) if no anat
         if not self.ui:
-            self.proc.afni_PasteMask(0, 1, n_thread=self.n_thread)
-            self.proc.afni_PasteMask(1, 2, n_thread=self.n_thread)
-        # Skull stripping (3-anat, 4-func)
+            if self.anat != None:
+                self.proc.afni_PasteMask(0, 1, n_thread=self.n_thread)
+                self.proc.afni_PasteMask(1, 2, n_thread=self.n_thread)
+            else:
+                self.proc.afni_PasteMask(0, 1, n_thread=self.n_thread)
+        # Skull stripping (3-anat, 4-func) or (2-func if no anat)
         self.proc.afni_SkullStrip(self.anat, 0, n_thread=self.n_thread)
-        # Coregistration (5)
-        self.proc.afni_Coreg(3, 4, aniso=self.aniso, n_thread=self.n_thread, surfix=self.surfix)
-        # Slice timing correction (6)
+        if self.anat != None: # Dataset has anatomy image
+            slicetime = 2
+            motioncor = 3
+            funcmask = 1
+            # Coregistration (5)
+            self.proc.afni_Coreg(3, 4, aniso=self.aniso, n_thread=self.n_thread, surfix=self.surfix)
+        else: # Dataset doesn't have anatomy image
+            slicetime = 6
+            motioncor = 7
+            funcmask = 2
+        # Slice timing correction (6) or (2) if no anat
         if self.tr or self.tpattern:
             self.proc.afni_SliceTimingCorrection(self.func, tr=self.tr, tpattern=self.tpattern,
                                                  n_thread=self.n_thread, surfix=self.surfix)
         else:
             self.proc.afni_SliceTimingCorrection(self.func, n_thread=self.n_thread, surfix=self.surfix)
-        # Motion correction (7)
-        self.proc.afni_MotionCorrection(6, 0, n_thread=self.n_thread, surfix=self.surfix)
-        # Skull stripping all functional data (8)
-        self.proc.afni_SkullStripAll(7, 2, n_thread=self.n_thread, surfix=self.surfix)
-        # Apply coregistration transform matrix to all functional data (9)
-        self.proc.afni_ApplyCoregAll(8, 5, n_thread=self.n_thread, surfix=self.surfix)
-        if not self.aniso:
-            # Align anatomy image to template space (10)
-            self.proc.ants_SpatialNorm(3, self.tmpobj, surfix='anat')
-            # Align functional images to template space (11)
-            self.proc.ants_ApplySpatialNorm(9, 10, surfix=self.surfix)
-        else:
-            self.proc.afni_SpatialNorm(3, self.tmpobj, n_thread=self.n_thread, surfix='anat')
-            self.proc.afni_ApplySpatialNorm(9, 10, n_thread=self.n_thread, surfix=self.surfix)
-        if self.cbv:
-            # Coregistration MION infusion image to anatomy image (12)
-            self.proc.afni_ApplyCoregAll(self.cbv, 5, n_thread=self.n_thread, surfix='cbv')
-            # Align MION infusion image to template space (13)
-            self.proc.afni_ApplySpatialNorm(12, 10, n_thread=self.n_thread, surfix='cbv')
+        # Motion correction (7) or (3) if no anat
+        self.proc.afni_MotionCorrection(slicetime, 0, n_thread=self.n_thread, surfix=self.surfix)
+        # Skull stripping all functional data (8) or (4) if no anat
+        self.proc.afni_SkullStripAll(motioncor, funcmask, n_thread=self.n_thread, surfix=self.surfix)
+        if self.anat != None: # Dataset has anatomy image
+            # Apply coregistration transform matrix to all functional data (9)
+            self.proc.afni_ApplyCoregAll(8, 5, n_thread=self.n_thread, surfix=self.surfix)
+            if not self.aniso:
+                # Align anatomy image to template space (10)
+                self.proc.ants_SpatialNorm(3, self.tmpobj, surfix='anat')
+                # Align functional images to template space (11)
+                self.proc.ants_ApplySpatialNorm(9, 10, surfix=self.surfix)
+            else:
+                self.proc.afni_SpatialNorm(3, self.tmpobj, n_thread=self.n_thread, surfix='anat')
+                self.proc.afni_ApplySpatialNorm(9, 10, n_thread=self.n_thread, surfix=self.surfix)
+            if self.cbv:
+                # Coregistration MION infusion image to anatomy image (12)
+                self.proc.afni_ApplyCoregAll(self.cbv, 5, n_thread=self.n_thread, surfix='cbv')
+                # Align MION infusion image to template space (13)
+                if not self.aniso:
+                    self.proc.ants_ApplySpatialNorm(12, 10, surfix='cbv')
+                else:
+                    self.proc.afni_ApplySpatialNorm(12, 10, n_thread=self.n_thread, surfix='cbv')
+        else: # Dataset doesn't have anatomy image
+            if not self.aniso:
+                # Align mean-functional image to template space (5) if no anat
+                self.proc.ants_SpatialNorm(0, self.tmpobj, surfix=self.surfix)
+                # Align functional image to template space (6)
+                self.proc.ants_ApplySpatialNorm(4, 5, surfix=self.surfix)
+                if self.cbv:
+                    # Align MION infusion image to template space (7)
+                    self.proc.ants_ApplySpatialNorm(self.cbv, 5, surfix='cbv')
+            else:
+                # Align mean-functional image to template space (5) if no anat
+                self.proc.afni_SpatialNorm(0, self.tmpobj, n_thread=self.n_thread, surfix=self.surfix)
+                # Align functional image to template space (6)
+                self.proc.afni_ApplySpatialNorm(4, 5, n_thread=self.n_thread, surfix=self.surfix)
+                if self.cbv:
+                    # Align MION infusion image to template space (7)
+                    self.proc.afni_ApplySpatialNorm(self.cbv, 5, n_thread=self.n_thread, surfix='cbv')
         _display('The standard preprocessing pipeline have finished.')
         _display('Please check "group_organizer" methods to perform further analysis.')
 
@@ -201,10 +225,10 @@ Parameters:
     outliers    : list [str,..]
         The option to exclude certain subject or files for group analysis, use specific keywords in the filename
         (default: None)
-    parallel    : bool
-        Set parallel processing, pynit pipeline use multithreading to run paralell processing
-        Please deactivate when you use linux virtual machine.
-        (default: False)
+    n_thread: int or str
+        Set parallel processing, pynit pipeline use multi-threading to run parallel processing
+        Please set to 1 if you use the linux virtual machine.
+        (default: 'max')
     surfix      : str
         folder surfix (default: 'func')
         """

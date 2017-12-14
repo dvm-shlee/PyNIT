@@ -36,12 +36,11 @@ class Pipelines(object):
         # Define default attributes
         self.__prj = Project(prj_path, **kwargs)
         self._procobj = Process
-        self._proc = None
         self._pipeobj = pipelines
         self._tmpobj = tmpobj
         self._logging = logging
-        self.selected = None
-        self.preprocessed = None
+        self._reset()
+        # self.preprocessed = None
         self._viewer = viewer
 
         # Print out project summary
@@ -64,10 +63,22 @@ class Pipelines(object):
     def unload(self):
         """ Unload all plugin, and use default pipelines and processes
         """
+        self._reset()
         self._procobj = Process
         self._pipeobj = pipelines
+        print('The plugins are unloaded.\n')
+        # Print out available pipeline packages
+        avails = ["\t{} : {}".format(*item) for item in self.avail.items()]
+        output = ["List of available packages:"] + avails
+        print("\n".join(output))
 
-    def load(self, proc=None, pipe=None):
+    def _reset(self):
+        """ Reset pipeline
+        """
+        self._proc = None
+        self.selected = None
+
+    def load(self, proc=None, pipe=None, reset=False):
         """ Load plugin for custom-coded pipelines and processes.
         If you want more detail information about this plugin feature,
         please visit out documentation.
@@ -77,14 +88,21 @@ class Pipelines(object):
         :type proc:     str
         :type pipe:     str
         """
+        self._reset()
         import imp
         if proc:
             self._procobj = imp.load_source('Process', proc).Process
+            print('The process plugin has been successfully loaded.\n')
         if pipe:
             self._pipeobj = imp.load_source('', pipe)
+            print('The pipeline plugin has been successfully loaded.\n')
         del imp
+        # Print out available pipeline packages
+        avails = ["\t{} : {}".format(*item) for item in self.avail.items()]
+        output = ["List of available packages:"] + avails
+        print("\n".join(output))
 
-    def initiate(self, package_id, verbose=False, listing=True, **kwargs):
+    def initiate(self, package_id, verbose=False, listing=True, surfix=None, **kwargs):
         """Initiate package
 
         :param package_id:  Id code for package to initiate
@@ -98,6 +116,8 @@ class Pipelines(object):
         if isinstance(package_id, int):
             package_id = self.avail[package_id]
         if package_id in self.avail.values():
+            if surfix != None:
+                package_id = "_".join([package_id, surfix])
             self._proc = self._procobj(self.__prj, package_id, logging=self._logging, viewer=self._viewer)
             command = 'self.selected = self._pipeobj.{}(self._proc, self._tmpobj'.format(package_id)
             if kwargs:
@@ -147,7 +167,18 @@ class Pipelines(object):
         :param dc:
         :return:
         """
-        self._proc.afni(idx, dc=dc)
+        self._proc.afni(idx, tmpobj=self._tmpobj, dc=dc)
+
+    def viewer(self, idx, viewer=None):
+        """ Launch default viewer
+
+        :param idx:
+        :param dc:
+        :return:
+        """
+        if not viewer:
+            viewer = self._viewer
+        self._proc.image_viewer(idx, viewer=viewer)
 
     def help(self, idx):
         """ Print help function
@@ -164,6 +195,34 @@ class Pipelines(object):
             exec(command)
             print(selected.__init__.__doc__)
 
+    def inspect(self, idx): #TODO: Test on linux environment
+        """  Inspect pipeline packages
+
+        :param idx: index of available pipeline package
+        :type idx: int
+        :return:
+        """
+        selected = []
+        if isinstance(idx, int):
+            idx = self.avail[idx]
+        if idx in self.avail.values():
+            import inspect
+            command = 'selected = inspect.getsourcelines(self._pipeobj.{})[0]'.format(idx)
+            exec(command)
+            i = 0
+            for line in selected:
+                if '"""' in line:
+                    i += 1
+                else:
+                    if i%2 == 0:
+                        if '_display' in line:
+                            pass
+                        else:
+                            print(line.split('\n')[0])
+                    else:
+                        pass
+            del inspect
+
     def run(self, idx, **kwargs):
         """Execute selected pipeline
 
@@ -176,6 +235,8 @@ class Pipelines(object):
         exec('self.selected.pipe_{}()'.format(self.selected.avail[idx]))
 
     def update(self):
+        """ Update history
+        """
         proc = self._proc
         processing_path = os.path.join(proc.prj.path,
                                        proc.prj.ds_type[1],
@@ -189,7 +250,7 @@ class Pipelines(object):
         if self._proc:
             return self._proc
         else:
-            methods.raiseerror(messages.Errors.PackageUpdateFailure, 'Pipeline package is not defined')
+            methods.raiseerror(messages.Errors.PackageUpdateFailure, 'Pipeline package is not initiated')
 
     def get_prj(self):
         return self.__prj
@@ -384,4 +445,7 @@ class Pipelines(object):
 
         :return:
         """
-        return self._proc.executed
+        try:
+            return self._proc.executed
+        except:
+            return None

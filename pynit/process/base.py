@@ -110,6 +110,21 @@ class BaseProcess(object):
         else:
             methods.raiseerror(messages.Errors.InsufficientEnv, 'This method only works on Jupyter Notebook')
 
+    def image_viewer(self, idx, base_idx=None, viewer=None):
+        """Launch image viewer
+
+        :param idx:
+        :param base_idx:
+        :return:
+        """
+        if notebook_env:
+            if base_idx:
+                display(gui.image_viewer(self, self.steps[idx], self.steps[base_idx], viewer=viewer))
+            else:
+                display(gui.image_viewer(self, self.steps[idx], viewer=viewer))
+        else:
+            methods.raiseerror(messages.Errors.InsufficientEnv, 'This method only works on Jupyter Notebook')
+
     def afni(self, idx, tmpobj=None, dc=0):
         """Launch AFNI gui
 
@@ -148,13 +163,16 @@ class BaseProcess(object):
 
         :return:
         """
-        exists = [d for d in os.listdir(self.path) if os.path.isdir(os.path.join(self.path, d))]
-        for step in self._history.keys():
-            if step not in exists:
-                del self._history[step]
-        n_hist = len(self._history.keys())
-        output = zip(range(n_hist), sorted(self._history.keys()))
-        return dict(output)
+        try:
+            exists = [d for d in os.listdir(self.path) if os.path.isdir(os.path.join(self.path, d))]
+            for step in self._history.keys():
+                if step not in exists:
+                    del self._history[step]
+            n_hist = len(self._history.keys())
+            output = zip(range(n_hist), sorted(self._history.keys()))
+            return dict(output)
+        except:
+            pass
 
     @property
     def reported(self):
@@ -162,11 +180,14 @@ class BaseProcess(object):
 
         :return:
         """
-        exists = dict([(d, os.path.join(self._rpath, d)) for d in os.listdir(self._rpath) \
-                       if os.path.isdir(os.path.join(self._rpath, d))])
-        self._rhisroty = exists
-        output = [(i, e) for i, e in enumerate(sorted(exists.keys()))]
-        return dict(output)
+        try:
+            exists = dict([(d, os.path.join(self._rpath, d)) for d in os.listdir(self._rpath) \
+                           if os.path.isdir(os.path.join(self._rpath, d))])
+            self._rhisroty = exists
+            output = [(i, e) for i, e in enumerate(sorted(exists.keys()))]
+            return dict(output)
+        except:
+            pass
 
     @property
     def results(self):

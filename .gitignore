@@ -8,8 +8,6 @@ build/
 build/*
 PyNIT.egg-info/
 PyNIT.egg-info/*
-docs/
-docs/*
 .DS_Store
 pynit/.DS_Store
 pynit/handler/.DS_Store

@@ -63,4 +63,3 @@ setup(name='PyNIT',
       ],
       keywords = 'Python NeuroImaging Toolkit'
      )
-

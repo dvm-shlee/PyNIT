@@ -4,7 +4,7 @@ import methods
 from .__init__ import widgets
 
 
-def afni(procobj, input_path, tmpobj=None): #TODO: update for multi-session case
+def afni(procobj, input_path, tmpobj=None):
     """Launch afni
 
     :param procobj:
@@ -13,34 +13,29 @@ def afni(procobj, input_path, tmpobj=None): #TODO: update for multi-session case
     :return:
     """
     groups = procobj._subjects[:]
-    groups_path = map(os.path.join, [input_path] * len(groups), groups)
-
+    if procobj.prj.single_session:
+        groups_path = map(os.path.join, [input_path] * len(groups), groups)
+    else:
+        sessions = procobj._sessions[:]
+        groups_path = []
+        for sess in sessions:
+            groups_path.extend(map(os.path.join, [input_path] * len(groups), groups, [sess] * len(groups)))
     if tmpobj:
+        print(tmpobj._path)
         out, err = methods.shell('afni {} -dset {}'.format(str(' '.join(groups_path)), tmpobj._path))
     else:
         out, err = methods.shell('afni {}'.format(str(' '.join(groups_path))))
     return out, err
 
 
-def fsleyes(procobj, input_path, tmpobj=None): #TODO: need to make this work
-    """ Launch fsleyes
-
-    :param procobj:
-    :param input_path:
-    :param tmpobj:
-    :return:
-    """
-    pass
-
-def itksnap(procobj, input_path, temp_path=None):
-    """ run itksnap for given pass
+def image_viewer(procobj, input_path, temp_path=None, viewer=None):
+    """ run fsleyes for given pass
 
     :param procobj:
     :param input_path:
     :param temp_path:
     :return:
     """
-
 
     def check_temppath(*args):
         if temp_path:
@@ -62,6 +57,20 @@ def itksnap(procobj, input_path, temp_path=None):
         else:
             output = temp_path
         return output
+
+    def run_fsleyes(sender):
+        # Run itksnap
+        if procobj._sessions:
+            img_path = os.path.join(input_path, sub_toggle.value, ses_toggle.value, scan_dropdown.value)
+            main_path = check_temppath(sub_toggle.value, ses_toggle.value, scan_dropdown.value)
+        else:
+            img_path = os.path.join(input_path, sub_toggle.value, scan_dropdown.value)
+            main_path = check_temppath(sub_toggle.value, scan_dropdown.value)
+        if temp_path:
+            cmd = 'fsleyes -ad {} {}'.format(main_path, img_path)
+        else:
+            cmd = 'fsleyes {}'.format(img_path)
+        methods.shell(cmd)
 
     def run_itksnap(sender):
         # Run itksnap
@@ -137,9 +146,17 @@ def itksnap(procobj, input_path, temp_path=None):
                                              layout=widgets.Layout(width='600px', ))
         sub_toggle.observe(scan_update, 'value')
         scan_dropdown.observe(scan_update, 'value')
-
-    launcher = widgets.Button(description='Launch ITK-snap', layout=widgets.Layout(width='600px', ))
-    launcher.on_click(run_itksnap)
+    if viewer:
+        if viewer == 'fsleyes':
+            launcher = widgets.Button(description='Launch FSLeyes', layout=widgets.Layout(width='600px', ))
+            launcher.on_click(run_fsleyes)
+        elif viewer == 'itksnap':
+            launcher = widgets.Button(description='Launch ITK-snap', layout=widgets.Layout(width='600px', ))
+            launcher.on_click(run_itksnap)
+        else:
+            launcher = widgets.Button(description='No viewer', layout=widgets.Layout(width='600px', ))
+    else:
+        launcher = widgets.Button(description='No viewer', layout=widgets.Layout(width='600px', ))
     if procobj._sessions:
         return widgets.VBox([sub_toggle, ses_toggle, scan_dropdown, launcher])
     else:

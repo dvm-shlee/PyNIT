@@ -168,31 +168,28 @@ class AFNI_Process(BaseProcess):
         """
         anat = self.check_input(anat)
         step = Step(self, n_thread=n_thread)
-        step.set_message('** Processing mask image preparation.....')
         mimg_path = None
-        # try:
-        step.set_input(name='anat', path=anat, idx=0)
-        # except:
-        #     methods.raiseerror(messages.Errors.MissingPipeline,
-        #                        'No anatomy file!')
-        try:
-            step.set_var(name='mask', value=str(tmpobj.mask), type=1)
-        except:
-            methods.raiseerror(messages.InputPathError,
-                               'No mask template file!')
-        cmd01 = 'N4BiasFieldCorrection -d 3 -i {anat} -o {temp_01}'
-        cmd02 = '3dAllineate -prefix {temp_02} -NN -onepass -EPI -base {temp_01} -cmass+xy {mask}'
-        cmd03 = '3dcalc -prefix {output} -expr "astep(a, 0.5)" -a {temp_02}'
-        # cmd = '3dcalc -prefix {output} -expr "astep(a, 0)" -a {anat}'
-        step.set_output(name='output', type=0)
-        step.set_output(name='temp_01', type=3)
-        step.set_output(name='temp_02', type=3)
-        step.set_cmd(cmd01)
-        step.set_cmd(cmd02)
-        step.set_cmd(cmd03)
-        # step.set_cmd(cmd)
-        anat_mask = step.run('MaskPrep', 'anat', debug=debug)
-        step.reset()
+        if anat != None:
+            step.set_message('** Processing mask image preparation.....')
+            step.set_input(name='anat', path=anat, idx=0)
+            try:
+                step.set_var(name='mask', value=str(tmpobj.mask), type=1)
+            except:
+                methods.raiseerror(messages.InputPathError,
+                                   'No mask template file!')
+            cmd01 = 'N4BiasFieldCorrection -d 3 -i {anat} -o {temp_01}'
+            cmd02 = '3dAllineate -prefix {temp_02} -NN -onepass -EPI -base {temp_01} -cmass+xy {mask}'
+            cmd03 = '3dcalc -prefix {output} -expr "astep(a, 0.5)" -a {temp_02}'
+            step.set_output(name='output', type=0)
+            step.set_output(name='temp_01', type=3)
+            step.set_output(name='temp_02', type=3)
+            step.set_cmd(cmd01)
+            step.set_cmd(cmd02)
+            step.set_cmd(cmd03)
+            anat_mask = step.run('MaskPrep', 'anat', debug=debug)
+            step.reset()
+        else:
+            anat_mask = None
         step.set_message('** Processing mask image preparation.....')
         try:
             mimg_path = self.check_input(meanfunc)
@@ -212,7 +209,6 @@ class AFNI_Process(BaseProcess):
         cmd01 = 'N4BiasFieldCorrection -d 3 -i {func} -o {temp_01}'
         cmd02 = '3dAllineate -prefix {temp_02} -NN -onepass -EPI -base {temp_01} -cmass+xy {mask}'
         cmd03 = '3dcalc -prefix {output} -expr "astep(a, 0.5)" -a {temp_02}'
-        # cmd = '3dcalc -prefix {output} -expr "astep(a, 0)" -a {func}'
         step.set_output(name='output', type=0)
         step.set_output(name='temp_01', type=3)
         step.set_output(name='temp_02', type=3)
@@ -222,27 +218,28 @@ class AFNI_Process(BaseProcess):
         # step.set_cmd(cmd)
         func_mask = step.run('MaskPrep', surfix, debug=debug)
         if ui:
-            if self._viewer == 'itksnap':
+            if anat != None:
                 display(widgets.VBox([title('-'*43 + ' Anatomical images ' + '-'*43),
-                                      gui.itksnap(self, anat_mask, anat),
+                                      gui.image_viewer(self, anat_mask, anat, viewer=self._viewer),
                                       title('<br>' + '-'*43 + ' Functional images ' + '-'*43),
-                                      gui.itksnap(self, func_mask, mimg_path)]))
+                                      gui.image_viewer(self, func_mask, mimg_path, viewer=self._viewer)]))
             else:
-                methods.raiseerror(messages.Errors.InputValueError,
-                                   '"{}" is not available'.format(self._viewer))
+                display(widgets.VBox([title('<br>' + '-' * 43 + ' Functional images ' + '-' * 43),
+                                      gui.image_viewer(self, func_mask, mimg_path, viewer=self._viewer)]))
         else:
             step.reset()
-            step.set_message('** Move files to [{}] folder.....'.format(self.prj.ds_type[2]))
-            step.set_input(name='anat', path=anat)
-            step.set_input(name='anat_mask', path=anat_mask, type=1)
-            step.set_output(name='output', dc=1, ext='remove')
-            step.set_var(name='mask_output', value="'{}_mask.nii.gz'.format(output)", type=1)
-            cmd01 = '3dcopy {anat} {output}.nii.gz'
-            cmd02 = '3dcopy {anat_mask} {mask_output}'
-            step.set_cmd(cmd01)
-            step.set_cmd(cmd02)
-            step.run('MaskPrep', 'anat', debug=debug)
-            step.reset()
+            if anat != None:
+                step.set_message('** Move files to [{}] folder.....'.format(self.prj.ds_type[2]))
+                step.set_input(name='anat', path=anat)
+                step.set_input(name='anat_mask', path=anat_mask, type=1)
+                step.set_output(name='output', dc=1, ext='remove')
+                step.set_var(name='mask_output', value="'{}_mask.nii.gz'.format(output)", type=1)
+                cmd01 = '3dcopy {anat} {output}.nii.gz'
+                cmd02 = '3dcopy {anat_mask} {mask_output}'
+                step.set_cmd(cmd01)
+                step.set_cmd(cmd02)
+                step.run('MaskPrep', 'anat', debug=debug)
+                step.reset()
             step.set_message('** Move files to [{}] folder.....'.format(self.prj.ds_type[2]))
             if '-CBV-' in mimg_path:
                 mimg_filters = {'file_tag': '_BOLD'}
@@ -257,8 +254,11 @@ class AFNI_Process(BaseProcess):
             step.set_cmd(cmd01)
             step.set_cmd(cmd02)
             step.run('MaskPrep', surfix, debug=debug)
-            return dict(anat_mask=anat_mask,
-                        func_mask=func_mask,)
+            if anat != None:
+                return dict(anat_mask=anat_mask,
+                            func_mask=func_mask,)
+            else:
+                return dict(func_mask=func_mask)
 
     def afni_PasteMask(self, mask, destination, n_thread='max', debug=False):
         """ Paste the updated mask into the Processing folder
@@ -296,20 +296,25 @@ class AFNI_Process(BaseProcess):
         :return:            output path
         :rtype:             dict
         """
-        anat = self.check_input(anat)
+
+        if anat != None:
+            anat = self.check_input(anat)
+            anat_mask = [self.steps[idx] for idx, step in self.executed.items() if 'MaskPrep-anat' in step][0]
+            anat_mask = self.check_input(anat_mask)
+            step = Step(self, n_thread=n_thread)
+            step.set_message('** Processing skull stripping.....')
+            step.set_input(name='anat', path=anat, idx=0)
+            step.set_input(name='anat_mask', path=anat_mask, type=1, idx=0)
+            step.set_output(name='output')
+            cmd01 = '3dcalc -prefix {output} -expr "a*step(b)" -a {anat} -b {anat_mask}'
+            step.set_cmd(cmd01)
+            anat_path = step.run('SkullStrip', 'anat')
+        else:
+            anat_path = None
+
         meanfunc = self.check_input(meanfunc)
-        anat_mask = [self.steps[idx] for idx, step in self.executed.items() if 'MaskPrep-anat' in step][0]
-        anat_mask = self.check_input(anat_mask)
         func_mask = [self.steps[idx] for idx, step in self.executed.items() if 'MaskPrep-{}'.format(surfix) in step][0]
         func_mask = self.check_input(func_mask)
-        step = Step(self, n_thread=n_thread)
-        step.set_message('** Processing skull stripping.....')
-        step.set_input(name='anat', path=anat, idx=0)
-        step.set_input(name='anat_mask', path=anat_mask, type=1, idx=0)
-        step.set_output(name='output')
-        cmd01 = '3dcalc -prefix {output} -expr "a*step(b)" -a {anat} -b {anat_mask}'
-        step.set_cmd(cmd01)
-        anat_path = step.run('SkullStrip', 'anat')
         step = Step(self)
         if '-CBV-' in meanfunc:
             func_filter = {'file_tag': '_BOLD'}
@@ -321,7 +326,10 @@ class AFNI_Process(BaseProcess):
         cmd02 = '3dcalc -prefic {output} -expr "a*step(b)" -a {meanfunc} -b {func_mask}'
         step.set_cmd(cmd02)
         func_path = step.run('SkullStrip', surfix, debug=debug)
-        return dict(anat=anat_path, func=func_path)
+        if anat_path:
+            return dict(anat=anat_path, func=func_path)
+        else:
+            return dict(func=func_path)
 
     def afni_Coreg(self, anat, meanfunc, aniso=False, inverse=False, surfix='func', n_thread='max', debug=False):
         """ Applying bias field correction with ANTs N4 algorithm and then align functional image to
@@ -365,13 +373,9 @@ class AFNI_Process(BaseProcess):
         if aniso == 1:
             cmd03 = "3dAllineate -prefix {output} -onepass -EPI -base {temp_01} -cmass+xy " \
                     "-1Dmatrix_save {transmat} {temp_02}"
-            # cmd03 = "3dAllineate -prefix {output} -onepass -EPI -base {anat} -cmass+xy " \
-            #         "-1Dmatrix_save {transmat} {func}"
         else:
             cmd03 = "3dAllineate -prefix {output} -twopass -EPI -base {temp_01} " \
                     "-1Dmatrix_save {transmat} {temp_02}"
-            # cmd03 = "3dAllineate -prefix {output} -twopass -EPI -base {anat} " \
-            #         "-1Dmatrix_save {transmat} {func}"
         step.set_cmd(cmd03)
         output_path = step.run('Coregistration', surfix, debug=debug)
         step.reset()
