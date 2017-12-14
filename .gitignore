@@ -1,7 +1,7 @@
 *.pyc
 *.whl
 .idea/
-.idea/*
+.idea/*
 dist/
 dist/*
 build/
