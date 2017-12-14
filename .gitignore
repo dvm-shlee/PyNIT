@@ -1,7 +1,7 @@
 *.pyc
 *.whl
 .idea/
-.idea/*
+.idea/*
 dist/
 dist/*
 build/
@@ -9,6 +9,7 @@ build/*
 PyNIT.egg-info/
 PyNIT.egg-info/*
 .DS_Store
+docs/.DS_Store
 pynit/.DS_Store
 pynit/handler/.DS_Store
 pynit/handler/tests/.DS_Store
