@@ -7,7 +7,7 @@ from pynit.tools import gui, display, notebook_env
 class BaseProcess(object):
     """Collections of step components for pipelines
     """
-    def __init__(self, prjobj, name, logging=True, viewer='itksnap'):
+    def __init__(self, prjobj, name, tag, logging=True, viewer='itksnap'):
         """
 
         :param prjobj:
@@ -19,6 +19,8 @@ class BaseProcess(object):
         # Prepare inputs
         prjobj.reset_filters()
         self.__prj = prjobj
+        if tag:
+            name = "{}-{}".format(name, tag)
         self._path = os.path.join(self.prj.path, self.prj.ds_type[1], name)
         self._rpath = os.path.join(self.prj.path, self.prj.ds_type[2], name)
         self._processing = name
@@ -95,20 +97,20 @@ class BaseProcess(object):
                 sess = kwargs['sess']
         return filters, subj, sess
 
-    def itksnap(self, idx, base_idx=None):
-        """Launch ITK-snap
-
-        :param idx:
-        :param base_idx:
-        :return:
-        """
-        if notebook_env:
-            if base_idx:
-                display(gui.itksnap(self, self.steps[idx], self.steps[base_idx]))
-            else:
-                display(gui.itksnap(self, self.steps[idx]))
-        else:
-            methods.raiseerror(messages.Errors.InsufficientEnv, 'This method only works on Jupyter Notebook')
+    # def itksnap(self, idx, base_idx=None):
+    #     """Launch ITK-snap
+    #
+    #     :param idx:
+    #     :param base_idx:
+    #     :return:
+    #     """
+    #     if notebook_env:
+    #         if base_idx:
+    #             display(gui.itksnap(self, self.steps[idx], self.steps[base_idx]))
+    #         else:
+    #             display(gui.itksnap(self, self.steps[idx]))
+    #     else:
+    #         methods.raiseerror(messages.Errors.InsufficientEnv, 'This method only works on Jupyter Notebook')
 
     def image_viewer(self, idx, base_idx=None, viewer=None):
         """Launch image viewer

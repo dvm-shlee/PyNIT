@@ -93,15 +93,15 @@ Parameters:
         # Skull stripping (3-anat, 4-func) or (2-func if no anat)
         self.proc.afni_SkullStrip(self.anat, 0, n_thread=self.n_thread)
         if self.anat != None: # Dataset has anatomy image
-            slicetime = 2
-            motioncor = 3
-            funcmask = 1
-            # Coregistration (5)
-            self.proc.afni_Coreg(3, 4, aniso=self.aniso, n_thread=self.n_thread, surfix=self.surfix)
-        else: # Dataset doesn't have anatomy image
             slicetime = 6
             motioncor = 7
             funcmask = 2
+            # Coregistration (5)
+            self.proc.afni_Coreg(3, 4, aniso=self.aniso, n_thread=self.n_thread, surfix=self.surfix)
+        else: # Dataset doesn't have anatomy image
+            slicetime = 2
+            motioncor = 3
+            funcmask = 1
         # Slice timing correction (6) or (2) if no anat
         if self.tr or self.tpattern:
             self.proc.afni_SliceTimingCorrection(self.func, tr=self.tr, tpattern=self.tpattern,
@@ -151,25 +151,6 @@ Parameters:
         _display('The standard preprocessing pipeline have finished.')
         _display('Please check "group_organizer" methods to perform further analysis.')
 
-    # def pipe_03_Advanced_Preprocessing(self):
-    #     # Update mask files (1-anat, 2-func)
-    #     if not self.ui:
-    #         self.proc.afni_PasteMask(0, 1)
-    #         self.proc.afni_PasteMask(1, 2)
-    #     # Skull stripping (3-anat, 4-func)
-    #     self.proc.afni_SkullStrip(self.anat, 0)
-    #     # Coregistration (5)
-    #     self.proc.afni_Coreg(3, 4, aniso=self.aniso, inverse=True, surfix='anat')
-    #     # Slice timing correction (6)
-    #     if self.tr or self.tpattern:
-    #         self.proc.afni_SliceTimingCorrection(self.func, tr=self.tr, tpattern=self.tpattern, surfix=self.surfix)
-    #     else:
-    #         self.proc.afni_SliceTimingCorrection(self.func, surfix=self.surfix)
-    #     # Motion correction (7)
-    #     self.proc.afni_MotionCorrection(6, 0, surfix=self.surfix)
-    #     # Skull stripping all functional data (8)
-    #     self.proc.afni_SkullStripAll(7, 2, surfix=self.surfix)
-
 
 class B_evoked_fMRI_analysis(PipeTemplate):
     def __init__(self, proc, tmpobj, paradigm=None, fwhm=0.5, thresholds=None, mask=None, cbv_param=None, crop=None,
@@ -197,8 +178,9 @@ Revised : Nov.5th.2017
 
 Parameters:
     paradigm    : list
-        stimulation paradigm. [[[onset timepoints], [model,[param]]], [], ..]
-        e.g. [[[30, 100],['BLOCK',[10,1]]],[...],..]
+        stimulation paradigm. dict(group1=[[onset timepoints], [model,[param]]], group2=[], ..)
+        e.g. dict(group1=[[30, 100],['BLOCK',[10,1]]],
+                  group2=[[...],[...,[...]],...)
     fwhm        : float
         Voxel Smoothness (mm)
     thresholds : list (default: None)
@@ -317,7 +299,7 @@ Parameters:
 
 class C_resting_state_fMRI_analysis(PipeTemplate):
     def __init__(self, proc, tmpobj, fwhm=None, dt=None, norm=True, bpass=None, crop=None, option=None,
-                 ort=None, ort_filter=None, ui=False, case=None, surfix='func', n_thread='max'):
+                 ort=None, ort_filter=None, ui=False, surfix='func', n_thread='max'):
         """Collection of resting-state fMRI analysis pipeline for Shihlab at UNC
 
 To use this pipeline, you must use 'group_organizer' method of pipeline handler.
@@ -360,9 +342,6 @@ Parameters:
         the filters for ort, multiple filter can be performed
     ui          : bool
         UI supports (default: False)
-    case        : str
-        Set this if you want to try multiple cases (default: None)
-        This parameter will be added as additional surfix next to the original surfix value
     surfix      : str
         folder surfix (default: 'func')
         """
@@ -377,7 +356,6 @@ Parameters:
         self.option = option
         self.ort = ort
         self.ort_filters = ort_filter
-        self.case = case
         self.ui = ui
         self.surfix = surfix
         self.n_thread = n_thread
@@ -386,5 +364,5 @@ Parameters:
     def pipe_01_TemporalFiltering(self):
         # SignalProcessing (1)
         self.proc.afni_SignalProcessing(0, norm=self.norm, ort=self.ort, ort_filter=self.ort_filters,
-                                        clip_range=self.crop, mask=str(self.tmpobj), bpass=self.bpass,
+                                        clip_range=self.crop, mask=str(self.tmpobj.mask), bpass=self.bpass,
                                         fwhm=self.fwhm, dt=self.dt, surfix='func', n_thread=self.n_thread)

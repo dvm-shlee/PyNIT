@@ -712,7 +712,7 @@ class BrukerRawData(object):
 
     def get_resol(self):
         if self.method['PVM_SpatDimEnum'] == '2D':
-            # dx, dy = self.method['PVM_SpatResol']
+            # dx, dy = self.method['PVM_Spat    Resol']
             dy, dx = list(np.array(self.reco['RECO_fov']).astype(float)/np.array(self.reco['RECO_size']).astype(float)*10)
             dz = self.acqp['ACQ_slice_thick']
         elif self.method['PVM_SpatDimEnum'] == '3D':

@@ -582,6 +582,7 @@ class BaseProcessor(object):
         nspace = self.__retreive_namespaces_from_command(command)
         nspace, nscode = self.__convert_namespace(nspace)
         if any(ns not in self.__assigned_namespace for ns in nspace):
+            print(nspace, self.__assigned_namespace)
             methods.raiseerror(messages.Errors.InputValueError, 'Namespace are not correctly assigned')
         # else:
         #     nscode=None
@@ -810,7 +811,7 @@ class BaseProcessor(object):
                 if op.type == 0:
                     mk_pathes.append('os.path.dirname({0})'.format(op.name))
                 elif op.type == 1:
-                    if self.__group:
+                    if self.__group or self.__multi:
                         mk_pathes.append('os.path.dirname({0})'.format(op.name))
                     else:
                         mk_pathes.append('{0}'.format(op.name))
@@ -1192,6 +1193,9 @@ class BaseProcessor(object):
             if output.type in [3, 4]:
                 pass
             else:
+                # if self.__multi:
+                #     pass
+                # else:
                 if output not in self.__mkdir:
                     self.__mkdir.append(output)
         return code
@@ -1237,6 +1241,7 @@ class BaseProcessor(object):
         func = []
         func += self.__configure_function_header(name)
         outputs = self.__output_sorter()
+        pad = 0
         if self.__mainset:
             name = self.__mainset.name
             if isinstance(self.__mainset.idx, int):
@@ -1259,10 +1264,11 @@ class BaseProcessor(object):
                     [self.set_logging('"Step::Skipped because the file[{0}] is exist".format(output_checker)')],
                     level=level+1)
                 func += self.__indent(['else:'], level=level)
-                func += self.__configure_tempobj(level=level+1)
-                func += self.__indent(self.__convert_cmdcode(), level=level+1)
+                pad = 1
+                func += self.__configure_tempobj(level=level+pad)
+                func += self.__indent(self.__convert_cmdcode(), level=level+pad)
                 if self.__opened_temps:
-                    func += self.__indent(self.__configure_tempobj_closure(), level=level+1)
+                    func += self.__indent(self.__configure_tempobj_closure(), level=level+pad)
             else:
                 if 4 in outputs.keys():
                     func += self.__configure_loop_contents(level=level)
@@ -1289,7 +1295,8 @@ class BaseProcessor(object):
                     func += self.__indent(self.__convert_cmdcode(), level=level)
                 else:
                     methods.raiseerror(messages.Errors.InputTypeError, 'Main or group input was not assigned')
-        func += self.__configure_tail(level+1)
+        func += self.__configure_tail(level+pad)
+
         return '\n'.join(func)
 
     def run(self, title, surfix=None, debug=False):

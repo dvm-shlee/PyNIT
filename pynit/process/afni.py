@@ -571,6 +571,11 @@ class AFNI_Process(BaseProcess):
         :return:            output path
         :rtype:             dict
         """
+        if isinstance(paradigm, dict):
+            new_paradigm = []
+            for subj in self.subjects:
+                new_paradigm.append(paradigm[subj])
+            paradigm = new_paradigm[:]
         func = self.check_input(func)
         step = Step(self, n_thread=n_thread)
         step.set_message('** Processing General Linear Analysis')
@@ -977,19 +982,3 @@ class AFNI_Process(BaseProcess):
         step.set_cmd(cmd)
         output_path = step.run('tSNRcalc', surfix, debug=debug)
         return dict(tSNR=output_path)
-
-    # def afni_MultiscaleEntropy(self, func, mask, scales=5, entwin=3, polort=2, debug=False, n_thread=1):
-    #     step = Step(self, n_thread=n_thread)
-    #     step.set_message('** Compute Multi-Scale Entropy.')
-    #     func = self.check_input(func)
-    #     if isinstance(mask, Template):
-    #         step.set_var(name='mask', value=str(mask.mask))
-    #     mask = self.check_input(mask)s
-    #
-    #     step.set_input(name='func', path=func)
-    #     step.set_input(name='func', path=func)
-    #     step.set_output(name='output')
-    #     step.set_var(name='scales', value=scales)
-    #     step.set_var(name='entwin', value=entwin)
-    #     step.set_var(name='polort', value=polort)
-    #     cmd = '3dMSE -scales {scales} -entwin {entwin} -polort {polort} -mask '

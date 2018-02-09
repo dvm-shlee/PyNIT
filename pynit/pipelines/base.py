@@ -102,7 +102,7 @@ class Pipelines(object):
         output = ["List of available packages:"] + avails
         print("\n".join(output))
 
-    def initiate(self, package_id, verbose=False, listing=True, surfix=None, **kwargs):
+    def initiate(self, package_id, verbose=False, listing=True, tag=None, **kwargs):
         """Initiate package
 
         :param package_id:  Id code for package to initiate
@@ -116,9 +116,7 @@ class Pipelines(object):
         if isinstance(package_id, int):
             package_id = self.avail[package_id]
         if package_id in self.avail.values():
-            if surfix != None:
-                package_id = "_".join([package_id, surfix])
-            self._proc = self._procobj(self.__prj, package_id, logging=self._logging, viewer=self._viewer)
+            self._proc = self._procobj(self.__prj, package_id, tag=tag, logging=self._logging, viewer=self._viewer)
             command = 'self.selected = self._pipeobj.{}(self._proc, self._tmpobj'.format(package_id)
             if kwargs:
                 command += ', **{})'.format('kwargs')
@@ -146,7 +144,7 @@ class Pipelines(object):
             for key, value in kwargs.items():
                 if hasattr(self.selected, key):
                     setattr(self.selected, key, value)
-                    self.selected.update()
+                    self.update()
                 else:
                     print(key)
                     methods.raiseerror(messages.Errors.KeywordError, '{} is not available keyword for this project')
@@ -354,9 +352,26 @@ class Pipelines(object):
         init_path = self.__init_path('GroupOrganizing')
         groups = sorted(group_filters.keys())
         oset = dict()
+
+        def merge_filters(g_filter, o_filter):
+            output = dict()
+            try:
+                for k, v in g_filter.items():
+                    # Check if the same filters are used for option
+                    if k in o_filter.keys():
+                        pass
+                    else:
+                        output[k] = v
+            except:
+                pass
+            for k, v in o_filter.items():
+                output[k] = v
+            return output
+
         for group in progressbar(sorted(groups), desc='Subjects'):
             grp_path = os.path.join(init_path, group)
             methods.mkdir(grp_path)
+
             if self.__prj.single_session: # If dataset is single session
                 if group_filters[group][2]:
                     dset = self.__prj(1, input_proc.processing, input_proc.executed[step_id],
@@ -364,15 +379,18 @@ class Pipelines(object):
                 else:
                     dset = self.__prj(1, input_proc.processing, input_proc.executed[step_id],
                                       *group_filters[group][0])
-                if option_filters:
+
+                if option_filters: # If option filters are provided
                     for i, id in enumerate(option_filters.keys()):
+                        # Option filter integration
+                        updated_filters = merge_filters(group_filters[group][2], option_filters[id])
                         if isinstance(id, int):
                             oset[i] = self.__prj(1, input_proc.processing, input_proc.executed[id],
-                                                 *group_filters[group][0], **option_filters[id])
+                                                 *group_filters[group][0], **updated_filters)
                         elif isinstance(id, str):
                             if id in list(set(self.__prj.df.DataType)):
                                 oset[i] = self.__prj(1, input_proc.processing, id,
-                                                     *group_filters[group][0], **option_filters[id])
+                                                     *group_filters[group][0], **updated_filters)
             else: # multi-session data
                 grp_path = os.path.join(init_path, group, 'Files')
                 methods.mkdir(grp_path)
@@ -386,15 +404,16 @@ class Pipelines(object):
                 if option_filters:
                     oset = dict()
                     for i, id in enumerate(option_filters.keys()):
+                        updated_filters = merge_filters(group_filters[group][2], option_filters[id])
                         if isinstance(id, int):
                             oset[i] = self.__prj(1, input_proc.processing, input_proc.executed[id],
                                                  *(group_filters[group][0] + group_filters[group][1]),
-                                                 **option_filters[id])
+                                                 **updated_filters)
                         elif isinstance(id, str):
                             if id in list(set(self.__prj.df.DataType)):
                                 oset[i] = self.__prj(0, input_proc.processing, id,
                                                      *(group_filters[group][0] + group_filters[group][1]),
-                                                     **option_filters[id])
+                                                     **updated_filters)
                             else:
                                 pass #TODO: error message, and log something
                         else:
