@@ -27,8 +27,8 @@ class BaseProcess(object):
 
         # Initiate logger
         if logging:
-            self.logger = methods.get_logger(os.path.dirname(self._path), '{}_'.format(name))
-            self.rlogger = methods.get_logger(os.path.dirname(self._rpath), '{}_'.format(name))
+            self.logger = methods.get_logger(os.path.dirname(self._path), '{}'.format(name))
+            self.rlogger = methods.get_logger(os.path.dirname(self._rpath), '{}'.format(name))
 
         # Define default arguments
         self._subjects = None
