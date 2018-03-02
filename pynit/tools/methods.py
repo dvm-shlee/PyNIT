@@ -29,12 +29,14 @@ def shell(cmd):
     :param cmd: str, command to execute
     :return: stdout, error
     """
+    logger = get_logger('~', '.pynit')
     try:
         processor = Popen(shlex.split(cmd), stdout=PIPE, stderr=PIPE)
         out, err = processor.communicate()
+        logger.info('Success::{}'.format(cmd))
         return out, err
     except OSError as e:
-        get_logger('~', '.ShellCommand')
+        logger.info('Error::{}'.format(cmd))
         return None, None
         #raiseerror(messages.Errors.InputValueError, 'Command can not be executed.')
 
@@ -54,7 +56,7 @@ def scheduler(cmd, type='slurm'):
 def get_logger(path, name):
     today = "".join(str(datetime.date.today()).split('-'))
     # create logger
-    logger = logging.getLogger('{0}_Logger'.format(name))
+    logger = logging.getLogger('{0}_logger'.format(name))
     logger.setLevel(logging.DEBUG)
     # create file handler which logs even debug messages
     fh = logging.FileHandler(os.path.join(path, '{0}-{1}.log'.format(name, today)))
