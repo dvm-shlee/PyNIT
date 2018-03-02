@@ -1374,10 +1374,11 @@ class BaseProcessor(object):
                                 # self.__proc.logger.info("Step::This step don't generate output folder")
                                 pass
             self.__proc._history[os.path.basename(output_path)] = output_path
-            self.__proc.save_history()
+            self.__proc.save_history(self.__proc._path, self.__proc._history)
             self.__prj.reload()
             clear_output()
             display('Done.....')
+            self.__proc.logger.info("Step::Done")
             sleep(0.5)
             clear_output()
             return output_path
