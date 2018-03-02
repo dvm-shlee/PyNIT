@@ -1390,10 +1390,11 @@ class BaseProcessor(object):
         :return: str
         """
         funccode = self.build_func(name)
+        self.__proc.logger.debug("Executed_Function::\n{}".format(funccode)) # for debug only
         output = None
         exec (funccode)  # load step function on memory
         try:
             exec ('output = {0}(*args)'.format(name))  # execute function
         except Exception as e:
-                print(e)
+                self.__proc.logger.debug("ERROR::{}".format(e))
         return output
