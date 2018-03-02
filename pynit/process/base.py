@@ -72,6 +72,10 @@ class BaseProcess(object):
         processing_path = os.path.join(self.prj.path,
                                        self.prj.ds_type[1],
                                        self.processing)
+        import re
+        pattern = r'^\d{3}_.*'
+        step_path = [f for f in os.listdir(processing_path) if re.match(pattern, f)]
+        self.logger.debug(", ".join(step_path))
         for f in os.listdir(processing_path):
             if f not in self.executed.values():
                 self._history[f] = os.path.join(processing_path, f)
