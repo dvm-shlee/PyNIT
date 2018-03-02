@@ -29,7 +29,7 @@ def shell(cmd):
     :param cmd: str, command to execute
     :return: stdout, error
     """
-    logger = get_logger('~', '.pynit')
+    logger = get_logger('~', 'pynit')
     try:
         processor = Popen(shlex.split(cmd), stdout=PIPE, stderr=PIPE)
         out, err = processor.communicate()
