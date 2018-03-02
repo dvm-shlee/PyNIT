@@ -4,6 +4,8 @@ import nibabel as nib
 import scipy.ndimage as ndimage
 from skimage import feature, exposure
 
+#TODO: make this to separate module
+
 # Import internal packages
 import messages
 
@@ -12,7 +14,6 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import colors
 import seaborn as sns
-import argparse
 
 from .__init__ import notebook_env, display
 if notebook_env:

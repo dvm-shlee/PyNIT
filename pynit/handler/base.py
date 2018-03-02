@@ -26,6 +26,7 @@ class Reference(object):
            'AFNI':              ['.BRIK', '.HEAD'],
            'Shihlab':           ['.sdt', '.spr'],
            'Nrrd':              ['.nrrd', '.nrdh'],
+           'DTI':               ['.bvec', '.bval'],
            'PNG':               ['.png'],
            }
     txt = {'Common':            ['.txt', '.cvs', '.tvs'],
@@ -214,7 +215,7 @@ def set_center(imageobj, corr):
 
 
 
-class ImageObj(Nifti1Image):
+class ImageObj(Nifti1Image): #TODO: Separate ImageObject module
     """ ImageObject for PyNIT
     """
     # def __init__(self):
@@ -289,7 +290,7 @@ class ImageObj(Nifti1Image):
     def affine(self):
         return self._affine
 
-
+#TODO: need to make it clear this part
 ########################################################################################################################
 # Base function and class for Processor
 ########################################################################################################################

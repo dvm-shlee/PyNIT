@@ -244,13 +244,17 @@ class Project(object):
         mk_main_folder(self)
 
         # Scan project folder
-        self.scan_prj()
-        if self.__empty_project:
-            self.__dc_idx = 1
+        for i in range(3):
+            self.__dc_idx = i
             self.scan_prj()
             if self.__empty_project:
-                self.__dc_idx = 2
-                self.scan_prj()
+                if i < 2:
+                    dc_idx = i+1
+                else:
+                    dc_idx = 0
+            else:
+                dc_idx = i
+        self.__dc_idx = dc_idx
         self.apply()
 
     @property

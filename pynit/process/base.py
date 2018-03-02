@@ -97,21 +97,6 @@ class BaseProcess(object):
                 sess = kwargs['sess']
         return filters, subj, sess
 
-    # def itksnap(self, idx, base_idx=None):
-    #     """Launch ITK-snap
-    #
-    #     :param idx:
-    #     :param base_idx:
-    #     :return:
-    #     """
-    #     if notebook_env:
-    #         if base_idx:
-    #             display(gui.itksnap(self, self.steps[idx], self.steps[base_idx]))
-    #         else:
-    #             display(gui.itksnap(self, self.steps[idx]))
-    #     else:
-    #         methods.raiseerror(messages.Errors.InsufficientEnv, 'This method only works on Jupyter Notebook')
-
     def image_viewer(self, idx, base_idx=None, viewer=None):
         """Launch image viewer
 
@@ -254,7 +239,7 @@ class BaseProcess(object):
         self.logger.info('Proc::Initiating instance {0}'.format(self.processing))
         history = os.path.join(self._path, '.proc_hisroty')
         if os.path.exists(history):
-            with open(history, 'r') as f:
+            with open(history, 'rb') as f:
                 self._history = pickle.load(f)
             self.logger.info("Proc::History file is loaded".format(history))
         else:
@@ -264,6 +249,6 @@ class BaseProcess(object):
 
     def save_history(self):
         history = os.path.join(self._path, '.proc_hisroty')
-        with open(history, 'w') as f:
+        with open(history, 'wb') as f:
             pickle.dump(self._history, f)
         self.logger.info("Proc::History file '{0}' is saved".format(history))

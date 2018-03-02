@@ -3,7 +3,7 @@
 __author__ = 'SungHo Lee (shlee@unc.edu)'
 __version_info__ = ('2017', '07', '25')
 
-import os, argparse
+import os, argparse #TODO: Make this to separate folder!
 from pynit.tools import methods, messages
 from pynit.tools.visualizers import BrainPlot
 from pynit.handler import images

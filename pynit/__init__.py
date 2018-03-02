@@ -14,7 +14,7 @@ __all__ = ['Project', 'Process', 'Step', 'Pipelines', 'PipeTemplate',
            'ImageObj', 'Reference',
            'Plot', 'BrainPlot']
 
-__version__ = '0.2.0'
+__version__ = '0.1.16'
 
 # Shortcuts of plotting methods
 Plot = visualizers.Plot

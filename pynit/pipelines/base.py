@@ -468,3 +468,14 @@ class Pipelines(object):
             return self._proc.executed
         except:
             return None
+
+    @property
+    def reported(self):
+        """Listing out executed steps
+
+        :return:
+        """
+        try:
+            return self._proc.reported
+        except:
+            return None
