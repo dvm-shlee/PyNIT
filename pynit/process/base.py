@@ -27,19 +27,32 @@ class BaseProcess(object):
 
         # Initiate logger
         if logging:
-            self.logger = methods.get_logger(os.path.dirname(self._path), name)
+            self.logger = methods.get_logger(os.path.dirname(self._path), '{}_'.format(name))
+            self.rlogger = methods.get_logger(os.path.dirname(self._rpath), '{}_'.format(name))
 
         # Define default arguments
         self._subjects = None
         self._sessions = None
         self._history = {}
-        self._rhisroty = {}
+        self._rhistory = {}
         self._tempfiles = []
         self._viewer = viewer
 
-        # Initiate
+        # Update information
         self.init_proc()
-        self.update()
+        if len(self._history.keys()) or len(self._rhistory.keys()):
+            count_incorrect = 0
+            for path in self._history.values():
+                if not os.path.exists(path):
+                    count_incorrect += 1
+            for path in self._rhistory.values():
+                if not os.path.exists(path):
+                    count_incorrect += 1
+            if count_incorrect:
+                self.logger.debug('Incorrect subpathes are detected ({})'.format(count_incorrect))
+                self.update()
+        else:
+            self.update()
 
     @property
     def prj(self):
@@ -60,7 +73,7 @@ class BaseProcess(object):
         else:
             source_idx = self.results
             source_exe = self.reported
-            source_hst = self._rhisroty
+            source_hst = self._rhistory
         if isinstance(input_path, int):
             input_path = source_idx[input_path]
         if input_path in source_exe:
@@ -68,18 +81,29 @@ class BaseProcess(object):
         else:
             return input_path
 
-    def update(self):
-        processing_path = os.path.join(self.prj.path,
-                                       self.prj.ds_type[1],
-                                       self.processing)
+    def _get_subpath(self, path):
         import re
         pattern = r'^\d{3}_.*'
-        step_path = [f for f in os.listdir(processing_path) if re.match(pattern, f)]
-        self.logger.debug(", ".join(step_path))
-        for f in os.listdir(processing_path):
-            if f not in self.executed.values():
-                self._history[f] = os.path.join(processing_path, f)
-        self.save_history()
+        list_subpath = sorted([f for f in os.listdir(path) if re.match(pattern, f)])
+        return list_subpath
+
+    def update(self):
+        list_steps = self._get_subpath(self._path)
+        list_results = self._get_subpath(self._rpath)
+        self.logger.debug("Executed steps are updated as [{}]".format(", ".join(list_steps)))
+        self.rlogger.debug("Reported results are updated as [{}]".format(", ".join(list_results)))
+
+        # Update processing history
+        for step in list_steps:
+            self._history[step] = os.path.join(self._path, step)
+
+        # Update results history
+        for result in list_results:
+            self._rhistory[result] = os.path.join(self._rpath, result)
+
+        # Save all history
+        self._save_history(self._path, self._history)
+        self._save_history(self._rpath, self._rhistory)
 
     def check_filters(self, **kwargs):
         """Check filters for input datasets
@@ -130,6 +154,7 @@ class BaseProcess(object):
             self.update()
             gui.afni(self, self.results[idx], tmpobj)
         else:
+            self.logger.debug('Wrong dataclass value [dc = 0 or 1 but {} is given]'.format(dc))
             methods.raiseerror(messages.Errors.InputValueError, '')
 
     @property
@@ -151,38 +176,38 @@ class BaseProcess(object):
     @property
     def executed(self):
         """Listing out executed steps
-
-        :return:
         """
         try:
-            exists = [d for d in os.listdir(self.path) if os.path.isdir(os.path.join(self.path, d))]
+            list_steps = self._get_subpath(self._path)
             for step in self._history.keys():
-                if step not in exists:
+                if step not in list_steps:
                     del self._history[step]
             n_hist = len(self._history.keys())
             output = zip(range(n_hist), sorted(self._history.keys()))
             return dict(output)
         except:
+            self.logger.debug('No subfolder founds...')
             pass
 
     @property
     def reported(self):
         """Listing out reported results
-
-        :return:
         """
         try:
-            exists = dict([(d, os.path.join(self._rpath, d)) for d in os.listdir(self._rpath) \
-                           if os.path.isdir(os.path.join(self._rpath, d))])
-            self._rhisroty = exists
-            output = [(i, e) for i, e in enumerate(sorted(exists.keys()))]
+            list_results = self._get_subpath(self._rpath)
+            for step in self._rhistory.keys():
+                if step not in list_results:
+                    del self._rhistory[step]
+            n_hist = len(self._rhistory.keys())
+            output = zip(range(n_hist), sorted(self._rhistory.keys()))
             return dict(output)
         except:
+            self.rlogger.debug('No subfolder founds...')
             pass
 
     @property
     def results(self):
-        return [self._rhisroty[result] for result in self.reported.values()]
+        return [self._rhistory[result] for result in self.reported.values()]
 
     @property
     def steps(self):
@@ -190,11 +215,11 @@ class BaseProcess(object):
 
     def reset(self):
         """reset subject and session information
-
-        :return: None
         """
         if self.__prj(1).subjects:
+            idx_source = 1
             if self.__prj(0).subjects:
+                idx_source = 0
                 datasubj = set(list(self.__prj(0).subjects))
                 procsubj = set(list(self.__prj(1).subjects))
                 if datasubj.issubset(procsubj):
@@ -203,6 +228,7 @@ class BaseProcess(object):
                             self._subjects = sorted(self.__prj(1, self.processing).subjects[:])
                             if not self.__prj.single_session:
                                 self._sessions = sorted(self.__prj(1, self.processing).sessions[:])
+                            idx_source = 1
                         except:
                             self._subjects = sorted(self.__prj(0).subjects[:])
                             if not self.__prj.single_session:
@@ -225,34 +251,40 @@ class BaseProcess(object):
                     if not self.__prj.single_session:
                         self._sessions = sorted(self.__prj(1).sessions[:])
         else:
+            idx_source = 0
             self._subjects = sorted(self.__prj(0).subjects[:])
             if not self.__prj.single_session:
                 self._sessions = sorted(self.__prj(0).sessions[:])
-
-        self.logger.info('Proc::Attributes [subjects, sessions] are reset to default value.')
-        self.logger.info('Proc::Subject is defined as [{}]'.format(",".join(self._subjects)))
+        self.logger.debug('Proc::Attributes [subjects, sessions] '
+                          'are reset to default value [source dataclass index={}].'.format(idx_source))
+        self.logger.debug('Proc::Subject is defined as [{}]'.format(",".join(self._subjects)))
         if self._sessions:
-            self.logger.info('Proc::Session is defined as [{}]'.format(",".join(self._sessions)))
+            self.logger.debug('Proc::Session is defined as [{}]'.format(",".join(self._sessions)))
+        else:
+            self.logger.debug('Proc::SingleSession')
 
     def init_proc(self):
         """Initiate process folder
-
-        :return: None
         """
+        self.reset() # correct subject and session information
         methods.mkdir(self._path)
-        self.logger.info('Proc::Initiating instance {0}'.format(self.processing))
-        history = os.path.join(self._path, '.proc_hisroty')
-        if os.path.exists(history):
-            with open(history, 'rb') as f:
-                self._history = pickle.load(f)
-            self.logger.info("Proc::History file is loaded".format(history))
-        else:
-            self.save_history()
-        self.reset()
+        self.logger.debug('Proc::Initiating instance {0}'.format(self.processing))
+        self._history = self._check_history(self._path, self._history)
+        self._rhistory = self._check_history(self._rpath, self._rhistory)
         return self._path
 
-    def save_history(self):
-        history = os.path.join(self._path, '.proc_hisroty')
+    def _check_history(self, path, history_obj, name='.history'):
+        history = os.path.join(path, name)
+        if os.path.exists(history):
+            with open(history, 'rb') as f:
+                history_obj = pickle.load(f)
+            self.logger.debug("Subfolder history file is loaded".format(history))
+        else:
+            self._save_history(path, history_obj)
+        return history_obj
+
+    def _save_history(self, path, history_obj, name='.history'):
+        history = os.path.join(path, name)
         with open(history, 'wb') as f:
-            pickle.dump(self._history, f)
-        self.logger.info("Proc::History file '{0}' is saved".format(history))
+            pickle.dump(history_obj, f)
+        self.logger.debug("Subfolder history file '{0}' is saved".format(history))
