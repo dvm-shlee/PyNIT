@@ -936,7 +936,7 @@ class AFNI_Process(BaseProcess):
                     cmd = '3dcalc -prefix {output}{ext} -expr "a" -a {func}"{irange}"'
                     step.set_cmd(cmd)
                     if mparam:
-                        prange = "{" + "{}..{}".format(*clip_range) + "}"
+                        prange = "'{" + "{}..{}".format(*clip_range) + "}'"
                         step.set_var(name='irange_param', value=prange, type=1)
                         cmd_param = '1d_tool.py -infile "{mparam}{itange_param}" -write {output}.1D'
                         step.set_cmd(cmd_param)
@@ -953,7 +953,7 @@ class AFNI_Process(BaseProcess):
                         step.set_cmd(cmd)
                         if mparam:
                             str_irange_param = '{}_param'.format(str_irange)
-                            prange = "{" + "{}..{}".format(*clip_range[tail]) + "}"
+                            prange = "'{" + "{}..{}".format(*clip_range[tail]) + "}'"
                             step.set_var(name=str_irange_param, value=prange, type=1)
                             cmd_param = '1d_tool.py -infile "{mparam}{'+str_irange_param+\
                                         '}" -write {output}_'+'{}'.format(tail)+'.1D'
