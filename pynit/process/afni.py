@@ -925,7 +925,7 @@ class AFNI_Process(BaseProcess):
         func = self.check_input(func)
         step.set_input(name='func', path=func, filters=kwargs)
         step.set_output(name='output', ext='remove')
-        print(step.ext)
+        print(self.ext)
         step.set_var(name='ext', value=step.ext)
         if mparam:
             step.set_input('mparam', path=func, filters=dict(ext='.1D', ignore='aff12'), type=1)

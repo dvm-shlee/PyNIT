@@ -162,6 +162,7 @@ class BaseProcess(object):
     def path(self):
         return self._path
 
+    @property
     def ext(self):
         return self._ext
 
