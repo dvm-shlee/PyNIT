@@ -318,7 +318,7 @@ class Pipelines(object):
             methods.raiseerror(messages.Errors.InitiationFailure, 'Error on initiating step')
 
     def group_organizer(self, origin, target, step_id, group_filters, option_filters=None, cbv=None,
-                        listing=True, help=False, tag=None, **kwargs):
+                        listing=True, help=False, o_tag=None, t_tag=None, **kwargs):
         """Organizing groups using given filter for applying 2nd level analysis
         In terms of the 'filters', here is two types that you have to distinguish,
         First type is group filter to classify data into group, it can be defined as below
@@ -371,8 +371,8 @@ class Pipelines(object):
         :type kwargs:           key=value, key=value, ...
         """
         display(title('---=[[[ Move subject to group folder ]]]=---'))
-        self.initiate(target, listing=False, tag=tag, **kwargs)
-        input_proc = Process(self.__prj, self.avail[origin])
+        self.initiate(target, listing=False, tag=t_tag, **kwargs)
+        input_proc = Process(self.__prj, self.avail[origin], tag=o_tag)
         init_path = self.__init_path('GroupOrganizing')
         groups = sorted(group_filters.keys())
         oset = dict()
