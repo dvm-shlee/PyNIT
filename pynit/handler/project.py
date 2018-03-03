@@ -254,10 +254,8 @@ class Project(object):
                     dc_idx = 0
             else:
                 dc_idx = i
-        if dc_idx == 2:
-            self.__dc_idx = 0
-        else:
-            self.__dc_idx = dc_idx
+        self.__dc_idx = dc_idx
+        self.scan_prj()
         self.apply()
 
     @property
