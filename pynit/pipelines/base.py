@@ -140,6 +140,7 @@ class Pipelines(object):
         :param package_id:  Id code for package to initiate
         :param verbose:     Printing out the help of initiating package
         :param kwargs:      Input parameters for initiating package
+        :param tag:         Tag on package folder
         :type package_id:   int
         :type verbose:      bool
         :type kwargs:       key=value pairs
@@ -317,7 +318,7 @@ class Pipelines(object):
             methods.raiseerror(messages.Errors.InitiationFailure, 'Error on initiating step')
 
     def group_organizer(self, origin, target, step_id, group_filters, option_filters=None, cbv=None,
-                        listing=True, help=False, **kwargs):
+                        listing=True, help=False, tag=None, **kwargs):
         """Organizing groups using given filter for applying 2nd level analysis
         In terms of the 'filters', here is two types that you have to distinguish,
         First type is group filter to classify data into group, it can be defined as below
@@ -358,6 +359,7 @@ class Pipelines(object):
                                           step_id=filename_filters,...)
                                 step id can be 1) DataType is source folder, or 2) index of pipeline step
                                 (Default=None)
+        :param tag:
         :param kwargs:          Additional option to initiate pipeline package
                                 To provide this options please check help document on the package
         :type origin:           int
@@ -370,7 +372,7 @@ class Pipelines(object):
         """
         display(title('---=[[[ Move subject to group folder ]]]=---'))
         self.initiate(target, listing=False, **kwargs)
-        input_proc = Process(self.__prj, self.avail[origin])
+        input_proc = Process(self.__prj, self.avail[origin], tag=tag)
         init_path = self.__init_path('GroupOrganizing')
         groups = sorted(group_filters.keys())
         oset = dict()
