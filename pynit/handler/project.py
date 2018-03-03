@@ -254,7 +254,10 @@ class Project(object):
                     dc_idx = 0
             else:
                 dc_idx = i
-        self.__dc_idx = dc_idx
+        if dc_idx == 2:
+            self.__dc_idx = 0
+        else:
+            self.__dc_idx = dc_idx
         self.apply()
 
     @property
