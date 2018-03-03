@@ -244,20 +244,13 @@ class Project(object):
         mk_main_folder(self)
 
         # Scan project folder
-        dc_idx = 0
+        dc_idx = []
         for i in range(3):
             self.__dc_idx = i
             self.scan_prj()
             if self.__empty_project:
-                if i < 2:
-                    dc_idx = i+1
-                else:
-                    dc_idx = 0
-            else:
-                dc_idx = i
-        if dc_idx == 2:
-            dc_idx = 0
-        self.__dc_idx = dc_idx
+                dc_idx.append(i)
+        self.__dc_idx = max(dc_idx)
         self.scan_prj()
         self.apply()
 
