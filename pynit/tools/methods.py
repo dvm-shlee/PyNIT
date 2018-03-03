@@ -23,20 +23,23 @@ def splitext(path):
     return str(path)
 
 
-def shell(cmd):
+def shell(cmd, logging=True):
     """ Execute shell command
 
     :param cmd: str, command to execute
     :return: stdout, error
     """
-    logger = get_logger('', 'pynit-cmd')
+    if logging:
+        logger = get_logger('', 'pynit-cmd')
     try:
         processor = Popen(shlex.split(cmd), stdout=PIPE, stderr=PIPE)
         out, err = processor.communicate()
-        logger.info('Success::{}'.format(cmd))
+        if logging:
+            logger.info('Success::{}'.format(cmd))
         return out, err
     except OSError as e:
-        logger.info('Error::{}'.format(cmd))
+        if logging:
+            logger.info('Error::{}'.format(cmd))
         return None, None
         #raiseerror(messages.Errors.InputValueError, 'Command can not be executed.')
 

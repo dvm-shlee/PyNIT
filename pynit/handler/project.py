@@ -243,6 +243,7 @@ class Project(object):
         # Generate folders for dataclasses
         mk_main_folder(self)
 
+        self._logger = methods.get_logger(self.__path, 'pynit-prjhandler')
         # Scan project folder
         dc_idx = []
         for i in range(3):
@@ -584,6 +585,7 @@ class Project(object):
                     else:
                         if not os.path.exists(os.path.join(self.path, self.dataclass, residuals[0])):
                             # Unexpected error
+                            self._logger.debug('{}'.format(residuals))
                             methods.raiseerror(messages.Errors.NoFilteredOutput,
                                                'Uncertain exception occured, please report to Author (shlee@unc.edu)')
                         else:
