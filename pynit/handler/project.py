@@ -249,7 +249,6 @@ class Project(object):
             self.__dc_idx = i
             self.scan_prj()
             if self.__empty_project:
-                print('empty')
                 if i < 2:
                     dc_idx = i+1
                 else:
@@ -463,7 +462,9 @@ class Project(object):
             self.__df = initial_filter(self.__df, self.ds_type, self.ref_exts)
             if len(self.__df):
                 self.__df = self.__df[reorder_columns(self.__dc_idx, self.single_session)]
-            self.__empty_project = False
+                self.__empty_project = False
+            else:
+                self.__empty_project = True
             self.__update()
         else:
             self.__empty_project = True
