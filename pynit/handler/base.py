@@ -1078,7 +1078,8 @@ class BaseProcessor(object):
             return [i for i, ltr in enumerate(s) if ltr == ch]
         # tmpns = [obj.strip('{}') for obj in re.findall(r"[{\w'}]+", command) if obj[0] == '{' and obj[-1] == '}']
         tmpns = [obj[find(obj,'{')[0]+1:find(obj, '}')[-1]]
-                 for obj in re.findall(r"[{\w'}]+", command) if '{' in obj and '}' in obj]
+                 for obj in re.findall(r"\{[^{}]\}", command) if '{' in obj and '}' in obj]
+                 # for obj in re.findall(r"[{\w'}]+", command) if '{' in obj and '}' in obj]
         nss = []
         for ns in tmpns:
             if "}{" in ns:
