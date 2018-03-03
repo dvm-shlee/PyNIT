@@ -248,7 +248,7 @@ class Project(object):
         for i in range(3):
             self.__dc_idx = i
             self.scan_prj()
-            if self.__empty_project:
+            if not self.__empty_project:
                 dc_idx.append(i)
         print(dc_idx)
         self.__dc_idx = max(dc_idx)
