@@ -371,8 +371,8 @@ class Pipelines(object):
         :type kwargs:           key=value, key=value, ...
         """
         display(title('---=[[[ Move subject to group folder ]]]=---'))
-        self.initiate(target, listing=False, **kwargs)
-        input_proc = Process(self.__prj, self.avail[origin], tag=tag)
+        self.initiate(target, listing=False, tag=tag, **kwargs)
+        input_proc = Process(self.__prj, self.avail[origin])
         init_path = self.__init_path('GroupOrganizing')
         groups = sorted(group_filters.keys())
         oset = dict()
