@@ -944,7 +944,7 @@ class AFNI_Process(BaseProcess):
             elif isinstance(clip_range, dict):
                 for i, tail in enumerate(clip_range.keys()):
                     if len(clip_range[tail]) == 2:
-                        irange = "'[" + "{}..{}".format(*clip_range) + "]'"
+                        irange = "'[" + "{}..{}".format(*clip_range[tail]) + "]'"
                         str_irange = 'irange_{}'.format(i)
                         step.set_var(name=str_irange, value=irange, type=1)
                         cmd = '3dcalc -prefix {output}{'+'{}'.format(tail)+\
