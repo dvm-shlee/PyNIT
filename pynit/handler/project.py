@@ -249,13 +249,15 @@ class Project(object):
             self.__dc_idx = i
             self.scan_prj()
             if self.__empty_project:
+                print('empty')
                 if i < 2:
                     dc_idx = i+1
                 else:
                     dc_idx = 0
             else:
                 dc_idx = i
-        print(dc_idx)
+        if dc_idx == 2:
+            dc_idx = 0
         self.__dc_idx = dc_idx
         self.scan_prj()
         self.apply()
