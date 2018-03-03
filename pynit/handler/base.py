@@ -354,10 +354,6 @@ class BaseProcessor(object):
     # def imported(self):
     #     return self.__import
 
-    @property
-    def ext(self):
-        return self.__ext[-1]
-
     def __init_container(self, procobj):
         """ Initiating containers for objects
 
@@ -387,7 +383,8 @@ class BaseProcessor(object):
         self.__cmd = list()
         self.__dc = None
         self.__input_dc = None
-        self.__ext = procobj.ext
+        self.ext = procobj.ext
+        print(self.ext)
 
     def init_path(self, title, dc=0, verbose=False):
         """ This method checks if the input step had been executed or not.
