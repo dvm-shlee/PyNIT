@@ -905,27 +905,62 @@ class AFNI_Process(BaseProcess):
             tmp.close()
         return dict(timecourse=output_path)
 
-    def afni_TemporalClipping(self, func, clip_range, surfix='func', n_thread='max', debug=False, **kwargs):
-        """
+    def afni_TemporalClipping(self, func, clip_range, mparam=False,
+                              surfix='func', n_thread='max', debug=False, **kwargs):
+        """Perform temporal clipping for fMRI data.
+        User can define multiple
 
-        :param func:
-        :param clip_range:
+        :param func:        Input path for functional data
+        :param clip_range:  Range of datapoint on temporal axis to crop. Multiple clip range also compatible
+        :param mparam:      True if user want to clip correspond motion parameter file
         :param surfix:
+        :param n_thread:
+        :param debug:
         :param kwargs:
+        :type
         :return:
         """
         step = Step(self, n_thread=n_thread)
         step.set_message('** Temporal clipping of functional image')
         func = self.check_input(func)
         step.set_input(name='func', path=func, filters=kwargs)
-        step.set_output(name='output')
+        step.set_output(name='output', ext='remove')
+        step.set_var(name='ext', value=step.ext)
+        if mparam:
+            step.set_input('mparam', path=func, filters=dict(ext='.1D', ignore='aff12'), type=1)
         if clip_range:
             if isinstance(clip_range, list):
                 if len(clip_range) == 2:
                     irange = "'[" + "{}..{}".format(*clip_range) + "]'"
                     step.set_var(name='irange', value=irange, type=1)
-        cmd = '3dcalc -prefix {output} -expr "a" -a {func}"{irange}"'
-        step.set_cmd(cmd)
+                    cmd = '3dcalc -prefix {output}{ext} -expr "a" -a {func}"{irange}"'
+                    step.set_cmd(cmd)
+                    if mparam:
+                        step.set_var(name='irange_param', value='"{'+irange+'}"', type=1)
+                        cmd_param = '1d_tool.py -infile "{mparam}{itange_param}" -write {output}.1D'
+                        step.set_cmd(cmd_param)
+                else:
+                    self.logger.info('afni_TemporalClipping::incorrect type on clip_range: {}'.format(clip_range))
+            elif isinstance(clip_range, dict):
+                for i, tail in enumerate(clip_range.keys()):
+                    if len(clip_range[tail]) == 2:
+                        irange = "'[" + "{}..{}".format(*clip_range) + "]'"
+                        str_irange = 'irange_{}'.format(i)
+                        step.set_var(name=str_irange, value=irange, type=1)
+                        cmd = '3dcalc -prefix {output}{'+'{}'.format(tail)+\
+                              '}{ext} -expr "a" -a {func}"{'+str_irange.format(i)+'}"'
+                        step.set_cmd(cmd)
+                        if mparam:
+                            str_irange_param = '{}_param'.format(str_irange)
+                            step.set_var(name=, value='"{' + irange + '}"', type=1)
+                            cmd_param = '1d_tool.py -infile "{mparam}{'+str_irange_param+\
+                                        '}" -write {output}{'+'{}'.format(tail)+'}.1D'
+                            step.set_cmd(cmd_param)
+                    else:
+                        self.logger.info('afni_TemporalClipping::incorrect type '
+                                         'on clip_range value: {}'.format(clip_range[tail]))
+        else:
+            self.logger.info('afni_TemporalClipping::clip_range is not provided')
         output_path = step.run('TemporalClipping', surfix, debug=debug)
         return dict(clippedfunc=output_path)
 

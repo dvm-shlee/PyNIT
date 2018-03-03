@@ -19,6 +19,7 @@ class BaseProcess(object):
         # Prepare inputs
         prjobj.reset_filters()
         self.__prj = prjobj
+        self._ext = prjobj.img_ext
         if tag:
             name = "{}-{}".format(name, tag)
         self._path = os.path.join(self.prj.path, self.prj.ds_type[1], name)
@@ -160,6 +161,9 @@ class BaseProcess(object):
     @property
     def path(self):
         return self._path
+
+    def ext(self):
+        return self._ext
 
     @property
     def processing(self):

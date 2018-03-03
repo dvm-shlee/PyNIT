@@ -354,6 +354,10 @@ class BaseProcessor(object):
     # def imported(self):
     #     return self.__import
 
+    @property
+    def ext(self):
+        return self.__ext[-1]
+
     def __init_container(self, procobj):
         """ Initiating containers for objects
 
@@ -383,6 +387,7 @@ class BaseProcessor(object):
         self.__cmd = list()
         self.__dc = None
         self.__input_dc = None
+        self.__ext = procobj.ext
 
     def init_path(self, title, dc=0, verbose=False):
         """ This method checks if the input step had been executed or not.
@@ -430,7 +435,8 @@ class BaseProcessor(object):
     def set_parallel(self, n_thread):
         """ Method to initiate parallel computing
 
-        :param n_thread:    Number of thread for parallel computing
+        :param n_thread:    Number of thread for parallel computing, or 'max'
+        :type n_thread:     int or str
         """
         self.__proc.logger.info("Step::n_thread is setted as {}".format(n_thread))
         if isinstance(n_thread, int):
@@ -498,9 +504,9 @@ class BaseProcessor(object):
                         if you want to import multiple submodules, use list instead
         :param rename:  new name for imported module.
                         if you want to rename submodules, use list instead
-        :type module: str
-        :type sub: str or list of str
-        :type rename: str or list of str
+        :type module:   str
+        :type sub:      str or list of str
+        :type rename:   str or list of str
         """
         self.__configure_module(module, sub=sub, rename=rename)
 
