@@ -250,6 +250,7 @@ class Project(object):
             self.scan_prj()
             if self.__empty_project:
                 dc_idx.append(i)
+        print(dc_idx)
         self.__dc_idx = max(dc_idx)
         self.scan_prj()
         self.apply()
