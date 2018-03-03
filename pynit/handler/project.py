@@ -248,6 +248,7 @@ class Project(object):
         for i in range(3):
             self.__dc_idx = i
             self.scan_prj()
+            self.apply()
             if not self.__empty_project:
                 if len(self.df) != 0:
                     dc_idx.append(i)
