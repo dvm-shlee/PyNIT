@@ -938,7 +938,7 @@ class AFNI_Process(BaseProcess):
                     if mparam:
                         prange = "'{" + "{}..{}".format(*clip_range) + "}'"
                         step.set_var(name='irange_param', value=prange, type=1)
-                        cmd_param = '1d_tool.py -infile "{mparam}{itange_param}" -write {output}.1D'
+                        cmd_param = '1d_tool.py -infile "{mparam}{irange_param}" -write {output}.1D'
                         step.set_cmd(cmd_param)
                 else:
                     self.logger.info('afni_TemporalClipping::incorrect type on clip_range: {}'.format(clip_range))
