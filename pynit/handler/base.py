@@ -1077,7 +1077,7 @@ class BaseProcessor(object):
         def find(s, ch):
             return [i for i, ltr in enumerate(s) if ltr == ch]
         # tmpns = [obj.strip('{}') for obj in re.findall(r"[{\w'}]+", command) if obj[0] == '{' and obj[-1] == '}']
-        tmpns = [obj for obj in re.findall(r"\{[^{}]+\}", command)]
+        tmpns = [obj.split('{}') for obj in re.findall(r"\{[^{}]+\}", command)]
         print(command)
         print(tmpns)
         # tmpns = [obj[find(obj,'{')[0]+1:find(obj, '}')[-1]]
