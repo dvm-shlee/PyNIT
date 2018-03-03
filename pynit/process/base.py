@@ -267,7 +267,7 @@ class BaseProcess(object):
         """Initiate process folder
         """
         self.reset() # correct subject and session information
-        methods.mkdir(self._path)
+        methods.mkdir(self._path, self._rpath)
         self.logger.debug('Proc::Initiating instance {0}'.format(self.processing))
         self._history = self._check_history(self._path, self._history)
         self._rhistory = self._check_history(self._rpath, self._rhistory)
