@@ -249,8 +249,8 @@ class Project(object):
             self.__dc_idx = i
             self.scan_prj()
             if not self.__empty_project:
-                dc_idx.append(i)
-        print(dc_idx)
+                if len(self.df) != 0:
+                    dc_idx.append(i)
         self.__dc_idx = max(dc_idx)
         self.scan_prj()
         self.apply()
