@@ -825,10 +825,11 @@ class AFNI_Process(BaseProcess):
                     tmp = TempFile(rois.atlas, atlas=True)
                 rois = str(tmp.path)
                 list_of_roi = list(tmp.label)
+                self.logger.info('afni_ROIstats::Given ROIs loaded from Template object')
             except:
-                pass
+                self.logger.debug('afni_ROIstats::exception raises on rois')
         else:
-            pass
+            self.logger.debug('afni_ROIstats::exception raises on rois')
         if label:
             list_of_roi = [roi for roi, cmap in label.label.values()][1:]
         # Check if given rois path is existed in the list of executed steps

@@ -9,7 +9,6 @@ from pynit.process import Process
 from ..tools import progressbar, display, clear_output, HTML as title, display_html
 
 
-#TODO: option for logging need to be subdivided, error messages need to be more clear
 class Pipelines(object):
     """ Pipeline handler
 
@@ -50,6 +49,7 @@ class Pipelines(object):
         avails = ["\t{} : {}".format(*item) for item in self.avail.items()]
         output = ["\nList of available packages:"] + avails
         print("\n".join(output))
+        self.__logger = methods.get_logger('', 'pynit-pipeline')
 
     @property
     def avail(self):
@@ -58,7 +58,39 @@ class Pipelines(object):
         output = dict(zip(range(n_pipe), pipes))
         return output
 
-    #TODO: method to clean pipeline steps folder need to be provided
+    def rm_contents(self, indices, dc=0):
+        try:
+            if dc==0:
+                if isinstance(indices, list):
+                    for idx in indices:
+                        path = self._proc._history[self.executed[idx]]
+                        self.__rmall(path)
+                else:
+                    path = self._proc._history[self.executed[indices]]
+                    self.__rmall(path)
+            elif dc==1:
+                if isinstance(indices, list):
+                    for idx in indices:
+                        path = self._proc._rhistory[self.reported[idx]]
+                        self.__rmall(path)
+                else:
+                    path = self._proc._rhistory[self.reported[indices]]
+                    self.__rmall(path)
+        except:
+            self.__logger.debug('rm_contents::Some of given indices[{}] are not exists. Cannot remove contents'.format(indices))
+
+
+    def __rmall(self, path):
+        import shutil
+        list_contents = [os.path.join(path, f) for f in os.listdir(path)]
+        try:
+            for c in list_contents:
+                if os.path.isfile(c):
+                    os.unlink(c)
+                elif os.path.isdir(c):
+                    shutil.rmtree(c)
+        except:
+            self.__logger.debug('__rmall::Failed to remove all contents in "{}"'.format(path))
 
     def unload(self):
         """ Unload all plugin, and use default pipelines and processes
@@ -78,7 +110,7 @@ class Pipelines(object):
         self._proc = None
         self.selected = None
 
-    def load(self, proc=None, pipe=None, reset=False):
+    def load(self, proc=None, pipe=None):
         """ Load plugin for custom-coded pipelines and processes.
         If you want more detail information about this plugin feature,
         please visit out documentation.
@@ -124,6 +156,7 @@ class Pipelines(object):
                 command += ')'
             exec(command)
         else:
+            self.__logger.debug('initiate::incorrect package index was selected')
             methods.raiseerror(messages.PipelineNotSet, "Incorrect package is selected")
         if verbose:
             print(self.selected.__init__.__doc__)
@@ -144,11 +177,11 @@ class Pipelines(object):
             for key, value in kwargs.items():
                 if hasattr(self.selected, key):
                     setattr(self.selected, key, value)
-                    self.update()
                 else:
-                    print(key)
-                    methods.raiseerror(messages.Errors.KeywordError, '{} is not available keyword for this project')
+                    self.__logger.debug('set_param::Not available keyword are used [{}]'.format(key))
+                    methods.raiseerror(messages.Errors.KeywordError, '{} is not available keyword for this project'.format(key))
         else:
+            self.__logger.debug('set_param::Pipeline package is not specified')
             methods.raiseerror(messages.Errors.InitiationFailure, 'Pipeline package is not specified')
 
     def get_param(self):
@@ -193,7 +226,7 @@ class Pipelines(object):
             exec(command)
             print(selected.__init__.__doc__)
 
-    def inspect(self, idx): #TODO: Test on linux environment
+    def inspect(self, idx):
         """  Inspect pipeline packages
 
         :param idx: index of available pipeline package
@@ -232,22 +265,11 @@ class Pipelines(object):
         display(title('---=[[[ Running "{}" pipeline ]]]=---'.format(self.selected.avail[idx])))
         exec('self.selected.pipe_{}()'.format(self.selected.avail[idx]))
 
-    def update(self):
-        """ Update history
-        """
-        proc = self._proc
-        processing_path = os.path.join(proc.prj.path,
-                                       proc.prj.ds_type[1],
-                                       proc.processing)
-        for f in os.listdir(processing_path):
-            if f not in self.executed.values():
-                self._proc._history[f] = os.path.join(processing_path, f)
-        self._proc.save_history()
-
     def get_proc(self):
         if self._proc:
             return self._proc
         else:
+            self.__logger.debug('get_proc::Process object was called before initiation')
             methods.raiseerror(messages.Errors.PackageUpdateFailure, 'Pipeline package is not initiated')
 
     def get_prj(self):
@@ -260,7 +282,6 @@ class Pipelines(object):
         :return: str
         """
         proc = self._proc
-
 
         def get_step_name(proc, step, verbose=None):
             processing_path = os.path.join(proc.prj.path,
@@ -292,6 +313,7 @@ class Pipelines(object):
             methods.mkdir(path)
             return path
         else:
+            self.__logger.debug('__init_path::Error rises while initiating step')
             methods.raiseerror(messages.Errors.InitiationFailure, 'Error on initiating step')
 
     def group_organizer(self, origin, target, step_id, group_filters, option_filters=None, cbv=None,
@@ -415,9 +437,9 @@ class Pipelines(object):
                                                      *(group_filters[group][0] + group_filters[group][1]),
                                                      **updated_filters)
                             else:
-                                pass #TODO: error message, and log something
+                                pass #TODO: log something
                         else:
-                            pass #TODO: error message, and log something
+                            pass #TODO: log something
 
             # Copy selected files into the group folder
             for i, finfo in dset: # Preprocessed dataset
@@ -445,7 +467,7 @@ class Pipelines(object):
 
         self._proc._subjects = groups[:]
         self._proc._history[os.path.basename(init_path)] = init_path
-        self._proc.save_history()
+        self._proc._save_history(self._proc._path, self._proc._history)
         self._proc.prj.reload()
         clear_output()
         display_html("The package '{}' is initiated.<br>"

@@ -12,6 +12,26 @@ class PipeTemplate(object):
         return output
 
 
+class T_Temporary_dataholder(PipeTemplate):
+    def __init__(self, proc, tmpobj, surfix='func', n_thread='max'):
+        """ Temporary data holder when for usage of data trimming in case user needs complex group organization from raw data
+Author  : SungHo Lee(shlee@unc.edu)
+Revised : Dec.11st.2017
+
+Parameters:
+    n_thread: int or str
+        Set parallel processing, pynit pipeline use multi-threading to run parallel processing
+        Please set to 1 if you use the linux virtual machine.
+        (default: 'max')
+    surfix  : str
+        Surfix for output folder (default: 'func')
+        """
+        self.proc = proc
+        self.tmpobj = tmpobj
+        self.surfix = surfix
+        self.n_thread = n_thread
+
+
 class Q_Quality_assesments(PipeTemplate):
     def __init__(self):
         pass

@@ -1390,7 +1390,7 @@ class BaseProcessor(object):
         :return: str
         """
         funccode = self.build_func(name)
-        self.__proc.logger.debug("Executed_Function::\n{}".format(funccode)) # for debug only
+        # self.__proc.logger.debug("Executed_Function::\n{}".format(funccode)) # for debug only
         output = None
         exec (funccode)  # load step function on memory
         try:
