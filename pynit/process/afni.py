@@ -952,7 +952,7 @@ class AFNI_Process(BaseProcess):
                         step.set_cmd(cmd)
                         if mparam:
                             str_irange_param = '{}_param'.format(str_irange)
-                            step.set_var(name=, value='"{' + irange + '}"', type=1)
+                            step.set_var(name=str_irange_param, value='"{' + irange + '}"', type=1)
                             cmd_param = '1d_tool.py -infile "{mparam}{'+str_irange_param+\
                                         '}" -write {output}{'+'{}'.format(tail)+'}.1D'
                             step.set_cmd(cmd_param)
