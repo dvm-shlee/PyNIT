@@ -244,6 +244,7 @@ class Project(object):
         mk_main_folder(self)
 
         # Scan project folder
+        dc_idx = 0
         for i in range(3):
             self.__dc_idx = i
             self.scan_prj()
@@ -254,6 +255,7 @@ class Project(object):
                     dc_idx = 0
             else:
                 dc_idx = i
+        print(dc_idx)
         self.__dc_idx = dc_idx
         self.scan_prj()
         self.apply()
