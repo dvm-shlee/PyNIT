@@ -243,7 +243,7 @@ class Project(object):
         # Generate folders for dataclasses
         mk_main_folder(self)
 
-        self._logger = methods.get_logger(self.__path, 'pynit-prj')
+        self._logger = methods.get_logger(self.__path, 'Project')
         # Scan project folder
         dc_idx = []
         for i in range(3):
@@ -587,6 +587,7 @@ class Project(object):
                         if not os.path.exists(os.path.join(self.path, self.dataclass, residuals[0])):
                             # Unexpected error
                             self._logger.debug('set_filters::Exception on residual-{}'.format(residuals))
+                            self._logger.debug('set_filters::filters - {}, {}'.format(args, kwargs))
                             methods.raiseerror(messages.Errors.NoFilteredOutput,
                                                'Uncertain exception occured, please report to Author (shlee@unc.edu)')
                         else:
@@ -639,6 +640,7 @@ class Project(object):
             if self.ext:
                 df = df[df['Filename'].str.contains('|'.join([r"{ext}$".format(ext=ext) for ext in self.ext]))]
             self._logger.debug('applying_filters::Filters are applied')
+            self._logger.debug('applying_filters::list_of_filters-[]'.format(self.__filters))
             return df
         else:
             self._logger.debug('applying_filters::Empty project')
