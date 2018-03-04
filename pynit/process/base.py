@@ -7,7 +7,7 @@ from pynit.tools import gui, display, notebook_env
 class BaseProcess(object):
     """Collections of step components for pipelines
     """
-    def __init__(self, prjobj, name, tag, logging=True, viewer='itksnap'):
+    def __init__(self, prjobj, name, tag=None, logging=True, viewer='itksnap'):
         """
 
         :param prjobj:
@@ -29,7 +29,7 @@ class BaseProcess(object):
         # Initiate logger
         if logging:
             self.logger = methods.get_logger(os.path.dirname(self._path), '{}'.format(name))
-            self.rlogger = methods.get_logger(os.path.dirname(self._rpath), '{}'.format(name))
+            self.rlogger = methods.get_logger(os.path.dirname(self._rpath), 'r_{}'.format(name))
 
         # Define default arguments
         self._subjects = None
