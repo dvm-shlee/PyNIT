@@ -83,7 +83,9 @@ def parsing_dataclass(path, ds_type, idx, single_session):
     df = pd.DataFrame()
     for f in os.walk(os.path.join(path, ds_type[idx])):
         if f[2]:
-            for filename in f[2]:
+            import re
+            flist = [fname for fname in f[2] if not re.match(r'^[.].+')]
+            for filename in flist:
                 row = pd.Series(methods.path_splitter(os.path.relpath(f[0], path)))
                 row['Filename'] = filename
                 row['Abspath'] = os.path.join(f[0], filename)
