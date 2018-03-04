@@ -245,7 +245,7 @@ class Project(object):
         # Generate folders for dataclasses
         mk_main_folder(self)
 
-        self._logger = methods.get_logger(self.__path, 'Project')
+        # self._logger = methods.get_logger(self.__path, 'Project')
         # Scan project folder
         dc_idx = []
         for i in range(3):
@@ -580,7 +580,7 @@ class Project(object):
                         dc_path = os.path.join(self.path, self.dataclass, pipe_filter[0])
                         processed = os.listdir(dc_path)
                         if len([step for step in processed if step in residuals]):
-                            self._logger.debug('set_filters::Wrong filter(s)-{}'.format(residuals))
+                            # self._logger.debug('set_filters::Wrong filter(s)-{}'.format(residuals))
                             methods.raiseerror(messages.Errors.NoFilteredOutput,
                                                'Cannot find any results from [{residuals}]\n'
                                                '\t\t\tPlease take a look if you had applied correct filter inputs'
@@ -588,15 +588,15 @@ class Project(object):
                     else:
                         if not os.path.exists(os.path.join(self.path, self.dataclass, residuals[0])):
                             # Unexpected error
-                            self._logger.debug('set_filters::Exception on residual-{}'.format(residuals))
-                            self._logger.debug('set_filters::filters - {}, {}'.format(args, kwargs))
+                            # self._logger.debug('set_filters::Exception on residual-{}'.format(residuals))
+                            # self._logger.debug('set_filters::filters - {}, {}'.format(args, kwargs))
                             methods.raiseerror(messages.Errors.NoFilteredOutput,
                                                'Uncertain exception occured, please report to Author (shlee@unc.edu)')
                         else:
                             # When Processing folder is empty
                             self.__filters[2] = residuals
                 else:
-                    self._logger.debug('set_filters::Wrong filter(s)-{}'.format(residuals))
+                    # self._logger.debug('set_filters::Wrong filter(s)-{}'.format(residuals))
                     methods.raiseerror(messages.Errors.NoFilteredOutput,
                                        'Wrong filter input:{residuals}'.format(residuals=residuals))
             else:
@@ -641,11 +641,11 @@ class Project(object):
                 df = df[~df.Filename.str.contains('|'.join(ignore))]
             if self.ext:
                 df = df[df['Filename'].str.contains('|'.join([r"{ext}$".format(ext=ext) for ext in self.ext]))]
-            self._logger.debug('applying_filters::Filters are applied')
-            self._logger.debug('applying_filters::list_of_filters-[]'.format(self.__filters))
+            # self._logger.debug('applying_filters::Filters are applied')
+            # self._logger.debug('applying_filters::list_of_filters-[]'.format(self.__filters))
             return df
         else:
-            self._logger.debug('applying_filters::Empty project')
+            # self._logger.debug('applying_filters::Empty project')
             return df
 
     def __summary(self):
@@ -721,7 +721,7 @@ class Project(object):
                     self.__results = sorted(list(set(self.df.Result.tolist())))
                     self.__steps = None
             except:
-                self._logger.debug('__update::Error during update project attributes')
+                # self._logger.debug('__update::Error during update project attributes')
                 methods.raiseerror(messages.Errors.UpdateAttributesFailed,
                                    "Error is occured during update project's attributes")
         else:
