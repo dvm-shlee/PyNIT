@@ -31,6 +31,7 @@ class BaseProcess(object):
             self.logger = methods.get_logger(os.path.dirname(self._path), '{}'.format(name))
             self.rlogger = methods.get_logger(os.path.dirname(self._rpath), 'r_{}'.format(name))
 
+        self.logger.info('Initiated_PipelinePackages::{}'.format(name))
         # Define default arguments
         self._subjects = None
         self._sessions = None
