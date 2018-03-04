@@ -23,7 +23,7 @@ def splitext(path):
     return str(path)
 
 
-def shell(cmd):
+def shell(cmd, logger=None):
     """ Execute shell command
 
     :param cmd: str, command to execute
@@ -31,9 +31,13 @@ def shell(cmd):
     """
     try:
         processor = Popen(shlex.split(cmd), stdout=PIPE, stderr=PIPE)
+        if logger != None:
+            logger.info("Shell::Success [{}]".format(cmd))
         out, err = processor.communicate()
         return out, err
     except OSError as e:
+        if logger != None:
+            logger.info("Shell::Error [{}]".format(e))
         return None, None
         #raiseerror(messages.Errors.InputValueError, 'Command can not be executed.')
 
@@ -53,7 +57,7 @@ def shell(cmd):
 def get_logger(path, name):
     today = "".join(str(datetime.date.today()).split('-'))
     # create logger
-    logger = logging.getLogger('{0}_logger'.format(name))
+    logger = logging.getLogger('{0}'.format(name))
     logger.setLevel(logging.DEBUG)
     # create file handler which logs even debug messages
     fh = logging.FileHandler(os.path.join(path, '{0}-{1}.log'.format(name, today)))

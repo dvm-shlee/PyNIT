@@ -49,7 +49,7 @@ class Pipelines(object):
         avails = ["\t{} : {}".format(*item) for item in self.avail.items()]
         output = ["\nList of available packages:"] + avails
         print("\n".join(output))
-        self.__logger = methods.get_logger('', 'pynit-pipeline')
+        self.__logger = methods.get_logger('', 'pynit-Pipeline')
 
     @property
     def avail(self):
