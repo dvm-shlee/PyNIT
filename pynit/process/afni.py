@@ -924,21 +924,21 @@ class AFNI_Process(BaseProcess):
         step.set_message('** Temporal clipping of functional image')
         func = self.check_input(func)
         step.set_input(name='func', path=func, filters=kwargs)
-        step.set_output(name='output')
+        step.set_output(name='output', ext='remove')
+        step.set_var(name='ext', value=self.ext[-1])
         if mparam:
             step.set_input('mparam', path=func, filters=dict(ext='.1D', ignore='aff12'), type=1)
-            step.set_output(name='moutput', ext='remove')
         if clip_range:
             if isinstance(clip_range, list):
                 if len(clip_range) == 2:
                     irange = "'[" + "{}..{}".format(*clip_range) + "]'"
                     step.set_var(name='irange', value=irange, type=1)
-                    cmd = '3dcalc -prefix {output} -expr "a" -a {func}"{irange}"'
+                    cmd = '3dcalc -prefix {output}{ext} -expr "a" -a {func}"{irange}"'
                     step.set_cmd(cmd)
                     if mparam:
                         prange = "'{" + "{}..{}".format(*clip_range) + "}'"
                         step.set_var(name='irange_param', value=prange, type=1)
-                        cmd_param = '1d_tool.py -infile "{mparam}{irange_param}" -write {moutput}.1D'
+                        cmd_param = '1d_tool.py -infile "{mparam}{irange_param}" -write {output}.1D'
                         step.set_cmd(cmd_param)
                 else:
                     self.logger.info('afni_TemporalClipping::incorrect type on clip_range: {}'.format(clip_range))
@@ -949,14 +949,14 @@ class AFNI_Process(BaseProcess):
                         str_irange = 'irange_{}'.format(i)
                         step.set_var(name=str_irange, value=irange, type=1)
                         cmd = '3dcalc -prefix {output}_'+'{}'.format(tail)+\
-                              ' -expr "a" -a {func}"{'+str_irange.format(i)+'}"'
+                              '{ext} -expr "a" -a {func}"{'+str_irange.format(i)+'}"'
                         step.set_cmd(cmd)
                         if mparam:
                             str_irange_param = '{}_param'.format(str_irange)
                             prange = "'{" + "{}..{}".format(*clip_range[tail]) + "}'"
                             step.set_var(name=str_irange_param, value=prange, type=1)
                             cmd_param = '1d_tool.py -infile "{mparam}{'+str_irange_param+\
-                                        '}" -write {moutput}_'+'{}'.format(tail)+'.1D'
+                                        '}" -write {output}_'+'{}'.format(tail)+'.1D'
                             step.set_cmd(cmd_param)
                     else:
                         self.logger.info('afni_TemporalClipping::incorrect type '
