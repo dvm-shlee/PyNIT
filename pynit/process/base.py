@@ -50,7 +50,7 @@ class BaseProcess(object):
                 if not os.path.exists(path):
                     count_incorrect += 1
             if count_incorrect:
-                self.logger.debug('Incorrect subpathes are detected ({})'.format(count_incorrect))
+                self.logger.debug('__init__::Incorrect subpathes are detected ({})'.format(count_incorrect))
                 self.update()
         else:
             self.update()
@@ -91,8 +91,10 @@ class BaseProcess(object):
     def update(self):
         list_steps = self._get_subpath(self._path)
         list_results = self._get_subpath(self._rpath)
-        self.logger.debug("Executed steps are updated as [{}]".format(", ".join(list_steps)))
-        self.rlogger.debug("Reported results are updated as [{}]".format(", ".join(list_results)))
+        if len(list_steps):
+            self.logger.debug("update::Executed steps are updated as [{}]".format(", ".join(list_steps)))
+        if len(list_results):
+            self.rlogger.debug("update::Reported results are updated as [{}]".format(", ".join(list_results)))
 
         # Update processing history
         for step in list_steps:
@@ -155,7 +157,7 @@ class BaseProcess(object):
             self.update()
             gui.afni(self, self.results[idx], tmpobj)
         else:
-            self.logger.debug('Wrong dataclass value [dc = 0 or 1 but {} is given]'.format(dc))
+            self.logger.debug('afni::Wrong dataclass value [dc = 0 or 1 but {} is given]'.format(dc))
             methods.raiseerror(messages.Errors.InputValueError, '')
 
     @property
@@ -191,7 +193,7 @@ class BaseProcess(object):
             output = zip(range(n_hist), sorted(self._history.keys()))
             return dict(output)
         except:
-            self.logger.debug('No subfolder founds...')
+            self.logger.debug('executed::No subfolder founds...')
             pass
 
     @property
@@ -207,7 +209,7 @@ class BaseProcess(object):
             output = zip(range(n_hist), sorted(self._rhistory.keys()))
             return dict(output)
         except:
-            self.rlogger.debug('No subfolder founds...')
+            self.rlogger.debug('reported::No subfolder founds...')
             pass
 
     @property
@@ -260,20 +262,20 @@ class BaseProcess(object):
             self._subjects = sorted(self.__prj(0).subjects[:])
             if not self.__prj.single_session:
                 self._sessions = sorted(self.__prj(0).sessions[:])
-        self.logger.debug('Proc::Attributes [subjects, sessions] '
+        self.logger.debug('reset::Attributes [subjects, sessions] '
                           'are reset to default value [source dataclass index={}].'.format(idx_source))
-        self.logger.debug('Proc::Subject is defined as [{}]'.format(",".join(self._subjects)))
+        self.logger.debug('reset::Subject is defined as [{}]'.format(",".join(self._subjects)))
         if self._sessions:
-            self.logger.debug('Proc::Session is defined as [{}]'.format(",".join(self._sessions)))
+            self.logger.debug('reset::Session is defined as [{}]'.format(",".join(self._sessions)))
         else:
-            self.logger.debug('Proc::SingleSession')
+            self.logger.debug('reset::SingleSession')
 
     def init_proc(self):
         """Initiate process folder
         """
         self.reset() # correct subject and session information
         methods.mkdir(self._path, self._rpath)
-        self.logger.debug('Proc::Initiating instance {0}'.format(self.processing))
+        self.logger.debug('init_proc::Initiating instance {0}'.format(self.processing))
         self._history = self._check_history(self._path, self._history)
         self._rhistory = self._check_history(self._rpath, self._rhistory)
         return self._path
@@ -283,7 +285,7 @@ class BaseProcess(object):
         if os.path.exists(history):
             with open(history, 'rb') as f:
                 history_obj = pickle.load(f)
-            self.logger.debug("Subfolder history file is loaded".format(history))
+            self.logger.debug("_check_history::Subfolder history file is loaded".format(history))
         else:
             self._save_history(path, history_obj)
         return history_obj
@@ -292,4 +294,4 @@ class BaseProcess(object):
         history = os.path.join(path, name)
         with open(history, 'wb') as f:
             pickle.dump(history_obj, f)
-        self.logger.debug("Subfolder history file '{0}' is saved".format(history))
+        self.logger.debug("_save_history::Subfolder history file '{0}' is saved".format(history))
