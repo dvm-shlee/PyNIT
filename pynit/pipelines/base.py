@@ -178,6 +178,7 @@ class Pipelines(object):
             for key, value in kwargs.items():
                 if hasattr(self.selected, key):
                     setattr(self.selected, key, value)
+                    self.__logger.info('set_param::{}={}'.format(key, value))
                 else:
                     self.__logger.debug('set_param::Not available keyword are used [{}]'.format(key))
                     methods.raiseerror(messages.Errors.KeywordError, '{} is not available keyword for this project'.format(key))
@@ -306,6 +307,7 @@ class Pipelines(object):
             else:
                 if verbose:
                     print('The pipeline [{pipeline}] is initiated'.format(pipeline=proc.processing))
+                    self.__logger.debug('__init_path::{} is initiated'.format(proc.processing))
                 return "_".join([str(1).zfill(3), step])
 
         if proc._processing:

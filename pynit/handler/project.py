@@ -243,7 +243,7 @@ class Project(object):
         # Generate folders for dataclasses
         mk_main_folder(self)
 
-        self._logger = methods.get_logger(self.__path, 'pynit-prjhandler')
+        self._logger = methods.get_logger(self.__path, 'pynit-prj')
         # Scan project folder
         dc_idx = []
         for i in range(3):
@@ -578,6 +578,7 @@ class Project(object):
                         dc_path = os.path.join(self.path, self.dataclass, pipe_filter[0])
                         processed = os.listdir(dc_path)
                         if len([step for step in processed if step in residuals]):
+                            self._logger.debug('set_filters::Wrong filter(s)-{}'.format(residuals))
                             methods.raiseerror(messages.Errors.NoFilteredOutput,
                                                'Cannot find any results from [{residuals}]\n'
                                                '\t\t\tPlease take a look if you had applied correct filter inputs'
@@ -585,13 +586,14 @@ class Project(object):
                     else:
                         if not os.path.exists(os.path.join(self.path, self.dataclass, residuals[0])):
                             # Unexpected error
-                            self._logger.debug('{}'.format(residuals))
+                            self._logger.debug('set_filters::Exception on residual-{}'.format(residuals))
                             methods.raiseerror(messages.Errors.NoFilteredOutput,
                                                'Uncertain exception occured, please report to Author (shlee@unc.edu)')
                         else:
                             # When Processing folder is empty
                             self.__filters[2] = residuals
                 else:
+                    self._logger.debug('set_filters::Wrong filter(s)-{}'.format(residuals))
                     methods.raiseerror(messages.Errors.NoFilteredOutput,
                                        'Wrong filter input:{residuals}'.format(residuals=residuals))
             else:
@@ -636,8 +638,10 @@ class Project(object):
                 df = df[~df.Filename.str.contains('|'.join(ignore))]
             if self.ext:
                 df = df[df['Filename'].str.contains('|'.join([r"{ext}$".format(ext=ext) for ext in self.ext]))]
+            self._logger.debug('applying_filters::Filters are applied')
             return df
         else:
+            self._logger.debug('applying_filters::Empty project')
             return df
 
     def __summary(self):
@@ -691,30 +695,31 @@ class Project(object):
         """Update attributes of Project object based on current set filter information
         """
         if len(self.df):
-            # try:
-            self.__subjects = sorted(list(set(self.df.Subject.tolist())))
-            if self.single_session:
-                self.__sessions = None
-            else:
-                self.__sessions = sorted(list(set(self.df.Session.tolist())))
-            if self.__dc_idx == 0:
-                self.__dtypes = sorted(list(set(self.df.DataType.tolist())))
-                self.__pipelines = None
-                self.__steps = None
-                self.__results = None
-            elif self.__dc_idx == 1:
-                self.__dtypes = None
-                self.__pipelines = sorted(list(set(self.df.Pipeline.tolist())))
-                self.__steps = sorted(list(set(self.df.Step.tolist())))
-                self.__results = None
-            elif self.__dc_idx == 2:
-                self.__dtypes = None
-                self.__pipelines = sorted(list(set(self.df.Pipeline.tolist())))
-                self.__results = sorted(list(set(self.df.Result.tolist())))
-                self.__steps = None
-            # except:
-            #     methods.raiseerror(messages.Errors.UpdateAttributesFailed,
-            #                        "Error occured during update project's attributes")
+            try:
+                self.__subjects = sorted(list(set(self.df.Subject.tolist())))
+                if self.single_session:
+                    self.__sessions = None
+                else:
+                    self.__sessions = sorted(list(set(self.df.Session.tolist())))
+                if self.__dc_idx == 0:
+                    self.__dtypes = sorted(list(set(self.df.DataType.tolist())))
+                    self.__pipelines = None
+                    self.__steps = None
+                    self.__results = None
+                elif self.__dc_idx == 1:
+                    self.__dtypes = None
+                    self.__pipelines = sorted(list(set(self.df.Pipeline.tolist())))
+                    self.__steps = sorted(list(set(self.df.Step.tolist())))
+                    self.__results = None
+                elif self.__dc_idx == 2:
+                    self.__dtypes = None
+                    self.__pipelines = sorted(list(set(self.df.Pipeline.tolist())))
+                    self.__results = sorted(list(set(self.df.Result.tolist())))
+                    self.__steps = None
+            except:
+                self._logger.debug('__update::Error during update project attributes')
+                methods.raiseerror(messages.Errors.UpdateAttributesFailed,
+                                   "Error is occured during update project's attributes")
         else:
             self.__subjects = None
             self.__sessions = None

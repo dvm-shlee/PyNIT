@@ -592,7 +592,7 @@ class BaseProcessor(object):
             methods.raiseerror(messages.Errors.InputTypeError,
                                'Wrong command type')
         else:
-            self.__proc.logger.info('CMD:{}'.format(command))
+            self.__proc.logger.info('CMD_Pattern:{}'.format(command))
             self.__cmd.append(_cmds(name=name, command=command, nscode=nscode, type=type, level=level))
 
     def reset(self):
@@ -1022,6 +1022,8 @@ class BaseProcessor(object):
         for i, cmd in enumerate(self.__cmd):
 
             if cmd.type == 0: #command line tool
+                list_cmd.append("self._logger.info('command::{0}'.format({1})".format(cmd.command,
+                                                                             ', '.join(cmd.nscode)))
                 if cmd.name:
                     list_cmd.append("{0}, err = methods.shell('{1}'.format({2}))".format(cmd.name,
                                                                                          cmd.command,
