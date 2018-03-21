@@ -1024,7 +1024,7 @@ class BaseProcessor(object):
             if cmd.type == 0: #command line tool
                 # list_cmd.append("self.logger.info('command::{0}'.format({1}))".format(cmd.command, ', '.join(cmd.nscode)))
                 if cmd.name:
-                    list_cmd.append("{0}, err = methods.shell('{1}'.format({2})".format(cmd.name, cmd.command, ', '.join(cmd.nscode)))
+                    list_cmd.append("{0}, err = methods.shell('{1}'.format({2}))".format(cmd.name, cmd.command, ', '.join(cmd.nscode)))
                     list_cmd.append('stdout_collector.append(({0}, err))'.format(cmd.name))
                 else:
                     list_cmd.append("out, err = methods.shell('{0}'.format({1}))".format(cmd.command,
