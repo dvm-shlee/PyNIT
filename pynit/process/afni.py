@@ -6,7 +6,7 @@ import multiprocessing
 
 class AFNI_Process(BaseProcess):
 
-    def afni_MeanImgCalc(self, func, cbv=False, surfix='func', n_thread='max', debug=False):
+    def afni_MeanImgCalc(self, func, cbv=None, surfix='func', n_thread='max', debug=False):
         """ Calculate mean image through time axis using '3dcalc' to get better SNR image
         this process do motion correction before calculate mean image
 
@@ -33,7 +33,7 @@ class AFNI_Process(BaseProcess):
         step.set_output(name='temp_01', type=3)
         cmd01 = "3dvolreg -prefix {temp_01} -1Dfile {mparam} -Fourier -verbose -base 0 {func}"
         step.set_cmd(cmd01)
-        if cbv:
+        if cbv != None:
             cmd02 = "3dinfo -nv {func}"
             step.set_var(name='bold', value='int(int(ttime)/3)', type=1)
             step.set_var(name='bold_output', value='methods.splitnifti(output)+"_BOLD.nii.gz"', type=1)
