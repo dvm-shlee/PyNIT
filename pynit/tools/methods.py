@@ -55,16 +55,26 @@ def shell(cmd, logger=None):
 
 
 def get_logger(path, name):
+    """ Logger
+
+    :param path:
+    :param name:
+    :return:
+    """
     today = "".join(str(datetime.date.today()).split('-'))
+
     # create logger
     logger = logging.getLogger('{0}'.format(name))
     logger.setLevel(logging.DEBUG)
+
     # create file handler which logs even debug messages
     fh = logging.FileHandler(os.path.join(path, '{0}-{1}.log'.format(name, today)))
     fh.setLevel(logging.DEBUG)
+
     # create console handler with a higher log level
     ch = logging.StreamHandler()
     ch.setLevel(logging.ERROR)
+
     # create formatter and add it to the handlers
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     fh.setFormatter(formatter)
@@ -72,6 +82,7 @@ def get_logger(path, name):
     # add the handler to the logger
     logger.addHandler(fh)
     logger.addHandler(ch)
+
     return logger
 
 

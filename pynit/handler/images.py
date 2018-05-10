@@ -4,7 +4,6 @@ import numpy as np
 import copy as ccopy
 import nibabel as nib
 from .base import ImageObj
-from .base import BrainPlot
 from ..tools import messages, methods, display
 from scipy import ndimage
 from shutil import rmtree
@@ -268,18 +267,6 @@ class Template(object):
         if self._atlas:
             self.atlas_obj.reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis=axis)
         self.image.reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis=axis)
-
-    def show(self, scale=15, **kwargs):
-        if self._atlas:
-            fig = BrainPlot.atlas(self.image, self._atlas, scale=scale, **kwargs)
-        else:
-            fig = BrainPlot.mosaic(self.image, scale=scale, **kwargs)
-        try:
-            fig, legend = fig
-            display(fig)
-            display(legend)
-        except:
-            display(fig)
 
     def save_as(self, filename, quiet=False):
         self.image.save_as('{}_template.nii.gz'.format(filename), quiet=quiet)

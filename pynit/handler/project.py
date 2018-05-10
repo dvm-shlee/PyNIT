@@ -32,7 +32,7 @@ def mk_main_folder(prj):
 
 
 def check_arguments(args, residuals, reference):
-    """The method that retrieves the value in the 'reference' from the 'args',
+    """This method retrieves the value in the 'reference' from the 'args',
     removes the corresponding value from the input 'residuals' arguments,
     and returns these values and the remaining residuals argument.
 
@@ -57,8 +57,13 @@ def check_arguments(args, residuals, reference):
     return list(set(retrieved)), list(set(residuals))
 
 
-def parsing_dataclass(path, ds_type, idx, single_session):
-    """ Parsing the information of dataset from the pointed data class
+def parsing_datatree(path, ds_type, idx):
+    """ This methods parsing the data tree from the given path
+
+    :param path:
+    :param ds_type:
+    :param idx:
+    :return:
 
     Parameters
     ----------
@@ -80,6 +85,7 @@ def parsing_dataclass(path, ds_type, idx, single_session):
 
     """
     empty_prj = False
+    single_session = False
     df = pd.DataFrame()
     for f in os.walk(os.path.join(path, ds_type[idx])):
         if f[2]:
@@ -87,9 +93,12 @@ def parsing_dataclass(path, ds_type, idx, single_session):
             flist = [fname for fname in f[2] if not re.match(r'^[.].+', fname)]
             for filename in flist:
                 row = pd.Series(methods.path_splitter(os.path.relpath(f[0], path)))
-                row['Filename'] = filename
-                row['Abspath'] = os.path.join(f[0], filename)
-                df = df.append(pd.DataFrame([row]), ignore_index=True)
+                if row[0] == ds_type[2]:
+                    pass
+                else:
+                    row['Filename'] = filename
+                    row['Abspath'] = os.path.join(f[0], filename)
+                    df = df.append(pd.DataFrame([row]), ignore_index=True)
     if 1 not in df.columns:
         empty_prj = True
     elif not len(df):
@@ -98,7 +107,7 @@ def parsing_dataclass(path, ds_type, idx, single_session):
         if idx == 0:
             if len(df.columns) is 5:
                 single_session = True
-        else:
+        elif idx == 1:
             if len(df.columns) is 6:
                 single_session = True
         columns = update_columns(idx, single_session)
@@ -112,29 +121,21 @@ def parsing_dataclass(path, ds_type, idx, single_session):
 def initial_filter(df, data_class, exts):
     """ Filtering out only selected file type in the project folder
 
-    Parameters
-    ----------
-    df          : pandas.DataFrame
-        Dataframe of project boject
-    data_class  : list
-        Dataclass want to be filtered
-        e.g.) One of value in ['Data', 'Processing', 'Results'] for NIRAL method
-    ext         : list
-        Extension want to be filtered
-
-    Returns
-    -------
-    df          : pandas.DataFrame
-        Filtered dataframe
-
+    :param df: Dataframe of project object
+    :param data_class: Dataclass filter
+    :param exts: Extension filter
+    :type df: pandas.DataFrame
+    :type data_class: list
+    :type exts: list
+    :return: df Filtered dataframe
     """
     if data_class:
-        if not type(data_class) is list:
+        if not isinstance(data_class, list):
             data_class = [data_class]
         try:
             df = df[df['DataClass'].isin(data_class)]
-        except TypeError as e:
-            print("Type error({0}): {1}".format(e.errno, e.strerror))
+        except:
+            pass #logging function
     if exts:
         df = df[df['Filename'].str.contains('|'.join([r"{ext}$".format(ext=ext) for ext in exts]))]
     columns = df.columns
@@ -165,7 +166,7 @@ def update_columns(idx, single_session):
     elif idx == 1:
         columns = {0: 'DataClass', 1: 'Pipeline', 2: 'Step', 3: 'Subject', 4: 'Session'}
     elif idx == 2:
-        columns = {0: 'DataClass', 1: 'Pipeline', 2: 'Result', 3: 'Subject', 4: 'Session'}
+        columns = {0: 'DataClass', 1: 'Pipeline', 2: 'Report'}
     else:
         columns = {0: 'DataClass'}
     return columns
@@ -197,10 +198,7 @@ def reorder_columns(idx, single_session):
         else:
             return ['Pipeline', 'Step', 'Subject', 'Session', 'Filename', 'Abspath']
     elif idx == 2:
-        if single_session:
-            return ['Pipeline', 'Result', 'Subject', 'Filename', 'Abspath']
-        else:
-            return ['Pipeline', 'Result', 'Subject', 'Session', 'Filename', 'Abspath']
+        return ['Pipeline', 'Report', 'Filename', 'Abspath']
     else:
         return None
 
@@ -453,8 +451,8 @@ class Project(object):
         :return: None
         """
         # Parsing command works
-        self.__df, self.single_session, empty_prj = parsing_dataclass(self.path, self.ds_type, self.__dc_idx,
-                                                                      self.single_session)
+        self.__df, self.single_session, empty_prj = parsing_datatree(self.path, self.ds_type, self.__dc_idx)
+        # print(self.__df)
         if not empty_prj:
             self.__df = initial_filter(self.__df, self.ds_type, self.ref_exts)
             if len(self.__df):
@@ -617,10 +615,11 @@ class Project(object):
         :return: pandas.DataFrame
         """
         if len(df):
-            if self.__filters[0]:
-                df = df[df.Subject.isin(self.__filters[0])]
-            if self.__filters[1]:
-                df = df[df.Session.isin(self.__filters[1])]
+            if self.__dc_idx != 2:
+                if self.__filters[0]:
+                    df = df[df.Subject.isin(self.__filters[0])]
+                if self.__filters[1]:
+                    df = df[df.Session.isin(self.__filters[1])]
             if self.__filters[2]:
                 if self.__dc_idx == 0:
                     df = df[df.DataType.isin(self.__filters[2])]
@@ -641,11 +640,8 @@ class Project(object):
                 df = df[~df.Filename.str.contains('|'.join(ignore))]
             if self.ext:
                 df = df[df['Filename'].str.contains('|'.join([r"{ext}$".format(ext=ext) for ext in self.ext]))]
-            # self._logger.debug('applying_filters::Filters are applied')
-            # self._logger.debug('applying_filters::list_of_filters-[]'.format(self.__filters))
             return df
         else:
-            # self._logger.debug('applying_filters::Empty project')
             return df
 
     def __summary(self):
@@ -700,25 +696,26 @@ class Project(object):
         """
         if len(self.df):
             try:
-                self.__subjects = sorted(list(set(self.df.Subject.tolist())))
-                if self.single_session:
-                    self.__sessions = None
+                if self.__dc_idx != 2:
+                    self.__subjects = sorted(list(set(self.df.Subject.tolist())))
+                    if self.single_session:
+                        self.__sessions = None
+                    else:
+                        self.__sessions = sorted(list(set(self.df.Session.tolist())))
+                    if self.__dc_idx == 0:
+                        self.__dtypes = sorted(list(set(self.df.DataType.tolist())))
+                        self.__pipelines = None
+                        self.__steps = None
+                        self.__results = None
+                    elif self.__dc_idx == 1:
+                        self.__dtypes = None
+                        self.__pipelines = sorted(list(set(self.df.Pipeline.tolist())))
+                        self.__steps = sorted(list(set(self.df.Step.tolist())))
+                        self.__results = None
                 else:
-                    self.__sessions = sorted(list(set(self.df.Session.tolist())))
-                if self.__dc_idx == 0:
-                    self.__dtypes = sorted(list(set(self.df.DataType.tolist())))
-                    self.__pipelines = None
-                    self.__steps = None
-                    self.__results = None
-                elif self.__dc_idx == 1:
                     self.__dtypes = None
                     self.__pipelines = sorted(list(set(self.df.Pipeline.tolist())))
-                    self.__steps = sorted(list(set(self.df.Step.tolist())))
-                    self.__results = None
-                elif self.__dc_idx == 2:
-                    self.__dtypes = None
-                    self.__pipelines = sorted(list(set(self.df.Pipeline.tolist())))
-                    self.__results = sorted(list(set(self.df.Result.tolist())))
+                    self.__results = sorted(list(set(self.df.Report.tolist())))
                     self.__steps = None
             except:
                 # self._logger.debug('__update::Error during update project attributes')
