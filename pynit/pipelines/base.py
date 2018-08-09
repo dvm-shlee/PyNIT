@@ -49,7 +49,7 @@ class Pipelines(object):
         avails = ["\t{} : {}".format(*item) for item in self.avail.items()]
         output = ["\nList of available packages:"] + avails
         print("\n".join(output))
-        self.__logger = methods.get_logger('', 'pynit-Pipeline')
+        # self.__logger = methods.get_logger('', 'pynit-Pipeline')
 
     @property
     def avail(self):
@@ -77,7 +77,8 @@ class Pipelines(object):
                     path = self._proc._rhistory[self.reported[indices]]
                     self.__rmall(path)
         except:
-            self.__logger.debug('rm_contents::Some of given indices[{}] are not exists. Cannot remove contents'.format(indices))
+            pass
+            # self.__logger.debug('rm_contents::Some of given indices[{}] are not exists. Cannot remove contents'.format(indices))
 
 
     def __rmall(self, path):
@@ -90,7 +91,8 @@ class Pipelines(object):
                 elif os.path.isdir(c):
                     shutil.rmtree(c)
         except:
-            self.__logger.debug('__rmall::Failed to remove all contents in "{}"'.format(path))
+            pass
+            # self.__logger.debug('__rmall::Failed to remove all contents in "{}"'.format(path))
 
     def unload(self):
         """ Unload all plugin, and use default pipelines and processes
@@ -157,7 +159,7 @@ class Pipelines(object):
                 command += ')'
             exec(command)
         else:
-            self.__logger.debug('initiate::incorrect package index was selected')
+            # self.__logger.debug('initiate::incorrect package index was selected')
             methods.raiseerror(messages.PipelineNotSet, "Incorrect package is selected")
         if verbose:
             print(self.selected.__init__.__doc__)
@@ -178,12 +180,12 @@ class Pipelines(object):
             for key, value in kwargs.items():
                 if hasattr(self.selected, key):
                     setattr(self.selected, key, value)
-                    self.__logger.info('set_param::{}={}'.format(key, value))
+                    # self.__logger.info('set_param::{}={}'.format(key, value))
                 else:
-                    self.__logger.debug('set_param::Not available keyword are used [{}]'.format(key))
+                    # self.__logger.debug('set_param::Not available keyword are used [{}]'.format(key))
                     methods.raiseerror(messages.Errors.KeywordError, '{} is not available keyword for this project'.format(key))
         else:
-            self.__logger.debug('set_param::Pipeline package is not specified')
+            # self.__logger.debug('set_param::Pipeline package is not specified')
             methods.raiseerror(messages.Errors.InitiationFailure, 'Pipeline package is not specified')
 
     def get_param(self):
@@ -271,7 +273,7 @@ class Pipelines(object):
         if self._proc:
             return self._proc
         else:
-            self.__logger.debug('get_proc::Process object was called before initiation')
+            # self.__logger.debug('get_proc::Process object was called before initiation')
             methods.raiseerror(messages.Errors.PackageUpdateFailure, 'Pipeline package is not initiated')
 
     def get_prj(self):
@@ -307,7 +309,7 @@ class Pipelines(object):
             else:
                 if verbose:
                     print('The pipeline [{pipeline}] is initiated'.format(pipeline=proc.processing))
-                    self.__logger.debug('__init_path::{} is initiated'.format(proc.processing))
+                    # self.__logger.debug('__init_path::{} is initiated'.format(proc.processing))
                 return "_".join([str(1).zfill(3), step])
 
         if proc._processing:
@@ -316,7 +318,7 @@ class Pipelines(object):
             methods.mkdir(path)
             return path
         else:
-            self.__logger.debug('__init_path::Error rises while initiating step')
+            # self.__logger.debug('__init_path::Error rises while initiating step')
             methods.raiseerror(messages.Errors.InitiationFailure, 'Error on initiating step')
 
     def group_organizer(self, origin, target, step_id, group_filters, option_filters=None, cbv=None,
@@ -441,9 +443,9 @@ class Pipelines(object):
                                                      *(group_filters[group][0] + group_filters[group][1]),
                                                      **updated_filters)
                             else:
-                                pass #TODO: log something
+                                pass
                         else:
-                            pass #TODO: log something
+                            pass
 
             # Copy selected files into the group folder
             for i, finfo in dset: # Preprocessed dataset
@@ -465,7 +467,7 @@ class Pipelines(object):
                     for i, finfo in prj:
                         output_path = os.path.join(grp_path, finfo.Filename)
                         if os.path.exists(output_path):
-                            pass #TODO: log something
+                            pass
                         else:
                             copy(finfo.Abspath, os.path.join(grp_path, finfo.Filename))
 

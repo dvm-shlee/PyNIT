@@ -39,7 +39,7 @@ class Q_Quality_assesments(PipeTemplate):
 
 class A_fMRI_preprocess(PipeTemplate):
     def __init__(self, proc, tmpobj, anat='anat', func='func', tr=None, tpattern=None, aniso=False,
-                 cbv=False, ui=False, surfix='func', n_thread='max'):
+                 cbv=None, ui=False, surfix='func', n_thread='max'):
         """Collection of preprocessing pipelines for Shihlab at UNC
 Author  : SungHo Lee(shlee@unc.edu)
 Revised : Dec.11st.2017
@@ -119,8 +119,8 @@ Parameters:
             # Coregistration (5)
             self.proc.afni_Coreg(3, 4, aniso=self.aniso, n_thread=self.n_thread, surfix=self.surfix)
         else: # Dataset doesn't have anatomy image
-            slicetime = 2
-            motioncor = 3
+            slicetime = 3
+            motioncor = 4
             funcmask = 1
         # Slice timing correction (6) or (2) if no anat
         if self.tr or self.tpattern:
@@ -154,17 +154,17 @@ Parameters:
         else: # Dataset doesn't have anatomy image
             if not self.aniso:
                 # Align mean-functional image to template space (5) if no anat
-                self.proc.ants_SpatialNorm(0, self.tmpobj, surfix=self.surfix)
+                self.proc.ants_SpatialNorm(2, self.tmpobj, surfix=self.surfix)
                 # Align functional image to template space (6)
-                self.proc.ants_ApplySpatialNorm(4, 5, surfix=self.surfix)
+                self.proc.ants_ApplySpatialNorm(5, 6, surfix=self.surfix)
                 if self.cbv:
                     # Align MION infusion image to template space (7)
                     self.proc.ants_ApplySpatialNorm(self.cbv, 5, surfix='cbv')
             else:
                 # Align mean-functional image to template space (5) if no anat
-                self.proc.afni_SpatialNorm(0, self.tmpobj, n_thread=self.n_thread, surfix=self.surfix)
+                self.proc.afni_SpatialNorm(2, self.tmpobj, n_thread=self.n_thread, surfix=self.surfix)
                 # Align functional image to template space (6)
-                self.proc.afni_ApplySpatialNorm(4, 5, n_thread=self.n_thread, surfix=self.surfix)
+                self.proc.afni_ApplySpatialNorm(5, 6, n_thread=self.n_thread, surfix=self.surfix)
                 if self.cbv:
                     # Align MION infusion image to template space (7)
                     self.proc.afni_ApplySpatialNorm(self.cbv, 5, n_thread=self.n_thread, surfix='cbv')
@@ -253,11 +253,16 @@ Parameters:
         # self.update()
 
     def pipe_01_GLM_analysis(self):
+        if self.case:
+            surfix = "{}_{}".format(self.surfix, self.case)
+        else:
+            surfix = self.surfix
         # Spatial smoothing (1)
-        self.proc.afni_SpatialSmoothing(0, fwhm=self.fwhm, tmpobj=self.tmpobj, surfix=self.surfix,
+        self.proc.afni_SpatialSmoothing(0, fwhm=self.fwhm, tmpobj=self.tmpobj, surfix=surfix,
                                         n_thread=self.n_thread)
         # Perform GLM analysis (2: GLM, 3: REMLfit)
-        self.proc.afni_GLManalysis(1, self.paradigm, clip_range=self.crop, surfix=self.surfix, n_thread=self.n_thread)
+        self.proc.afni_GLManalysis(1, self.paradigm, clip_range=self.crop,
+                                   surfix=surfix, n_thread=self.n_thread)
 
     def pipe_02_GroupAverage(self):
         if self.case:
@@ -318,8 +323,9 @@ Parameters:
                                     cbv_param=self.cbv_param, surfix=surfix, n_thread=self.n_thread, cbv=cbv_id)
 
 class C_resting_state_fMRI_analysis(PipeTemplate):
-    def __init__(self, proc, tmpobj, fwhm=None, dt=None, norm=True, bpass=None, crop=None, option=None,
-                 ort=None, ort_filter=None, ui=False, surfix='func', n_thread='max'):
+    def __init__(self, proc, tmpobj, fwhm=None, dt=None, norm=True, bpass=None, crop=None,
+                 mask=None, option=None,
+                 ort=None, ort_filter=None, ui=False, surfix='func', case=None, n_thread='max'):
         """Collection of resting-state fMRI analysis pipeline for Shihlab at UNC
 
 To use this pipeline, you must use 'group_organizer' method of pipeline handler.
@@ -350,6 +356,7 @@ Parameters:
     norm        : bool
         Normalize each output time series to have sum of squares = 1
         (Default=True)
+    dt          : int
     bpass       : list [lowFHz, highFHz]
         Banspass filters (Defualt=None)
     crop        : list [start, end]
@@ -375,6 +382,8 @@ Parameters:
         self.fwhm = str(fwhm)
         self.option = option
         self.ort = ort
+        self.mask = mask
+        self.case = case
         self.ort_filters = ort_filter
         self.ui = ui
         self.surfix = surfix
@@ -383,6 +392,12 @@ Parameters:
 
     def pipe_01_TemporalFiltering(self):
         # SignalProcessing (1)
-        self.proc.afni_SignalProcessing(0, norm=self.norm, ort=self.ort, ort_filter=self.ort_filters,
-                                        clip_range=self.crop, mask=str(self.tmpobj.mask), bpass=self.bpass,
-                                        fwhm=self.fwhm, dt=self.dt, surfix='func', n_thread=self.n_thread)
+        # self.proc.afni_SignalProcessing(0, norm=self.norm, ort=self.ort, ort_filter=self.ort_filters,
+        #                              clip_range=self.crop, mask=str(self.tmpobj.mask), bpass=self.bpass,
+        #                              fwhm=self.fwhm, dt=self.dt, surfix='func', n_thread=self.n_thread)
+        if self.mask is None:
+            mask = self.tmpobj.mask.path
+        else:
+            mask = self.mask
+        self.proc.nsp_SignalProcessing(0, mask=mask, ort=self.ort,
+                                       dt=self.dt, band=self.bpass)

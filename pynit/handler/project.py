@@ -3,28 +3,13 @@ import itertools
 import pickle
 import pandas as pd
 import copy as ccopy
-from .base import Reference
 from ..tools import messages
 from ..tools import methods
 
 
-def set_display_option(max_rows=100, max_colwidth=100):
-    """Method for setting display options of pandas DataFrame
-
-    :param max_rows: Maximum number of rows
-    :param max_colwidth: Maximum width of column
-    :type max_rows: int
-    :type max_colwidth: int
-    """
-    pd.options.display.max_rows = max_rows
-    pd.options.display.max_colwidth = max_colwidth
-
-
 def mk_main_folder(prj):
-    """Initiating project sub-folders
-
-    :param prj: Project handler instance
-    :type prj: pynit.handler.Project
+    """
+    Initiating project sub-folders\
     """
     methods.mkdir(os.path.join(prj.path, prj.ds_type[0]),
                   os.path.join(prj.path, prj.ds_type[1]),
@@ -32,18 +17,10 @@ def mk_main_folder(prj):
 
 
 def check_arguments(args, residuals, reference):
-    """This method retrieves the value in the 'reference' from the 'args',
+    """
+    This method retrieves the value in the 'reference' from the 'args',
     removes the corresponding value from the input 'residuals' arguments,
     and returns these values and the remaining residuals argument.
-
-    :param args: Input arguments
-    :param residuals: Residual arguments
-    :param reference: Reference arguments
-    :type args: list, tuple
-    :type residuals: list
-    :type reference: list
-    :return: list of retrieved arguments and residuals, separately
-    :rtype: list, list
     """
     try:
         retrieved = [arg for arg in args if arg in reference]
@@ -58,31 +35,8 @@ def check_arguments(args, residuals, reference):
 
 
 def parsing_datatree(path, ds_type, idx):
-    """ This methods parsing the data tree from the given path
-
-    :param path:
-    :param ds_type:
-    :param idx:
-    :return:
-
-    Parameters
-    ----------
-    path    : str
-        Main path of the project
-    ds_type : list
-        Project.ds_type object
-    idx     : int
-        Dataclass index
-
-    Returns
-    -------
-    pandas.DataFrame
-        Dataset
-    single_session  : boolean
-        True if single session dataset
-    empty_project   : boolean
-        True if empty project folder
-
+    """
+    This methods parsing the data tree from the given path
     """
     empty_prj = False
     single_session = False
@@ -91,14 +45,15 @@ def parsing_datatree(path, ds_type, idx):
         if f[2]:
             import re
             flist = [fname for fname in f[2] if not re.match(r'^[.].+', fname)]
+            # print(flist)
             for filename in flist:
                 row = pd.Series(methods.path_splitter(os.path.relpath(f[0], path)))
-                if row[0] == ds_type[2]:
-                    pass
-                else:
-                    row['Filename'] = filename
-                    row['Abspath'] = os.path.join(f[0], filename)
-                    df = df.append(pd.DataFrame([row]), ignore_index=True)
+                # if row[0] == ds_type[2]:
+                #     pass
+                # else:
+                row['Filename'] = filename
+                row['Abspath'] = os.path.join(f[0], filename)
+                df = df.append(pd.DataFrame([row]), ignore_index=True)
     if 1 not in df.columns:
         empty_prj = True
     elif not len(df):
@@ -110,6 +65,9 @@ def parsing_datatree(path, ds_type, idx):
         elif idx == 1:
             if len(df.columns) is 6:
                 single_session = True
+        elif idx == 2:
+            if len(df.columns) is 6:
+                single_session = True
         columns = update_columns(idx, single_session)
         df = df.rename(columns=columns)
     if empty_prj:
@@ -119,15 +77,8 @@ def parsing_datatree(path, ds_type, idx):
 
 
 def initial_filter(df, data_class, exts):
-    """ Filtering out only selected file type in the project folder
-
-    :param df: Dataframe of project object
-    :param data_class: Dataclass filter
-    :param exts: Extension filter
-    :type df: pandas.DataFrame
-    :type data_class: list
-    :type exts: list
-    :return: df Filtered dataframe
+    """
+    Filtering out only selected file type in the project folder
     """
     if data_class:
         if not isinstance(data_class, list):
@@ -143,19 +94,8 @@ def initial_filter(df, data_class, exts):
 
 
 def update_columns(idx, single_session):
-    """ Update name of columns according to the set Dataclass
-
-    Parameters
-    ----------
-    idx             : int
-        Dataclass index
-    single_session  : boolean
-        True if the project is single session
-
-    Returns
-    -------
-    column          : dict
-        New list of columns
+    """
+    Update name of columns according to the set Dataclass
     """
     if idx == 0:
         if single_session:
@@ -166,26 +106,16 @@ def update_columns(idx, single_session):
     elif idx == 1:
         columns = {0: 'DataClass', 1: 'Pipeline', 2: 'Step', 3: 'Subject', 4: 'Session'}
     elif idx == 2:
-        columns = {0: 'DataClass', 1: 'Pipeline', 2: 'Report'}
+        # columns = {0: 'DataClass', 1: 'Pipeline', 2: 'Report'}
+        columns = {0: 'DataClass', 1: 'Pipeline', 2: 'Report', 3: 'Subject', 4: 'Session'}
     else:
         columns = {0: 'DataClass'}
     return columns
 
 
 def reorder_columns(idx, single_session):
-    """ Reorder the name of columns
-
-    Parameters
-    ----------
-    idx             : int
-        Dataclass index
-    single_session  : boolean
-        True if the project is single session
-
-    Returns
-    -------
-    column          : list or None
-        Reordered column
+    """
+    Reorder the name of columns
     """
     if idx == 0:
         if single_session:
@@ -198,16 +128,21 @@ def reorder_columns(idx, single_session):
         else:
             return ['Pipeline', 'Step', 'Subject', 'Session', 'Filename', 'Abspath']
     elif idx == 2:
-        return ['Pipeline', 'Report', 'Filename', 'Abspath']
+        if single_session:
+            return ['Pipeline', 'Report', 'Subject', 'Filename', 'Abspath']
+        else:
+            return ['Pipeline', 'Report', 'Subject', 'Session', 'Filename', 'Abspath']
+        # return ['Pipeline', 'Report', 'Filename', 'Abspath']
     else:
         return None
 
 
 class Project(object):
-    """Project handler
+    """
+    Project handler
     """
 
-    def __init__(self, project_path, ds_ref='NIRAL', img_format='NifTi-1', **kwargs):
+    def __init__(self, project_path, **kwargs):
         """Load and initiate the project
 
         :param project_path: str, Path of particular project
@@ -215,8 +150,6 @@ class Project(object):
         :param img_format: str, Reference img format (default: 'NifTi-1')
         :param kwargs: dict, key arguments for options
         """
-        # Display options for pandasDataframe
-        set_display_option(**kwargs)
 
         # Define default attributes
         self.single_session = False             # True if project has single session
@@ -229,11 +162,9 @@ class Project(object):
         # Set internal objects
         self.__df = pd.DataFrame()
 
-        # Parsing the information from the reference
-        self.__ref = [ds_ref, img_format]
-        self.ref = Reference(*self.__ref)
-        self.img_ext = self.ref.imgext
-        self.ds_type = self.ref.ref_ds
+        # Default definition of image format and data structure
+        self.img_ext = ['.nii', '.nii.gz']
+        self.ds_type = ['Data', 'Processing', 'Results']
 
         # Define default filter values
         self.__dc_idx = 0                       # Dataclass index
@@ -252,9 +183,10 @@ class Project(object):
             self.apply()
             if not self.__empty_project:
                 dc_idx.append(i)
-        self.__dc_idx = max(dc_idx)
-        self.scan_prj()
-        self.apply()
+        if dc_idx:
+            self.__dc_idx = max(dc_idx)
+            self.scan_prj()
+            self.apply()
 
     @property
     def df(self):
@@ -352,8 +284,8 @@ class Project(object):
         :param type: str, Choose one of 'all', 'img' or 'txt'
         :return: list, list of extensions
         """
-        img_ext = self.ref.img.values()
-        txt_ext = self.ref.txt.values()
+        img_ext = self.img_ext
+        txt_ext = ['.xls', '.xlsx', '.csv', '.tsv', '.json']
         all_ext = img_ext+txt_ext
         if type in ['all', 'img', 'txt']:
             if type == 'all':
@@ -510,6 +442,7 @@ class Project(object):
             residuals = list(set(args))
             if self.subjects: # If subjects are assigned already
                 subj_filter, residuals = check_arguments(args, residuals, self.subjects)
+                # print(subj_filter)
                 if self.__filters[0]: # Subject filter
                     self.__filters[0].extend(subj_filter)
                 else:
@@ -615,11 +548,11 @@ class Project(object):
         :return: pandas.DataFrame
         """
         if len(df):
-            if self.__dc_idx != 2:
-                if self.__filters[0]:
-                    df = df[df.Subject.isin(self.__filters[0])]
-                if self.__filters[1]:
-                    df = df[df.Session.isin(self.__filters[1])]
+            # if self.__dc_idx != 2:
+            if self.__filters[0]:
+                df = df[df.Subject.isin(self.__filters[0])]
+            if self.__filters[1]:
+                df = df[df.Session.isin(self.__filters[1])]
             if self.__filters[2]:
                 if self.__dc_idx == 0:
                     df = df[df.DataType.isin(self.__filters[2])]
@@ -629,7 +562,7 @@ class Project(object):
                 if self.__dc_idx == 1:
                     df = df[df.Step.isin(self.__filters[3])]
                 elif self.__dc_idx == 2:
-                    df = df[df.Result.isin(self.__filters[3])]
+                    df = df[df.Report.isin(self.__filters[3])]
                 else:
                     pass
             if self.__filters[4] is not None:
@@ -713,6 +646,11 @@ class Project(object):
                         self.__steps = sorted(list(set(self.df.Step.tolist())))
                         self.__results = None
                 else:
+                    self.__subjects = sorted(list(set(self.df.Subject.tolist())))
+                    if self.single_session:
+                        self.__sessions = None
+                    else:
+                        self.__sessions = sorted(list(set(self.df.Session.tolist())))
                     self.__dtypes = None
                     self.__pipelines = sorted(list(set(self.df.Pipeline.tolist())))
                     self.__results = sorted(list(set(self.df.Report.tolist())))

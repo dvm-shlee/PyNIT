@@ -29,7 +29,7 @@ class BaseProcess(object):
         # Initiate logger
         if logging:
             self.logger = methods.get_logger(os.path.dirname(self._path), '{}'.format(name))
-            self.rlogger = methods.get_logger(os.path.dirname(self._rpath), 'r_{}'.format(name))
+            self.rlogger = methods.get_logger(os.path.dirname(self._rpath), '{}'.format(name))
 
         self.logger.info('__init__::Initiated_PipelinePackages::{}'.format(name))
         # Define default arguments

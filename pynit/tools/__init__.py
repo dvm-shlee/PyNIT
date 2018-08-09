@@ -8,7 +8,7 @@ except:
 
 notebook_env = False
 
-if get_ipython() and len(get_ipython().config.keys()):
+if get_ipython() and len(get_ipython(). config.keys()):
     from tqdm import tqdm_notebook as progressbar
     from ipywidgets.widgets import HTML as HTML
     from IPython.display import display, clear_output

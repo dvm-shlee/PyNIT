@@ -39,19 +39,6 @@ def shell(cmd, logger=None):
         if logger != None:
             logger.info("Shell::Error [{}]".format(e))
         return None, None
-        #raiseerror(messages.Errors.InputValueError, 'Command can not be executed.')
-
-
-# def scheduler(cmd, type='slurm'):
-#     """ Execute shell command through scheduler for cluster computing
-#     :param cmd: command to execute
-#     :return: stdout, error
-#     """
-#     if type == 'slurm':
-#         pass
-#     else:
-#         pass
-#     return cmd
 
 
 def get_logger(path, name):

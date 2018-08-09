@@ -6,7 +6,8 @@ import multiprocessing
 
 class AFNI_Process(BaseProcess):
 
-    def afni_MeanImgCalc(self, func, cbv=None, surfix='func', n_thread='max', debug=False):
+    def afni_MeanImgCalc(self, func, cbv=None, n_vol=None,
+                         surfix='func', n_thread='max', debug=False):
         """ Calculate mean image through time axis using '3dcalc' to get better SNR image
         this process do motion correction before calculate mean image
 
@@ -29,9 +30,14 @@ class AFNI_Process(BaseProcess):
         step.set_message('** Processing mean image calculation.....')
         step.set_input(name='func', path=func, idx=0)
         step.set_output(name='output', type=0)
-        step.set_output(name='mparam', ext='1D', type=0)
+        # step.set_output(name='mparam', ext='1D', type=0)
         step.set_output(name='temp_01', type=3)
-        cmd01 = "3dvolreg -prefix {temp_01} -1Dfile {mparam} -Fourier -verbose -base 0 {func}"
+        # cmd01 = "3dvolreg -prefix {temp_01} -1Dfile {mparam} -Fourier -verbose -base 0 {func}"
+        if isinstance(n_vol, int):
+            step.set_var(name='n_vol', value=str(n_vol), type=1)
+            cmd01 = "3dvolreg -prefix {temp_01} -Fourier -verbose -base 0 {func}'[0..{n_vol}]'"
+        else:
+            cmd01 = "3dvolreg -prefix {temp_01} -Fourier -verbose -base 0 {func}"
         step.set_cmd(cmd01)
         if cbv != None:
             cmd02 = "3dinfo -nv {func}"
@@ -362,7 +368,7 @@ class AFNI_Process(BaseProcess):
         step.set_output(name='transmat', ext='aff12.1D')
         step.set_output(name='temp_01', type=3)
         step.set_output(name='temp_02', type=3)
-        if inverse:
+        if inverse == True:
             cmd01 = "N4BiasFieldCorrection -d 3 -i {func} -o {temp_01}"
             cmd02 = "N4BiasFieldCorrection -d 3 -i {anat} -o {temp_02}"
         else:
@@ -543,7 +549,7 @@ class AFNI_Process(BaseProcess):
             step.set_var(name='fwhm', value=fwhm, type=1)
         step.set_output(name='output')
         cmd = '3dBlurInMask -prefix {output} -FWHM {fwhm}'
-        if tmpobj:
+        if tmpobj is not None:
             step.set_var(name='mask', value=str(tmpobj.mask), type=1)
             cmd += ' -mask {mask}'
         cmd += ' -quiet {func}'
@@ -602,7 +608,7 @@ class AFNI_Process(BaseProcess):
         filters = dict(ext='.xmat.1D')
         step.set_input(name='glm', path=glm, filters=filters, type=1)
         step.set_output(name='output')
-        if clip_range:
+        if clip_range is not None:
             cmd02 = '3dREMLfit -matrix {glm} -input {func}'
             cmd02 += '"[{}..{}]" '.format(clip_range[0], clip_range[1])
             cmd02 += '-tout -Rbuck {output} -verb'
@@ -702,22 +708,22 @@ class AFNI_Process(BaseProcess):
         orange, irange = None, None         # orange= range of ort file, irange= range of image file
 
         # Parameters
-        if bpass:                           # set bandpass filter
+        if bpass is not None:                           # set bandpass filter
             if isinstance(bpass, list) and len(bpass) == 2:
                 cmd.append('-passband {} {}'.format(*bpass))
             else:
                 pass
-        if norm:                            # set signal normalization
+        if norm is not None:                            # set signal normalization
             cmd.append('-norm')
-        if ort:                             # set ort (nuisance signal regression)
-            if clip_range:
+        if ort is not None:                             # set ort (nuisance signal regression)
+            if clip_range is not None:
                 if isinstance(clip_range, list):
                     if len(clip_range) == 2:
                         orange = "'{" + "{}..{}".format(*clip_range) + "}'"
                         irange = "'[" + "{}..{}".format(*clip_range) + "]'"
                         step.set_var(name='orange', value=orange, type=1)
                         step.set_var(name='irange', value=irange, type=1)
-            if not ort_filter:
+            if ort_filter is None:
                 ort_filter = {'ext': '.1D', 'ignore': ['.aff12']}
             if kwargs:
                 for key in kwargs.keys():
@@ -763,7 +769,12 @@ class AFNI_Process(BaseProcess):
                 step.set_input(name='ort', path=ort, filters=ort_filter, type=1)
             else:
                 self.logger.debug('TypeError on input ort.')
-        if mask:                            # set mask
+        else:
+            if isinstance(clip_range, list):
+                if len(clip_range) == 2:
+                    irange = "'[" + "{}..{}".format(*clip_range) + "]'"
+                    step.set_var(name='irange', value=irange, type=1)
+        if mask is not None:                            # set mask
             if os.path.isfile(mask):
                 step.set_var(name='mask', value=mask, type=1)
             elif os.path.isdir(mask):
@@ -771,13 +782,13 @@ class AFNI_Process(BaseProcess):
             else:
                 pass
             cmd.append('-mask {mask}')
-        if fwhm:                            # set smoothness
+        if fwhm is not None:                            # set smoothness
             step.set_var(name='fwhm', value=fwhm)
             cmd.append('-blur {fwhm}')
-        if dt:                              # set sampling rate (TR)
+        if dt is not None:                              # set sampling rate (TR)
             step.set_var(name='dt', value=dt)
             cmd.append('-dt {dt}')
-        if clip_range:                           # set range
+        if clip_range is not None:                           # set range
             cmd.append('-input {func}"{irange}"')
         else:
             cmd.append('-input {func}')
@@ -785,7 +796,122 @@ class AFNI_Process(BaseProcess):
         output_path = step.run('SignalProcess', surfix=surfix, debug=debug)
         return dict(signalprocess=output_path)
 
-    def afni_ROIStats(self, func, rois, cbv=False, cbv_param=None, clip_range=None, option=None,
+    def afni_RSFC(self, func, norm=True, ort=None, ort_filter=None, clip_range=None,
+                              mask=None, bpass=None, fwhm=None, dt=None, surfix='func', n_thread='max',
+                              debug=False, **kwargs):
+        """Wrapper method of afni's 3dTproject for signal processing of resting state data
+
+        :param func:        input path for functional image, three type of path can be used
+                            1. datatype path from the raw data (e.g. 'anat' or 'dti')
+                            2. absolute path
+                            3. index of path which is shown on 'executed' method
+        :param norm:        Normalize each output time series to have sum of squares = 1
+                            (Default=True)
+        :param ort:
+        :param ort_filter:  Filename based filter, available keys=['file_tag', 'ignore', 'ext']
+        :param mask:        mask file path
+        :param bpass:
+        :param fwhm:
+        :param dt:
+        :param surfix:
+        :typr ort:
+        :return:
+        """
+        display(title('** Run signal processing for resting state data'))
+        step = Step(self, n_thread=n_thread)
+        func = self.check_input(func)
+        if not isinstance(ort, list) and not isinstance(ort, dict):
+            ort = self.check_input(ort)
+        step.set_input(name='func', path=func, filters=kwargs)
+        step.set_output(name='output', ext='remove')
+        cmd = ['3dRSFC -prefix {output}']
+        orange, irange = None, None         # orange= range of ort file, irange= range of image file
+
+        # Parameters
+        if norm is not None:                            # set signal normalization
+            cmd.append('-norm')
+        if ort is not None:                             # set ort (nuisance signal regression)
+            if clip_range is not None:
+                if isinstance(clip_range, list):
+                    if len(clip_range) == 2:
+                        orange = "'{" + "{}..{}".format(*clip_range) + "}'"
+                        irange = "'[" + "{}..{}".format(*clip_range) + "]'"
+                        step.set_var(name='orange', value=orange, type=1)
+                        step.set_var(name='irange', value=irange, type=1)
+            if ort_filter is None:
+                ort_filter = {'ext': '.1D', 'ignore': ['.aff12']}
+            if kwargs:
+                for key in kwargs.keys():
+                    if 'ignore' in key:
+                        if isinstance(kwargs['ignore'], list):
+                            ort_filter['ignore'].extend(kwargs.pop('ignore'))
+                        else:
+                            ort_filter['ignore'].append(kwargs.pop('ignore'))
+                    if 'ext' in key:
+                        kwargs.pop('ext')
+                ort_filter.update(kwargs)
+            if isinstance(ort, dict):
+                for key, value in ort.items():
+                    ortpath = self.check_input(value)
+                    if clip_range:
+                        cmd.append('-ort {{{0}}}'.format(key)+'{orange}')
+                    else:
+                        cmd.append('-ort {{{0}}}'.format(key))
+                    try:
+                        sub_filter = ort_filter[key]
+                    except:
+                        sub_filter = ort_filter
+                    step.set_input(name=key, path=ortpath, filters=sub_filter, type=1)
+            elif isinstance(ort, list):
+                for i, o in enumerate(ort):
+                    exec('ort_{} = self.check_input({})'.format(str(i), o))
+                    ort_name = 'ort_{}'.format(str(i))
+                    if clip_range:
+                        cmd.append('-ort {{{0}}}'.format(ort_name)+'{orange}')
+                    else:
+                        cmd.append('-ort {{{0}}}'.format(ort_name))
+                    try:
+                        sub_filter = ort_filter[i]
+                    except:
+                        sub_filter = ort_filter
+                    step.set_input(name=ort_name, path=o, filters=sub_filter, type=1)
+            elif isinstance(ort, str):
+                ort = self.check_input(ort)
+                if clip_range:
+                    cmd.append('-ort {ort}"{orange}"')
+                else:
+                    cmd.append('-ort {ort}')
+                step.set_input(name='ort', path=ort, filters=ort_filter, type=1)
+            else:
+                self.logger.debug('TypeError on input ort.')
+        if mask is not None:                            # set mask
+            if os.path.isfile(mask):
+                step.set_var(name='mask', value=mask, type=1)
+            elif os.path.isdir(mask):
+                step.set_input(name='mask', path=mask, type=1)
+            else:
+                pass
+            cmd.append('-mask {mask}')
+        if fwhm is not None:                            # set smoothness
+            step.set_var(name='fwhm', value=fwhm)
+            cmd.append('-blur {fwhm}')
+        if dt is not None:                              # set sampling rate (TR)
+            step.set_var(name='dt', value=dt)
+            cmd.append('-dt {dt}')
+        if bpass is not None:                           # set bandpass filter
+            if isinstance(bpass, list) and len(bpass) == 2:
+                cmd.append('-band {} {}'.format(*bpass))
+            else:
+                pass
+        if clip_range is not None:                           # set range
+            cmd.append('-input {func}"{irange}"')
+        else:
+            cmd.append('-input {func}')
+        step.set_cmd(" ".join(cmd))
+        output_path = step.run('RSFC', surfix=surfix, debug=debug)
+        return dict(signalprocess=output_path)
+
+    def afni_ROIStats(self, func, rois, cbv=None, cbv_param=None, clip_range=None, option=None,
                       label=None, surfix='func', n_thread='max', debug=False, **kwargs):
         """Extracting time-course data from ROIs
 
@@ -812,7 +938,7 @@ class AFNI_Process(BaseProcess):
         list_of_roi = None
         if not isinstance(rois, str):
             try:
-                if option:
+                if option is not None:
                     if option == 'bilateral':
                         tmp = TempFile(rois.atlas, atlas=True, bilateral=True)
                     elif option == 'merge':
@@ -830,7 +956,7 @@ class AFNI_Process(BaseProcess):
                 self.logger.debug('afni_ROIstats::exception raises on rois')
         else:
             self.logger.debug('afni_ROIstats::exception raises on rois')
-        if label:
+        if label is not None:
             list_of_roi = [roi for roi, cmap in label.label.values()][1:]
         # Check if given rois path is existed in the list of executed steps
         rois = self.check_input(rois)
@@ -859,19 +985,19 @@ class AFNI_Process(BaseProcess):
         if any(isinstance(cbv, t) for t in [int, str]):
             cbv = self.check_input(cbv)
             step.set_input(name='cbv', path=cbv, type=1, filters=dict(ext='.json'))
-        if clip_range:
+        if clip_range is not None:
             cmd += '"[{}..{}]"'.format(clip_range[0], clip_range[1])
         step.set_cmd(cmd, name='out')
         step.set_cmd('df = pd.read_table(StringIO(out))', type=1)
         step.set_cmd('df = df[df.columns[2:]]', type=1)
         # If given roi is Template instance
-        if list_of_roi:
+        if list_of_roi is not None:
             step.set_var(name='list_rois', value=list_of_roi)
             step.set_cmd('avail_rois = [int(roi.strip().split("_")[1])-1 for roi in list(df.columns)]', type=1)
             step.set_cmd('final_list_rois = list(np.array(list_rois)[avail_rois])', type=1)
             step.set_cmd('df.columns = final_list_rois', type=1)
         # again, if CBV parameter are given, put commends and methods into custom build function
-        if cbv_param:
+        if cbv_param is not None:
             if isinstance(cbv_param, list) and (len(cbv_param) == 2):
                 step.set_var(name='te', value=cbv_param[0])
                 step.set_var(name='n_tr', value=cbv_param[1])
@@ -888,7 +1014,7 @@ class AFNI_Process(BaseProcess):
                 methods.raiseerror(messages.Errors.InputValueError, 'Please check input CBV parameters')
         step.set_cmd('if len(df.columns):', type=1)
         # again, if CBV parameter are given, correct the CBV changes.
-        if cbv_param:
+        if cbv_param is not None:
             step.set_cmd('\tdR2_mion = (-1 / te) * np.log(df.loc[:n_tr, :].mean(axis=0) / '
                          'cbv_df.loc[:n_tr, :].mean(axis=0))', type=1)
             step.set_cmd('\tdR2_stim = (-1 / te) * np.log(df / df.loc[:n_tr, :].mean(axis=0))', type=1)
@@ -901,7 +1027,7 @@ class AFNI_Process(BaseProcess):
 
         # Run the steps
         output_path = step.run('ExtractROIs', surfix=surfix, debug=debug)
-        if tmp:
+        if tmp is not None:
             tmp.close()
         return dict(timecourse=output_path)
 
@@ -987,7 +1113,7 @@ class AFNI_Process(BaseProcess):
         step = Step(self, n_thread=n_thread)
         step.set_message('** Estimate group mean using Mixed effect meta analysis')
         func = self.check_input(func)
-        if outliers:
+        if outliers is not None:
             filters = dict(ignore=outliers)
         else:
             filters = None
@@ -1002,7 +1128,7 @@ class AFNI_Process(BaseProcess):
         output_path = step.run('GroupAverage', surfix, debug=debug)
         return dict(groupavr=output_path)
 
-    def afni_Tstats(self, func, n_thread='max', surfix='func', debug=False): #TODO: Can put more flexible options
+    def afni_Tstats(self, func, n_thread='max', surfix='func', debug=False):
         """ tSNR calculation
 
         :param func:

@@ -2,7 +2,6 @@ import os
 import re
 import numpy as np
 import copy as ccopy
-import nibabel as nib
 from .base import ImageObj
 from ..tools import messages, methods, display
 from scipy import ndimage
@@ -39,6 +38,8 @@ def load(filename):
             img = pd.read_csv(filename)
         elif '.tsv' in filename:
             img = pd.read_table(filename)
+        elif '.1D' in filename:
+            img = pd.read_csv(filename, header=None, sep='\s+')
         elif '.json' in filename:
             import json
             img = json.load(open(filename))
@@ -111,6 +112,7 @@ def parsing_atlas(path):
     else:
         raise messages.InputPathError
     data = np.asarray(atlas.dataobj)
+
     # Calculate centor of mass (coordinate of the rois)
     com = dict()
     for i, roi in enumerate(zip(*label.values())[0]):
@@ -118,7 +120,7 @@ def parsing_atlas(path):
             pass
         else:
             roi_mask = (data == i)*1.0
-            com[roi] = np.array(map(round, ndimage.center_of_mass(roi_mask))) #TODO: convert this to pure python code
+            com[roi] = np.array(map(round, ndimage.center_of_mass(roi_mask)))
     return atlas, label, com
 
 
@@ -176,6 +178,21 @@ class Template(object):
         else:
             self._path = path
 
+    def show(self, viewer='itksnap'):
+        if viewer=='itksnap':
+            if self.atlas:
+                file_list = os.listdir(os.path.dirname(self.atlas.path))
+                label_path = [f for f in file_list if os.path.splitext(f)[-1] in ['.label', '.lbl']][0]
+                if len(label_path) != 0:
+                    methods.shell('itksnap -g {} -s {} -l {}'.format(self._path,
+                                                                     self.atlas_path,
+                                                                     label_path))
+                else:
+                    methods.shell('itksnap -g {} -s {}'.format(self._path,
+                                                               self.atlas_path))
+            else:
+                methods.shell('itksnap -g {}'.format(self._path))
+
     # Attributes
     @property
     def mask(self):
@@ -228,6 +245,11 @@ class Template(object):
     def set_atlas(self, path):
         self._atlas = Atlas(path)
         self._atlas_path = TempFile(self.atlas.image, 'temp_atlas')
+        self._atlas_label_path = os.path.join(os.path.dirname(str(self._atlas_path)),
+                                              'temp_atlas.label')
+        save_label(self._atlas._label,
+                   self._atlas_label_path)
+
 
     def get_mask(self):
         """Calculate mask from image data and generating template file
@@ -248,26 +270,6 @@ class Template(object):
         z = np.argmax(axial.sum(axis=0))
         return x, y, z
 
-    def swap_axis(self, axis1, axis2):
-        if self._atlas:
-            self.atlas_obj.swap_axis(axis1, axis2)
-        self.image.swap_axis(axis1, axis2)
-
-    def flip(self, **kwargs):
-        if self._atlas:
-            self.atlas_obj.flip(**kwargs)
-        self.image.flip(**kwargs)
-
-    def crop(self, **kwargs):
-        if self._atlas:
-            self.atlas_obj.crop(**kwargs)
-        self.image.crop(**kwargs)
-
-    def reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis=2):
-        if self._atlas:
-            self.atlas_obj.reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis=axis)
-        self.image.reslice(self, ac_slice, ac_loc, slice_thickness, total_slice, axis=axis)
-
     def save_as(self, filename, quiet=False):
         self.image.save_as('{}_template.nii.gz'.format(filename), quiet=quiet)
         if self._atlas:
@@ -284,6 +286,7 @@ class Template(object):
             os.remove(self._path)
         if self._atlas:
             os.remove(str(self._atlas_path))
+            os.remove(str(self._atlas_label_path))
         if self._mask:
             os.remove(str(self._mask))
 
@@ -301,6 +304,8 @@ class Atlas(object):
     """ This class templating the segmentation image object to handle atlas related attributes
 
     """
+
+    _ext = '.nii.gz'
 
     def __init__(self, path=None):
         self.path = path
@@ -337,7 +342,7 @@ class Atlas(object):
 
     def save_as(self, filename, label_only=False, quiet=False):
         if not label_only:
-            self._image.save_as("{}.nii".format(filename), quiet=quiet)
+            self._image.save_as("{}{}".format(filename, self._ext), quiet=quiet)
         save_label(self._label, "{}.label".format(filename))
 
     def extract(self, path, contra=False, merge=False, surfix=None):
@@ -363,7 +368,7 @@ class Atlas(object):
                             roi._dataobj[roi._dataobj > 0] = 1
                     if surfix:
                         label = "{}_{}".format(surfix, label)
-                    roi.to_filename(os.path.join(path, "{}.nii".format(label)))
+                    roi.to_filename(os.path.join(path, "{}{}".format(label, self._ext)))
                 except:
                     pass
 
@@ -396,6 +401,9 @@ class TempFile(object):
 
     Using this class, loaded ImageObj now has temporary files on the location at './.tmp' or './atlas_tmp'
     """
+
+    _ext = '.nii.gz'
+
     def __init__(self, obj, filename='image_cache', atlas=False, flip=False, merge=False, bilateral=False):
         """Initiate instance
 
@@ -419,12 +427,13 @@ class TempFile(object):
                 obj.extract('./.atlas_tmp', contra=True)
             else:
                 self._atlas.extract('./.atlas_tmp')
-            self._listdir = [ f for f in os.listdir('./.atlas_tmp') if '.nii' in f ]
+            self._listdir = [ f for f in os.listdir('./.atlas_tmp') if self._ext in f ]
             atlas = Atlas('./.atlas_tmp')
             methods.mkdir('./.tmp')
-            self._path = os.path.join('./.tmp', "{}.nii".format(filename))
+            self._path = os.path.join('./.tmp', "{}{}".format(filename, self._ext))
             self._fname = filename
-            atlas.save_as(os.path.join('./.tmp', filename), quiet=True)
+            # atlas.save_as(os.path.join('./.tmp', filename), quiet=True)
+            atlas.save_as(self._path, quiet=True)
             self._label = [roi for roi, color in atlas.label.values()][1:]
         else:
             # Copy object to protect the intervention between object
@@ -435,10 +444,10 @@ class TempFile(object):
                 self._image._dataobj += self._image._dataobj[::-1,]
             self._fname = filename
             methods.mkdir('./.tmp')
-            self._image.save_as(os.path.join('./.tmp', filename), quiet=True)
+            self._image.save_as(os.path.join('./.tmp', "{}{}".format(filename, self._ext)), quiet=True)
             self._atlas = None
             self._label = None
-            self._path = os.path.join('./.tmp', "{}.nii".format(filename))
+            self._path = os.path.join('./.tmp', "{}{}".format(filename, self._ext))
 
     @property
     def path(self):
@@ -459,7 +468,7 @@ class TempFile(object):
 
     def __repr__(self):
         if self._image:
-            return os.path.abspath(os.path.join('.tmp', "{}.nii".format(self._fname)))
+            return os.path.abspath(os.path.join('.tmp', "{}{}".format(self._fname, self._ext)))
         else:
             if self._atlas:
                 output = []
@@ -469,10 +478,10 @@ class TempFile(object):
 
     def close(self):
         if self._image:
-            os.remove(os.path.join('.tmp', "{}.nii".format(self._fname)))
+            os.remove(os.path.join('.tmp', "{}{}".format(self._fname, self._ext)))
         if self._atlas:
             rmtree('.atlas_tmp', ignore_errors=True)
-            os.remove(os.path.join('.tmp', "{}.nii".format(self._fname)))
+            os.remove(os.path.join('.tmp', "{}{}".format(self._fname, self._ext)))
             os.remove(os.path.join('.tmp', "{}.label".format(self._fname)))
         self._atlas = None
         self._image = None
