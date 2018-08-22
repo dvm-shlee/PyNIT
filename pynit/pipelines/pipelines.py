@@ -318,8 +318,7 @@ Parameters:
                                     cbv_param=self.cbv_param, surfix=surfix, n_thread=self.n_thread, cbv=cbv_id)
 
 class C_resting_state_fMRI_analysis(PipeTemplate):
-    def __init__(self, proc, tmpobj, fwhm=None, dt=None, norm=True, bpass=None, crop=None,
-                 mask=None, option=None,
+    def __init__(self, proc, tmpobj, fwhm=None, dt=None, bpass=None, mask=None, ReHo_NN=3, use_PCA=True, FDR=True,
                  ort=None, ort_filter=None, ui=False, surfix='func', case=None, n_thread='max'):
         """Collection of resting-state fMRI analysis pipeline for Shihlab at UNC
 
@@ -328,10 +327,7 @@ Also 'optional_filters' need to be used while you organize group.
 
 Examples:
     pipe.group_organizer(origin=0, target=2, step_id=11,
-                         group_filters=dict(group1=[['sub-e01','sub-e02',...],[],dict(file_tag='task-rs')],
-                                            group2=[['sub-c01','sub-c02',...],[],dict(file_tag='task-rs')]),
-                         option_filters={7:dict(ignore=['aff12'], ext=['.1D'])}
-    Above code will organize two groups from 0th packages (A_fMRI_preprocess) to this package
+        s (A_fMRI_preprocess) to this package
     and the Preprocessed files that has 'task-rs' as filename in the 11th indexed steps
     will be used.
     The 'option filter' will collect the motion paramater files from 7th indexed step folder,
@@ -348,16 +344,9 @@ Revised : Nov.5th.2017
 Parameters:
     fwhm        : float
         Voxel Smoothness (mm)
-    norm        : bool
-        Normalize each output time series to have sum of squares = 1
-        (Default=True)
     dt          : int
     bpass       : list [lowFHz, highFHz]
         Banspass filters (Defualt=None)
-    crop        : list [start, end]
-        range that you want to crop the time-course data (default: None)
-    option      : str
-        option for ROIs extraction ('bilateral', 'merge', or 'contra') (default: None)
     ort         : str, list or dict
         index of the step id has regressor
     ort_filter  : filter, list of filter, dict(key=filter)
@@ -370,34 +359,62 @@ Parameters:
         # Define attributes
         self.tmpobj = tmpobj
         self.proc = proc
-        self.norm = norm
         self.bpass = bpass
         self.dt = dt
-        self.crop = crop
         self.fwhm = str(fwhm)
-        self.option = option
         self.ort = ort
         self.mask = mask
-        self.case = case
+        self.NN = ReHo_NN
         self.ort_filters = ort_filter
-        self.ui = ui
+        self.pca = use_PCA
+        self.fdr = FDR
         self.surfix = surfix
         self.n_thread = n_thread
         # self.update()
 
-    def pipe_01_TemporalFiltering(self):
+    def pipe_01_FilteringWithQA(self):
         # SignalProcessing (1)
         # self.proc.afni_SignalProcessing(0, norm=self.norm, ort=self.ort, ort_filter=self.ort_filters,
         #                              clip_range=self.crop, mask=str(self.tmpobj.mask), bpass=self.bpass,
         #                              fwhm=self.fwhm, dt=self.dt, surfix='func', n_thread=self.n_thread)
         if self.mask is None:
-            mask = self.tmpobj.mask.path
+            mask = str(self.tmpobj.mask.path)
         else:
             mask = self.mask
+        # Temporal Processing (1)
         self.proc.nsp_SignalProcessing(0, mask=mask, ort=self.ort,
-                                       dt=self.dt, band=self.bpass)
-        self.proc.nsp_QualityControl(0, mask=mask, mparam=0, surfix='pre')
-        self.proc.nsp_QualityControl(1, mask=mask, mparam=0, surfix='post')
-        self.proc.nsp_ReHo(1, mask=mask)
-        self.proc.nsp_ALFF(1, mask=mask)
+                                       dt=self.dt, band=self.bpass, n_thread=self.n_thread)
+        # Baseline quality (2)
+        self.proc.nsp_QualityControl(0, mask=mask, mparam=0, surfix='Pre', n_thread=self.n_thread)
+
+        # Post regression quality (3)
+        self.proc.nsp_QualityControl(1, mask=mask, mparam=0, surfix='Post_regression', n_thread=self.n_thread)
+
+        # Spatial smoothing (4)
+        self.proc.afni_SpatialSmoothing(1, self.fwhm, tmpobj=self.tmpobj, surfix='func', n_thread=1)
+
+        # Post smoothing quality (5)
+        self.proc.nsp_QualityControl(4, mask=mask, mparam=0, surfix='Post_smoothing', n_thread=self.n_thread)
+
+    def pipe_02_EstimateRestingstateParameters(self):
+        if self.mask is None:
+            mask = str(self.tmpobj.mask.path)
+        else:
+            mask = self.mask
+        # ALFF (6?)
+        self.proc.nsp_ALFF(4, mask=mask, dt=self.dt, band=self.bpass, surfix='func', n_thread=self.n_thread)
+
+        # ReHo (7?)
+        self.proc.nsp_ReHo(4, mask=mask, NN=self.NN, surfix='func', n_thread=self.n_thread)
+
+    def pipe_03_RoiBasedConnectivityAnalysis(self):
+        if self.mask is None:
+            mask = str(self.tmpobj.mask.path)
+        else:
+            mask = self.mask
+        # ROI-based whole brain connectivity (6 or 8)
+        self.proc.nsp_ROIbasedConnectivity(4, tmpobj=self.tmpobj, mask=self.mask,
+                                           use_PCA=self.pca, FDR=self.fdr, surfix='func', n_thread=self.n_thread)
+        _display('RestingState Analysis pipeline is Done.')
+        _display('Group statistic is not ready, please perform separately.')
 
