@@ -740,11 +740,14 @@ class BaseProcessor(object):
                 # list_cmd.append("self.logger.info('command::{0}'.format({1}))".format(cmd.command, ', '.join(cmd.nscode)))
                 if cmd.name:
                     list_cmd.append("{0}, err = methods.shell('{1}'.format({2}))".format(cmd.name, cmd.command, ', '.join(cmd.nscode)))
-                    list_cmd.append('stdout_collector.append(({0}, err))'.format(cmd.name))
+                    list_cmd.append("stdout_collector.append(('{0}'.format({1}), {2}, err))".format(cmd.command,
+                                                                                                    ', '.join(cmd.nscode),
+                                                                                                    cmd.name))
                 else:
                     list_cmd.append("out, err = methods.shell('{0}'.format({1}))".format(cmd.command,
                                                                                          ', '.join(cmd.nscode)))
-                    list_cmd.append('stdout_collector.append((out, err))')
+                    list_cmd.append("stdout_collector.append(('{0}'.format({1}), out, err))".format(cmd.command,
+                                                                                                    ', '.join(cmd.nscode)))
 
             elif cmd.type == 1: #python methods
                 if cmd.name:
@@ -1027,10 +1030,10 @@ class BaseProcessor(object):
                     all_outputs = []
                     for output in outputs:
                         all_outputs.extend(
-                            ['STDOUT:\n{0}\nMessage:\n{1}\n\n'.format(out, err) for out, err in output])
+                            ['CMD: {0}\nSTDOUT:\n{1}\nMessage:\n{2}\n\n'.format(cmd, out, err) for cmd, out, err in output])
                     outputs = all_outputs[:]
                 else:
-                    outputs = ['STDOUT:\n{0}\nMessage:\n{1}\n\n'.format(out, err) for out, err in outputs]
+                    outputs = ['CMD: {0}\nSTDOUT:\n{1}\nMessage:\n{2}\n\n'.format(cmd, out, err) for cmd, out, err in outputs]
                 today = "".join(str(datetime.date.today()).split('-'))
 
                 if os.path.exists(os.path.join(self.__proc.path, output_path)):

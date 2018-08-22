@@ -32,11 +32,6 @@ Parameters:
         self.n_thread = n_thread
 
 
-class Q_Quality_assesments(PipeTemplate):
-    def __init__(self):
-        pass
-
-
 class A_fMRI_preprocess(PipeTemplate):
     def __init__(self, proc, tmpobj, anat='anat', func='func', tr=None, tpattern=None, aniso=False,
                  cbv=None, ui=False, surfix='func', n_thread='max'):
@@ -401,3 +396,8 @@ Parameters:
             mask = self.mask
         self.proc.nsp_SignalProcessing(0, mask=mask, ort=self.ort,
                                        dt=self.dt, band=self.bpass)
+        self.proc.nsp_QualityControl(0, mask=mask, mparam=0, surfix='pre')
+        self.proc.nsp_QualityControl(1, mask=mask, mparam=0, surfix='post')
+        self.proc.nsp_ReHo(1, mask=mask)
+        self.proc.nsp_ALFF(1, mask=mask)
+
