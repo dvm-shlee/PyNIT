@@ -373,10 +373,6 @@ Parameters:
         # self.update()
 
     def pipe_01_FilteringWithQA(self):
-        # SignalProcessing (1)
-        # self.proc.afni_SignalProcessing(0, norm=self.norm, ort=self.ort, ort_filter=self.ort_filters,
-        #                              clip_range=self.crop, mask=str(self.tmpobj.mask), bpass=self.bpass,
-        #                              fwhm=self.fwhm, dt=self.dt, surfix='func', n_thread=self.n_thread)
         if self.mask is None:
             mask = str(self.tmpobj.mask.path)
         else:
