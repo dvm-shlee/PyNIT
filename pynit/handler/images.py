@@ -65,7 +65,7 @@ def parsing_atlas(path):
     affine = list()
     if os.path.isdir(path):
         atlasdata = None
-        list_of_rois = [img for img in os.listdir(path) if '.nii' in img]
+        list_of_rois = sorted([img for img in os.listdir(path) if '.nii' in img])
         rgbs = np.random.rand(len(list_of_rois), 3)
         label[0] = 'Clear Label', [.0, .0, .0]
 

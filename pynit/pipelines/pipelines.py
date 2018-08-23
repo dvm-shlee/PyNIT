@@ -319,7 +319,7 @@ Parameters:
 
 class C_resting_state_fMRI_analysis(PipeTemplate):
     def __init__(self, proc, tmpobj, fwhm=None, dt=None, bpass=None, mask=None, ReHo_NN=3, use_PCA=True, FDR=True,
-                 ort=None, ort_filter=None, ui=False, surfix='func', case=None, n_thread='max'):
+                 ort=None, ort_filter=None, surfix='func', n_thread='max'):
         """Collection of resting-state fMRI analysis pipeline for Shihlab at UNC
 
 To use this pipeline, you must use 'group_organizer' method of pipeline handler.
@@ -378,7 +378,7 @@ Parameters:
         else:
             mask = self.mask
         # Temporal Processing (1)
-        self.proc.nsp_SignalProcessing(0, mask=mask, ort=self.ort,
+        self.proc.nsp_SignalProcessing(0, mask=mask, param=self.ort, param_filter=self.ort_filters,
                                        dt=self.dt, band=self.bpass, n_thread=self.n_thread)
         # Baseline quality (2)
         self.proc.nsp_QualityControl(0, mask=mask, mparam=0, surfix='Pre', n_thread=self.n_thread)
