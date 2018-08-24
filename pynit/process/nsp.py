@@ -65,13 +65,13 @@ class NSP_Process(BaseProcess):
         step.set_output(name='output', ext='remove')
         cmd = 'pynsp roi-conn -i {func} -a {atlas} -l {label} -m {mask} -o {output}'
         if use_PCA is True:
-            cmd = '{} --PCA 1'.format(cmd)
+            cmd = '{} --PCA True'.format(cmd)
         else:
-            cmd = '{} --PCA 0'.format(cmd)
+            cmd = '{} --PCA False'.format(cmd)
         if FDR is True:
-            cmd = '{} --FDR 1'.format(cmd)
+            cmd = '{} --FDR True'.format(cmd)
         else:
-            cmd = '{} --FDR 0'.format(cmd)
+            cmd = '{} --FDR False'.format(cmd)
         step.set_cmd(cmd)
         output_path = step.run('ROIbasedConnectivity', surfix, debug=debug)
         return dict(qt=output_path)
