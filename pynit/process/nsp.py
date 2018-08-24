@@ -57,7 +57,7 @@ class NSP_Process(BaseProcess):
         step.set_message('** Estimate ROI-base Correlation Coefficient')
         step.set_input(name='func', path=func)
         step.set_var(name='atlas', value=tmpobj.atlas_path)
-        step.set_var(name='label', value='{}.label'.format(methods.splitnifti(tmpobj.atlas_path)))
+        step.set_var(name='label', value='{}.label'.format(methods.splitnifti(str(tmpobj.atlas_path))))
         if mask is not None:
             step.set_var(name='mask', value=mask)
         else:

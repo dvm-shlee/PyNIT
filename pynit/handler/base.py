@@ -234,10 +234,10 @@ class BaseProcessor(object):
         else:
             self.__check_namespace(name)
             if isinstance(value, str):
-                if os.path.exists(value):
-                    value = '"{}"'.format(value)
-                else:
-                    value = "{}".format(value)
+                # if os.path.exists(value):
+                value = '"{}"'.format(value)
+                # else:
+                #     value = "{}".format(value)
             else:
                 value = "{}".format(value)
             self.__var.append(_vset(name=name, value=value, type=type))
