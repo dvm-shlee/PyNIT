@@ -39,7 +39,7 @@ class NSP_Process(BaseProcess):
         return dict(func=output_path)
 
     def nsp_ROIbasedConnectivity(self, func, tmpobj, mask=None, use_PCA=True, FDR=False,
-                                 surfix='func', n_thread='max', debug=False):
+                                 surfix='func', n_thread='max', use_Bootstrap=(10, 100), debug=False):
         """
 
         :param func:
@@ -65,13 +65,11 @@ class NSP_Process(BaseProcess):
         step.set_output(name='output', ext='remove')
         cmd = 'pynsp roi-conn -i {func} -a {atlas} -l {label} -m {mask} -o {output}'
         if use_PCA is True:
-            cmd = '{} --PCA True'.format(cmd)
-        else:
-            cmd = '{} --PCA False'.format(cmd)
+            cmd = '{} --pca'.format(cmd)
         if FDR is True:
-            cmd = '{} --FDR True'.format(cmd)
-        else:
-            cmd = '{} --FDR False'.format(cmd)
+            cmd = '{} --fdr'.format(cmd)
+        if use_Bootstrap is not None:
+            cmd = '{} --Bootstrap {}'.format(cmd, " ".join(use_Bootstrap))
         step.set_cmd(cmd)
         output_path = step.run('ROIbasedConnectivity', surfix, debug=debug)
         return dict(qt=output_path)
