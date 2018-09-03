@@ -1146,3 +1146,23 @@ class AFNI_Process(BaseProcess):
         step.set_cmd(cmd)
         output_path = step.run('tSNRcalc', surfix, debug=debug)
         return dict(tSNR=output_path)
+
+    def afni_Resample(self, func, dxyz, n_thread='max', surfix='rsampfunc', debug=False):
+        """
+
+        :param func:
+        :param dxyz:
+        :param n_thread:
+        :param surfix:
+        :param debug:
+        :return:
+        """
+        step = Step(self, n_thread=n_thread)
+        step.set_message('** Resample data..')
+        func = self.check_input(func)
+        step.set_input(name='func', path=func)
+        step.set_var(name='dxyz', value=' '.join(dxyz))
+        step.set_output(name='output')
+        cmd = '3dresample -prefix {output} -dxyz {dxtz} -input {func}'
+        step.set_cmd(cmd)
+        output_path = step.run('Resample-{}'.format('x'.format(dxyz)), surfix, debug=debug)

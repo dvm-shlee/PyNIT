@@ -365,7 +365,7 @@ Parameters:
         self.ort = ort
         self.mask = mask
         self.NN = ReHo_NN
-        self.ort_filters = ort_filter
+        self.ort_filter = ort_filter
         self.pca = use_PCA
         self.fdr = FDR
         self.surfix = surfix
@@ -373,12 +373,13 @@ Parameters:
         # self.update()
 
     def pipe_01_FilteringWithQA(self):
+        print(self.ort_filter)
         if self.mask is None:
             mask = str(self.tmpobj.mask.path)
         else:
             mask = self.mask
         # Temporal Processing (1)
-        self.proc.nsp_SignalProcessing(0, mask=mask, param=self.ort, param_filter=self.ort_filters,
+        self.proc.nsp_SignalProcessing(0, mask=mask, param=self.ort, param_filter=self.ort_filter,
                                        dt=self.dt, band=self.bpass, n_thread=self.n_thread)
         # Baseline quality (2)
         self.proc.nsp_QualityControl(0, mask=mask, mparam=0, surfix='Pre', n_thread=self.n_thread)

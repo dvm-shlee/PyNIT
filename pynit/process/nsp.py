@@ -32,7 +32,7 @@ class NSP_Process(BaseProcess):
         step.set_var(name='mask', value=mask)
         step.set_var(name='dt', value=dt)
         step.set_var(name='polort', value=polort)
-        step.set_var(name='band', value="'{} {}'".format(*band))
+        step.set_var(name='band', value="{} {}".format(*band))
         step.set_output(name='output', ext='remove')
         step.set_cmd(cmd)
         output_path = step.run('SignalProcessing', surfix, debug=debug)
