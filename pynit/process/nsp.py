@@ -115,7 +115,7 @@ class NSP_Process(BaseProcess):
         step.set_input(name='func', path=func)
         step.set_var(name='mask', value=mask)
         step.set_var(name='dt', value=dt)
-        step.set_var(name='band', value="'{} {}'".format(*band))
+        step.set_var(name='band', value="{} {}".format(*band))
         step.set_output(name='output', ext='remove')
         cmd = 'pynsp alff -i {func} -b {band} -t {dt} -m {mask} -o {output}'
         step.set_cmd(cmd)
