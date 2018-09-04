@@ -387,11 +387,14 @@ Parameters:
         # Post regression quality (3)
         self.proc.nsp_QualityControl(1, mask=mask, mparam=0, surfix='Post_regression', n_thread=self.n_thread)
 
-        # Spatial smoothing (4)
-        self.proc.afni_SpatialSmoothing(1, self.fwhm, tmpobj=self.tmpobj, surfix='func', n_thread=1)
+        # DataType Correction (4)
+        self.proc.afni_UpdateDataType(1, n_thread=self.n_thread)
 
-        # Post smoothing quality (5)
-        self.proc.nsp_QualityControl(4, mask=mask, mparam=0, surfix='Post_smoothing', n_thread=self.n_thread)
+        # Spatial smoothing (5)
+        self.proc.afni_SpatialSmoothing(4, self.fwhm, tmpobj=self.tmpobj, surfix='func', n_thread=1)
+
+        # Post smoothing quality (6)
+        self.proc.nsp_QualityControl(5, mask=mask, mparam=0, surfix='Post_smoothing', n_thread=self.n_thread)
 
     def pipe_02_EstimateRestingstateParameters(self):
         if self.mask is None:
@@ -399,10 +402,10 @@ Parameters:
         else:
             mask = self.mask
         # ALFF (6?)
-        self.proc.nsp_ALFF(4, mask=mask, dt=self.dt, band=self.bpass, surfix='func', n_thread=self.n_thread)
+        self.proc.nsp_ALFF(5, mask=mask, dt=self.dt, band=self.bpass, surfix='func', n_thread=self.n_thread)
 
         # ReHo (7?)
-        self.proc.nsp_ReHo(4, mask=mask, NN=self.NN, surfix='func', n_thread=self.n_thread)
+        self.proc.nsp_ReHo(5, mask=mask, NN=self.NN, surfix='func', n_thread=self.n_thread)
 
     def pipe_03_RoiBasedConnectivityAnalysis(self):
         if self.mask is None:
