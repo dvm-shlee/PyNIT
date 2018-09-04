@@ -520,7 +520,7 @@ class AFNI_Process(BaseProcess):
         output_path = step.run('ApplySpatialNorm', surfix, debug=debug)
         return dict(normfunc=output_path)
 
-    def afni_SpatialSmoothing(self, func, fwhm=0.5, tmpobj=None, surfix='func', n_thread='max', debug=False, **kwargs):
+    def afni_SpatialSmoothing(self, func, fwhm=0.5, mask=None, surfix='func', n_thread='max', debug=False, **kwargs):
         """ Apply gaussian smoothing kernel with given FWHM,
         this process use AFNI's '3dBlurInMask'
 
@@ -549,8 +549,8 @@ class AFNI_Process(BaseProcess):
             step.set_var(name='fwhm', value=fwhm, type=1)
         step.set_output(name='output')
         cmd = '3dBlurInMask -prefix {output} -FWHM {fwhm}'
-        if tmpobj is not None:
-            step.set_var(name='mask', value=str(tmpobj.mask), type=1)
+        if mask is not None:
+            step.set_var(name='mask', value=mask, type=1)
             cmd += ' -mask {mask}'
         cmd += ' -quiet {func}'
         step.set_cmd(cmd)

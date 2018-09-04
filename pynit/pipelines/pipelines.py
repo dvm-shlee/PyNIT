@@ -373,7 +373,6 @@ Parameters:
         # self.update()
 
     def pipe_01_FilteringWithQA(self):
-        print(self.ort_filter)
         if self.mask is None:
             mask = str(self.tmpobj.mask.path)
         else:
@@ -391,7 +390,7 @@ Parameters:
         self.proc.afni_UpdateDataType(1, n_thread=self.n_thread)
 
         # Spatial smoothing (5)
-        self.proc.afni_SpatialSmoothing(4, self.fwhm, tmpobj=self.tmpobj, surfix='func', n_thread=1)
+        self.proc.afni_SpatialSmoothing(4, self.fwhm, mask=mask, surfix='func', n_thread=1)
 
         # Post smoothing quality (6)
         self.proc.nsp_QualityControl(5, mask=mask, mparam=0, surfix='Post_smoothing', n_thread=self.n_thread)
