@@ -1166,3 +1166,22 @@ class AFNI_Process(BaseProcess):
         cmd = '3dresample -prefix {output} -dxyz {dxtz} -input {func}'
         step.set_cmd(cmd)
         output_path = step.run('Resample-{}'.format('x'.format(dxyz)), surfix, debug=debug)
+
+    def afni_UpdateDataType(self, func, n_thread='max', surfix='func', debug=False):
+        """
+
+        :param func:
+        :param dxyz:
+        :param n_thread:
+        :param surfix:
+        :param debug:
+        :return:
+        """
+        step = Step(self, n_thread=n_thread)
+        step.set_message('** Update Data type..')
+        func = self.check_input(func)
+        step.set_input(name='func', path=func)
+        step.set_output(name='output')
+        cmd = '3dcalc -prefix {output} -expr "a" -a {func} -datum float'
+        step.set_cmd(cmd)
+        output_path = step.run('ToFloat', surfix, debug=debug)
