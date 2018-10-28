@@ -384,23 +384,25 @@ class AFNI_Process(BaseProcess):
                     "-1Dmatrix_save {transmat} {temp_02}"
         step.set_cmd(cmd03)
         output_path = step.run('Coregistration', surfix, debug=debug)
-        step.reset()
-        step.set_message('** Plotting images to check registration.....')
-        if inverse:
-            step.set_input(name='anat', path=output_path, idx=0)
-            step.set_input(name='func', path=meanfunc, type=1, idx=0)
-        else:
-            step.set_input(name='func', path=output_path, idx=0)
-            step.set_input(name='anat', path=anat, type=1, idx=0)
-        step.set_output(name='chkreg1', ext='png', dc=1, prefix='Func2Anat')
-        step.set_output(name='chkreg2', ext='png', dc=1, prefix='Anat2Func')
-        step.set_var(name='test1', value=3)
-        cmd04 = 'check_reg {anat} {func} {chkreg1}'
-        cmd05 = 'check_reg {func} {anat} {chkreg2}'
-        step.set_cmd(cmd04)
-        step.set_cmd(cmd05)
-        result_path = step.run('Check_Registration', surfix, debug=debug)
-        return dict(func=output_path, checkreg = result_path)
+        return dict(func=output_path)
+
+        # step.reset()
+        # step.set_message('** Plotting images to check registration.....')
+        # if inverse:
+        #     step.set_input(name='anat', path=output_path, idx=0)
+        #     step.set_input(name='func', path=meanfunc, type=1, idx=0)
+        # else:
+        #     step.set_input(name='func', path=output_path, idx=0)
+        #     step.set_input(name='anat', path=anat, type=1, idx=0)
+        # step.set_output(name='chkreg1', ext='png', dc=1, prefix='Func2Anat')
+        # step.set_output(name='chkreg2', ext='png', dc=1, prefix='Anat2Func')
+        # step.set_var(name='test1', value=3)
+        # cmd04 = 'check_reg {anat} {func} {chkreg1}'
+        # cmd05 = 'check_reg {func} {anat} {chkreg2}'
+        # step.set_cmd(cmd04)
+        # step.set_cmd(cmd05)
+        # result_path = step.run('Check_Registration', surfix, debug=debug)
+        # return dict(func=output_path, checkreg = result_path)
 
     def afni_SkullStripAll(self, func, funcmask, surfix='func', n_thread='max', debug=False):
         """ Applying arithmetic skull stripping

@@ -317,6 +317,7 @@ Parameters:
             self.proc.afni_ROIStats(1, step, clip_range=self.crop, option=self.option, label=self.mask,
                                     cbv_param=self.cbv_param, surfix=surfix, n_thread=self.n_thread, cbv=cbv_id)
 
+
 class C_resting_state_fMRI_analysis(PipeTemplate):
     def __init__(self, proc, tmpobj, fwhm=None, dt=None, bpass=None, mask=None, ReHo_NN=3, use_PCA=True, FDR=True,
                  ort=None, ort_filter=None, surfix='func', n_thread='max'):
@@ -372,7 +373,18 @@ Parameters:
         self.n_thread = n_thread
         # self.update()
 
-    def pipe_01_FilteringWithQA(self):
+    def pipe_01_FilteringWithoutQA(self):
+        if self.mask is None:
+            mask = str(self.tmpobj.mask.path)
+        else:
+            mask = self.mask
+        # Temporal Processing (1)
+        self.proc.nsp_SignalProcessing(0, mask=mask, param=self.ort, param_filter=self.ort_filter,
+                                       dt=self.dt, band=self.bpass, n_thread=self.n_thread)
+        # Spatial smoothing (2)
+        self.proc.afni_SpatialSmoothing(4, self.fwhm, mask=mask, surfix='func', n_thread=1)
+
+    def pipe_02_FilteringWithQA(self):
         if self.mask is None:
             mask = str(self.tmpobj.mask.path)
         else:
@@ -395,24 +407,27 @@ Parameters:
         # Post smoothing quality (6)
         self.proc.nsp_QualityControl(5, mask=mask, mparam=0, surfix='Post_smoothing', n_thread=self.n_thread)
 
-    def pipe_02_EstimateRestingstateParameters(self):
+    def pipe_03_EstimateRestingstateParameters(self):
+        step = sorted([step for step in self.proc.steps if self.surfix in step and 'SpatialSmoothing' in step])[0]
         if self.mask is None:
             mask = str(self.tmpobj.mask.path)
         else:
             mask = self.mask
         # ALFF (6?)
-        self.proc.nsp_ALFF(5, mask=mask, dt=self.dt, band=self.bpass, surfix='func', n_thread=self.n_thread)
+        self.proc.nsp_ALFF(step, mask=mask, dt=self.dt, band=self.bpass, surfix='func', n_thread=self.n_thread)
 
         # ReHo (7?)
-        self.proc.nsp_ReHo(5, mask=mask, NN=self.NN, surfix='func', n_thread=self.n_thread)
+        self.proc.nsp_ReHo(step, mask=mask, NN=self.NN, surfix='func', n_thread=self.n_thread)
 
-    def pipe_03_RoiBasedConnectivityAnalysis(self):
+    def pipe_04_RoiBasedConnectivityAnalysis(self):
+        step = sorted([step for step in self.proc.steps if self.surfix in step and 'SpatialSmoothing' in step])[0]
+
         if self.mask is None:
             mask = str(self.tmpobj.mask.path)
         else:
             mask = self.mask
         # ROI-based whole brain connectivity (6 or 8)
-        self.proc.nsp_ROIbasedConnectivity(4, tmpobj=self.tmpobj, mask=self.mask,
+        self.proc.nsp_ROIbasedConnectivity(step, tmpobj=self.tmpobj, mask=self.mask,
                                            use_PCA=self.pca, FDR=self.fdr, surfix='func', n_thread=self.n_thread)
         _display('RestingState Analysis pipeline is Done.')
         _display('Group statistic is not ready, please perform separately.')

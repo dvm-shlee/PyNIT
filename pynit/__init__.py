@@ -14,7 +14,7 @@ __all__ = ['Project', 'Process', 'Step', 'Pipelines', 'PipeTemplate',
            'TempFile', 'Template', 'Atlas',
            'ImageObj']
 
-__version__ = '0.2.0'
+__version__ = '0.2.1'
 
 # Shortcuts of system methods
 shell = methods.shell

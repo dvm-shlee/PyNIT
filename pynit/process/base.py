@@ -263,6 +263,11 @@ class BaseProcess(object):
             self._subjects = sorted(self.__prj(0).subjects[:])
             if not self.__prj.single_session:
                 self._sessions = sorted(self.__prj(0).sessions[:])
+
+        # Below code is added due to the 'nan' value contamination,
+        self._subjects = sorted([s for s in self._subjects if isinstance(s, str)])
+        self._sessions = sorted([s for s in self._sessions if isinstance(s, str)])
+
         self.logger.debug('reset::Attributes [subjects, sessions] '
                           'are reset to default value [source dataclass index={}].'.format(idx_source))
         self.logger.debug('reset::Subject is defined as [{}]'.format(",".join(self._subjects)))

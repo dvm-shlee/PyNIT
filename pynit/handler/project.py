@@ -53,7 +53,8 @@ def parsing_datatree(path, ds_type, idx):
                 # else:
                 row['Filename'] = filename
                 row['Abspath'] = os.path.join(f[0], filename)
-                df = df.append(pd.DataFrame([row]), ignore_index=True)
+                # df = df.append(pd.DataFrame([row]), ignore_index=True)
+                df = df.append(pd.DataFrame([row]), ignore_index=True, sort=True)
     if 1 not in df.columns:
         empty_prj = True
     elif not len(df):
