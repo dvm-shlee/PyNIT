@@ -266,8 +266,10 @@ class BaseProcess(object):
 
         # Below code is added due to the 'nan' value contamination,
         self._subjects = sorted([s for s in self._subjects if isinstance(s, str)])
-        self._sessions = sorted([s for s in self._sessions if isinstance(s, str)])
-
+        try:
+            self._sessions = sorted([s for s in self._sessions if isinstance(s, str)])
+        except:
+            pass
         self.logger.debug('reset::Attributes [subjects, sessions] '
                           'are reset to default value [source dataclass index={}].'.format(idx_source))
         self.logger.debug('reset::Subject is defined as [{}]'.format(",".join(self._subjects)))
