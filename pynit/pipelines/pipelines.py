@@ -382,7 +382,7 @@ Parameters:
         self.proc.nsp_SignalProcessing(0, mask=mask, param=self.ort, param_filter=self.ort_filter,
                                        dt=self.dt, band=self.bpass, n_thread=self.n_thread)
         # Spatial smoothing (2)
-        self.proc.afni_SpatialSmoothing(4, self.fwhm, mask=mask, surfix='func', n_thread=1)
+        self.proc.afni_SpatialSmoothing(1, self.fwhm, mask=mask, surfix='func', n_thread=1)
 
     def pipe_02_FilteringWithQA(self):
         if self.mask is None:

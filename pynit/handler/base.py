@@ -1109,5 +1109,5 @@ class BaseProcessor(object):
         try:
             exec ('output = {0}(*args)'.format(name))  # execute function
         except Exception as e:
-                self.__proc.logger.debug("ERROR::{}".format(e))
+            self.__proc.logger.debug("ERROR::{}".format(e))
         return output
