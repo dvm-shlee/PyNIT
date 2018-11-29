@@ -427,7 +427,7 @@ Parameters:
         else:
             mask = self.mask
         # ROI-based whole brain connectivity (6 or 8)
-        self.proc.nsp_ROIbasedConnectivity(step, tmpobj=self.tmpobj, mask=self.mask,
+        self.proc.nsp_ROIbasedConnectivity(step, tmpobj=self.tmpobj, mask=mask,
                                            use_PCA=self.pca, FDR=self.fdr, surfix='func', n_thread=self.n_thread)
         _display('RestingState Analysis pipeline is Done.')
         _display('Group statistic is not ready, please perform separately.')
