@@ -25,14 +25,19 @@ class NSP_Process(BaseProcess):
         if param is not None:
             param = self.check_input(param)
             step.set_input(name='param', path=param, filters=param_filter, type=1)
-            cmd = 'pynsp nuisance -i {func} -m {mask} --dt {dt} -p {param} -b {band} --polort {polort} -o {output}'
+            cmd = 'pynsp nuisance -i {func} -m {mask} --dt {dt} -p {param} --polort {polort} -o {output}'
         else:
-            cmd = 'pynsp nuisance -i {func} -m {mask} --dt {dt} -b {band} --polort {polort} -o {output}'
+            cmd = 'pynsp nuisance -i {func} -m {mask} --dt {dt} --polort {polort} -o {output}'
         step.set_input(name='func', path=func)
         step.set_var(name='mask', value=mask)
         step.set_var(name='dt', value=dt)
         step.set_var(name='polort', value=polort)
-        step.set_var(name='band', value='"{} {}"'.format(*band))
+        if band is not None:
+            cmd = cmd + ' -b {band}'
+            if isinstance(band, list):
+                step.set_var(name='band', value='"{} {}"'.format(*band))
+            else:
+                step.set_var(name='band', value='"{}"'.format(band))
         step.set_output(name='output', ext='remove')
         step.set_cmd(cmd)
         output_path = step.run('SignalProcessing', surfix, debug=debug)
