@@ -33,10 +33,11 @@ class NSP_Process(BaseProcess):
         step.set_var(name='dt', value=dt)
         step.set_var(name='polort', value=polort)
         if band is not None:
-            cmd = cmd + ' -b {band}'
             if isinstance(band, list):
+                cmd = cmd + ' -b {band}'
                 step.set_var(name='band', value='"{} {}"'.format(*band))
             else:
+                cmd = cmd + ' -c {band}'
                 step.set_var(name='band', value='"{}"'.format(band))
         step.set_output(name='output', ext='remove')
         step.set_cmd(cmd)
