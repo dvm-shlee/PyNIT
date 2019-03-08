@@ -7,12 +7,12 @@ class NSP_Process(BaseProcess):
                              band=None, surfix='func', n_thread='max', debug=False):
         """
 
-        :param func:
-        :param tmpobj:
-        :param dt:
-        :param param:
-        :param polort:
-        :param band:
+        :param func: input path index
+        :param mask: brain mask path
+        :param dt: sampling rate
+        :param param: parameter path index
+        :param polort: parameter file filter
+        :param band: band pass filter
         :param n_thread:
         :param debug:
         :return:
@@ -75,7 +75,7 @@ class NSP_Process(BaseProcess):
         if FDR is True:
             cmd = '{} --fdr'.format(cmd)
         if use_Bootstrap is not None:
-            cmd = '{} --Bootstrap {}'.format(cmd, " ".join(use_Bootstrap))
+            cmd = '{} --Bootstrap {}'.format(cmd, " ".join(map(str, use_Bootstrap)))
         step.set_cmd(cmd)
         output_path = step.run('ROIbasedConnectivity', surfix, debug=debug)
         return dict(qt=output_path)

@@ -974,10 +974,12 @@ class AFNI_Process(BaseProcess):
             cmd = '3dROIstats -mask {rois} {func}'
         # Else, given roi path is directory
         else:
-            step.set_input(name='rois', path=rois)
-            step.set_input(name='func', path=rois, filters=dict(ext='.json'), type=1)
-            step.set_cmd('json.load(open(func[i].Abspath))["source"]', type=1, name='func_path')
-            step.set_var(name='func_path', value='func_path', type=1)
+            # step.set_input(name='rois', path=rois)
+            # step.set_input(name='func', path=func, filters=dict(ext='.json'), type=1)
+            step.set_input(name='func_path', path=func)
+            step.set_var(name='rois', value='"{}"'.format(os.path.join(rois, 'temp_atlas.nii.gz')))
+            # step.set_cmd('json.load(open(func[i].Abspath))["source"]', type=1, name='func_path')
+            # step.set_var(name='func_path', value='func_path', type=1)
             cmd = '3dROIstats -mask {rois} {func_path}'
         step.set_output(name='output', dc=1, ext='xlsx')
         step.set_module('pandas', rename='pd')
